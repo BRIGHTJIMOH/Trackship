@@ -1,0 +1,7 @@
+{
+  "name": "trackship-ng", "version": "0.2.0", "private": true,
+  "description": "TrackShip NG Android pilot and customer tracking service",
+  "scripts": {"start": "node server/server.mjs", "test": "node --test --test-isolation=none tests/*.test.mjs", "test:ui": "node tests/ui.mjs", "build:apk": "bash scripts/build-apk.sh"},
+  "engines": {"node": ">=22"},
+  "devDependencies": {"playwright-core": "1.56.1"}
+}

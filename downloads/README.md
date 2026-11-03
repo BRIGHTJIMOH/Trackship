@@ -1,38 +1,34 @@
-# Try TrackShip NG 0.2.0
+# Try TrackShip NG 0.3.1
 
-Download the updated APK from the repository's `apk-test-v0.2.0` branch. Android 8 or newer and a current Android System WebView are required.
+Install this APK over 0.2.0; the package name and signing identity are unchanged. Do not uninstall unless you first export a backup. Your existing shipments/profiles are retained.
 
-## Updating the first APK
+## What you can test immediately
 
-Install this APK over the previous one. The package name and signing identity are unchanged; Android should offer an update. Your shipments are retained. The updated app asks you to complete the new onboarding. Do not uninstall the previous version just to see onboarding. Export a backup first if you ever need to uninstall or clear app data.
+- The new Inter font replaces Poppins across screens.
+- Tap **Log out** on either dashboard, or the logout button in Profile. On first use set a six-digit app PIN; use it to unlock a saved workspace when returning. Shipments are preserved. Rider online access must be phone-verified again after logout.
+- Dashboard uses your business name or rider name.
+- Profile → Night mode switches light/dark and remembers your choice.
+- Vendor Home → Rider workspace makes the rider onboarding easy to find. A new rider proceeds to secure sign-on after local profile setup.
+- Send package includes intrastate/interstate choice, pickup/destination states, per-delivery fee and interstate fee allocations.
+- Vendor Home → Bulk shipments downloads/imports a CSV for up to 100 deliveries. No rows save if any row is invalid.
+- New shipment details have payment controls and the expanded custody journey. Earlier shipments remain identified as legacy/manual test records.
+- Profile exports/restores private backups.
 
-## Vendor journey
+## What needs the hosted service and provider accounts
 
-1. Open TrackShip, continue through the introduction (or skip it), and choose **I'm a vendor**.
-2. Enter your business name, your name and Nigerian phone number.
-3. Enter your pickup city and address, then create your vendor profile.
-4. Tap **Start sending**. Your vendor dashboard opens.
-5. Use the **+** tab to create a package: package details → delivery details → service and rider → review → confirm.
-6. Open the package to record delivery checkpoints and share a status message via WhatsApp.
-7. Tap Packages to search your delivery book and filter your package history.
+Public customer links, secure phone sign-on, encrypted identity submission, delivery OTP, verified payments, remote custody handoffs, cross-phone live GPS and bank payouts need the activated backend. None is secretly simulated in the APK. The owner currently has no Render/Paystack accounts; see `docs/LIVE-SETUP.md` for those prerequisites.
 
-## Rider journey
+The rider submits NIN/licence/home address only after secure server sign-on. The app does not save those fields to its local profile or backup, and does not claim they are verified merely because they were submitted.
 
-1. Choose **I'm a rider** on the role screen. If you are already in the vendor workspace, open **Profile → Switch to rider**.
-2. Enter your name and Nigerian mobile number.
-3. Enter your delivery city, vehicle type and registration (registration is not needed for a bicycle).
-4. Create your profile and tap **Go to my deliveries**.
-5. Rider Home shows your availability and assigned deliveries. The rider workspace has no vendor shipment-creation form.
-6. On the same phone, vendor shipments assigned to the rider profile's phone number appear automatically. Open one to record checkpoints and call the recipient.
-7. For another phone, the vendor needs a connected tracking service. The vendor shares a private dispatch link; paste that under the rider app's **+ → Add delivery**. Do not share private dispatch links with customers.
+## Connected delivery flow
 
-You can switch between already-created vendor and rider workspaces from Profile without repeating onboarding. Profile also has **View introduction again**, backup export and backup restore.
+1. Vendor creates and pays for a synced shipment.
+2. Vendor shares the customer tracking URL with the recipient and the private pickup link with the first rider.
+3. Rider verifies sign-on, submits identity details and imports their private dispatch link.
+4. Accept delivery → customer sees rider acceptance while custody remains with the vendor.
+5. Confirm collection → custody becomes the pickup rider’s. They can explicitly start GPS sharing.
+6. Intrastate: start delivery. Interstate: offer to carrier → carrier accepts → starts journey → confirms arrival → offers to last-mile rider → last-mile rider accepts → starts final delivery.
+7. The final rider requests the recipient’s OTP after reaching the customer. The customer reads it out only after receiving the parcel.
+8. Correct OTP completes the delivery and records each handler’s earnings exactly once. Test-mode credits are marked as test credits and are not withdrawable.
 
-## What to expect in this test version
-
-- Onboarding creates local device profiles. It does not verify identity, phone ownership or vehicle documents. There is no SMS verification or password login.
-- Delivery updates are manual. The map is a clearly labelled route illustration, not GPS tracking. **Open delivery address in Maps** opens a real external map search.
-- Service choices record preferences. They do not book a carrier, guarantee an ETA or collect payment.
-- Phone-only shipment creation, assigned deliveries on the same phone, status sharing and backups work without a hosted service.
-- Cross-phone tracking and rider handoff require a public HTTPS tracking service. None is deployed or preconfigured in the APK. The included service and complete cross-device flow were tested locally using isolated browser profiles.
-- Keep backups private: they contain customer data and access credentials. Uninstalling or clearing app data removes local profiles and shipments.
+GPS has a visible Android notification and Stop action. A fresh position is shown to vendor/customer; stale positions are hidden. Native location permissions/background operation still require a physical-device check. No measured ETA is invented.

@@ -8,11 +8,20 @@ for file in "$ANDROID_JAR" "$BT/aapt2" "$BT/d8" "$BT/apksigner" "$TOOLS/ecj.jar"
   test -f "$file" || { echo "Missing build prerequisite: $file. Run bash scripts/setup-android.sh" >&2; exit 1; }
 done
 mkdir -p build/classes build/dex build/assets/web artifacts
-cp web/index.html web/style.css web/app.js web/core.mjs build/assets/web/
+cp web/index.html web/style.css web/app.js web/core.mjs web/lifecycle.mjs web/features.mjs web/config.mjs build/assets/web/
 cp -R web/assets build/assets/web/
+if test -n "${TRACKSHIP_SERVICE_URL:-}"; then
+ python3 - <<'PYCONFIG'
+import os,json,urllib.parse
+url=os.environ['TRACKSHIP_SERVICE_URL'].rstrip('/')
+u=urllib.parse.urlparse(url)
+if u.scheme!='https' or not u.hostname or u.username or u.password or u.path or u.query or u.fragment: raise SystemExit('TRACKSHIP_SERVICE_URL must be an HTTPS origin')
+open('build/assets/web/config.mjs','w').write('export const SERVICE_URL = '+json.dumps(url)+';\n')
+PYCONFIG
+fi
 "$BT/aapt2" compile --dir android/res -o build/resources.zip
 "$BT/aapt2" link -o build/resources.apk -I "$ANDROID_JAR" --manifest android/AndroidManifest.xml --java build/generated -A build/assets build/resources.zip
-java -jar "$TOOLS/ecj.jar" -source 1.8 -target 1.8 -classpath "$ANDROID_JAR" -d build/classes android/src/ng/trackship/app/MainActivity.java
+java -jar "$TOOLS/ecj.jar" -source 1.8 -target 1.8 -classpath "$ANDROID_JAR" -d build/classes android/src/ng/trackship/app/*.java
 mapfile -t classes < <(find build/classes -name '*.class' -type f)
 "$BT/d8" --lib "$ANDROID_JAR" --min-api 26 --output build/dex "${classes[@]}"
 cp build/resources.apk build/unsigned.apk

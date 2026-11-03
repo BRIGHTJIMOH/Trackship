@@ -5,11 +5,13 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateShipment, canTransition, publicShipment } from '../web/core.mjs';
+import {operations} from './operations.mjs';
+import {flowPublic} from '../web/lifecycle.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const publicToken=/^[a-f0-9]{64}$/;
-export function createApp({dataDir=process.env.DATA_DIR||path.join(root,'.data'),origins=process.env.ALLOWED_ORIGINS||'https://appassets.trackship.ng'}={}) {
+export function createApp({providers,env=process.env,dataDir=process.env.DATA_DIR||path.join(root,'.data'),origins=process.env.ALLOWED_ORIGINS||'https://appassets.trackship.ng'}={}) {
  mkdirSync(dataDir,{recursive:true,mode:0o700});
  const db=new DatabaseSync(path.join(dataDir,'trackship.sqlite'));
  db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS workspaces (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS shipments (id TEXT PRIMARY KEY, owner TEXT NOT NULL, public_hash TEXT UNIQUE NOT NULL, payload TEXT NOT NULL)');
@@ -27,17 +29,19 @@ export function createApp({dataDir=process.env.DATA_DIR||path.join(root,'.data')
   const ids=new Set();for(let i=0;i<s.events.length;i++){const e=s.events[i];if(!e||!uuid.test(e.id)||ids.has(e.id)||!Number.isFinite(Date.parse(e.at))||typeof e.note!=='string'||e.note.length>240|| (i&&(!canTransition(s.events[i-1].status,e.status)||Date.parse(e.at)<Date.parse(s.events[i-1].at))))return false;ids.add(e.id);}
   return s.status===s.events.at(-1).status;
  }
+ const advanced=operations(db,{owner,body,providers,env});
  const server=http.createServer(async(req,res)=>{
   const origin=req.headers.origin;
   res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');
-  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   if(origin&&allowed.has(origin)){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');res.setHeader('Access-Control-Allow-Methods','GET, PUT, POST, OPTIONS');}
   const send=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(value));};
   try{
    const url=new URL(req.url,'http://localhost');const route=url.pathname;
    if(req.method==='OPTIONS'){res.writeHead(allowed.has(origin)?204:403);res.end();return;}
    if(!rate(req,'all',300))return send(429,{error:'Too many requests. Try again in a minute.'});
-   if(route==='/api/health'&&req.method==='GET')return send(200,{service:'trackship-ng',version:'0.2.0'});
+   if(await advanced(req,res,url,send))return;
+   if(route==='/api/health'&&req.method==='GET')return send(200,{service:'trackship-ng',version:'0.3.1'});
    if(route==='/api/workspaces'&&req.method==='POST'){
     if(!rate(req,'register',5))return send(429,{error:'Too many new connections. Try again in a minute.'});
     await body(req);const token=randomBytes(32).toString('hex');db.prepare('INSERT INTO workspaces VALUES (?,?)').run(hash(token),new Date().toISOString());return send(201,{token});
@@ -67,7 +71,7 @@ export function createApp({dataDir=process.env.DATA_DIR||path.join(root,'.data')
    }
    if(route.startsWith('/api/shipments/')&&req.method==='PUT'){
     const auth=owner(req);if(!auth)return send(401,{error:'Your tracking service access is invalid. Restore your connection backup.'});
-    const id=route.slice('/api/shipments/'.length);const s=await body(req);if(!valid(s,id))return send(400,{error:'Invalid shipment or delivery history.'});
+    const id=route.slice('/api/shipments/'.length);const s=await body(req);const existing=db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);if(s.workflowVersion===3||(existing&&JSON.parse(existing.payload).workflowVersion===3))return send(409,{error:'Funded deliveries must use authenticated handoff actions.'});if(!valid(s,id))return send(400,{error:'Invalid shipment or delivery history.'});
     const old=db.prepare('SELECT owner,payload FROM shipments WHERE id=?').get(id);
     if(old&&old.owner!==auth)return send(404,{error:'Shipment not found.'});
     if(old){const previous=JSON.parse(old.payload);const immutable=['publicToken','business','sender','recipient','phone','origin','destination','address','description','rider','riderPhone','notes','createdAt'];if((previous.riderToken&&previous.riderToken!==s.riderToken)||immutable.some(k=>previous[k]!==s[k])||previous.events.length>s.events.length||previous.events.some((e,i)=>JSON.stringify(e)!==JSON.stringify(s.events[i])))return send(409,{error:'This shipment has conflicting updates. Restore the most recent backup.'});}
@@ -77,15 +81,16 @@ export function createApp({dataDir=process.env.DATA_DIR||path.join(root,'.data')
    }
    if(route.startsWith('/api/track/')&&req.method==='GET'){
     const token=route.slice('/api/track/'.length);if(!publicToken.test(token))return send(404,{error:'Delivery not found.'});
-    const row=db.prepare('SELECT payload FROM shipments WHERE public_hash=?').get(hash(token));if(!row)return send(404,{error:'Delivery not found.'});return send(200,publicShipment(JSON.parse(row.payload)));
+    const row=db.prepare('SELECT payload FROM shipments WHERE public_hash=?').get(hash(token));if(!row)return send(404,{error:'Delivery not found.'});const shipment=JSON.parse(row.payload);return send(200,shipment.workflowVersion===3?flowPublic(shipment):publicShipment(shipment));
    }
    if(route.startsWith('/api/'))return send(404,{error:'Not found.'});
    if(!['GET','HEAD'].includes(req.method))return send(405,{error:'Method not allowed.'});
-   const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.mjs':'core.mjs','/style.css':'style.css','/assets/courier.svg':'assets/courier.svg','/assets/route.svg':'assets/route.svg','/assets/courier-photo.png':'assets/courier-photo.png','/assets/Poppins-Regular.ttf':'assets/Poppins-Regular.ttf','/assets/Poppins-Medium.ttf':'assets/Poppins-Medium.ttf','/assets/Poppins-SemiBold.ttf':'assets/Poppins-SemiBold.ttf'};
-   const filename=(route.startsWith('/t/')||route.startsWith('/r/'))?'index.html':files[route];if(!filename)return send(404,{error:'Not found.'});
+   const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.mjs':'core.mjs','/lifecycle.mjs':'lifecycle.mjs','/features.mjs':'features.mjs','/config.mjs':'config.mjs','/assets/leaflet.js':'assets/leaflet.js','/assets/leaflet.css':'assets/leaflet.css','/style.css':'style.css','/assets/courier.svg':'assets/courier.svg','/assets/route.svg':'assets/route.svg','/assets/courier-photo.png':'assets/courier-photo.png','/assets/Inter.ttf':'assets/Inter.ttf','/assets/Poppins-Regular.ttf':'assets/Poppins-Regular.ttf','/assets/Poppins-Medium.ttf':'assets/Poppins-Medium.ttf','/assets/Poppins-SemiBold.ttf':'assets/Poppins-SemiBold.ttf'};
+   const filename=(route.startsWith('/t/')||route.startsWith('/r/')||route==='/payment-return')?'index.html':files[route];if(!filename)return send(404,{error:'Not found.'});
    const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.ttf':'font/ttf'};res.writeHead(200,{'Content-Type':types[path.extname(filename)]+'; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'web',filename)));
   }catch(e){if(!res.headersSent)send(e.status||500,{error:e.status?e.message:'The tracking service could not complete this request.'});else res.end();}
  });
+ server.requestTimeout=30000;server.headersTimeout=15000;
  server.on('close',()=>db.close());return server;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){

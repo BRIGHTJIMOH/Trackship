@@ -1,6 +1,9 @@
 package ng.trackship.app;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.view.View;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -23,6 +26,8 @@ public class MainActivity extends Activity {
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
     private String pendingBackup;
+    private Intent pendingTracking;
+    private static final int GPS_PERMISSION=15;
     private static final String ORIGIN = "https://appassets.trackship.ng";
     private static final int OPEN_BACKUP = 10, SAVE_BACKUP = 11;
     @Override public void onCreate(Bundle state) {
@@ -50,12 +55,12 @@ public class MainActivity extends Activity {
                 if (ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority())) {
                     String p=uri.getPath();
                     if (p==null || p.equals("/")) p="/index.html";
-                    if (!p.equals("/index.html")&&!p.equals("/app.js")&&!p.equals("/core.mjs")&&!p.equals("/style.css")&&!p.equals("/assets/courier.svg")&&!p.equals("/assets/route.svg")&&!p.equals("/assets/courier-photo.png")&&!p.equals("/assets/Poppins-Regular.ttf")&&!p.equals("/assets/Poppins-Medium.ttf")&&!p.equals("/assets/Poppins-SemiBold.ttf"))
+                    if (!p.equals("/index.html")&&!p.equals("/app.js")&&!p.equals("/core.mjs")&&!p.equals("/lifecycle.mjs")&&!p.equals("/features.mjs")&&!p.equals("/config.mjs")&&!p.equals("/style.css")&&!p.equals("/assets/courier.svg")&&!p.equals("/assets/route.svg")&&!p.equals("/assets/courier-photo.png")&&!p.equals("/assets/Poppins-Regular.ttf")&&!p.equals("/assets/Inter.ttf")&&!p.equals("/assets/Poppins-Medium.ttf")&&!p.equals("/assets/Poppins-SemiBold.ttf")&&!p.equals("/assets/leaflet.js")&&!p.equals("/assets/leaflet.css"))
                         return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",new HashMap<>(),new ByteArrayInputStream(new byte[0]));
                     try {
                         String mime=p.endsWith(".ttf")?"font/ttf":p.endsWith(".png")?"image/png":p.endsWith(".svg")?"image/svg+xml":p.endsWith(".html")?"text/html":p.endsWith(".css")?"text/css":"text/javascript";
                         Map<String,String> headers=new HashMap<>();
-                        headers.put("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https:; img-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'none'");
+                        headers.put("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https:; img-src 'self' data: https://tile.openstreetmap.org; frame-src 'none'; object-src 'none'; base-uri 'none'");
                         return new WebResourceResponse(mime,"UTF-8",200,"OK",headers,getAssets().open("web"+p));
                     } catch (Exception e) {return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));}
                 }
@@ -71,7 +76,7 @@ public class MainActivity extends Activity {
             @Override public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if(fileCallback!=null)fileCallback.onReceiveValue(null);
                 fileCallback=callback;
-                Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("application/json");i.addCategory(Intent.CATEGORY_OPENABLE);
+                Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.addCategory(Intent.CATEGORY_OPENABLE);
                 try {startActivityForResult(i,OPEN_BACKUP);}catch(Exception e){fileCallback.onReceiveValue(null);fileCallback=null;}
                 return true;
             }
@@ -88,11 +93,23 @@ public class MainActivity extends Activity {
             runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,text);startActivity(Intent.createChooser(i,"Share delivery update"));});
         }
         @JavascriptInterface public void openUrl(String url){runOnUiThread(()->openExternal(url));}
+        @JavascriptInterface public void setNightMode(boolean dark){runOnUiThread(()->{web.setBackgroundColor(dark?0xff181819:0xfff1f0ee);getWindow().setStatusBarColor(dark?0xff181819:0xfff1f0ee);getWindow().setNavigationBarColor(dark?0xff181819:0xffffffff);web.setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);});}
+        @JavascriptInterface public void startTracking(String base,String job,String session,String code){
+            if(base==null||job==null||session==null||!job.matches("[a-f0-9]{64}")||!session.matches("[a-f0-9]{64}"))return;
+            Uri u=Uri.parse(base);if(!"https".equals(u.getScheme())||u.getUserInfo()!=null||u.getHost()==null||u.getQuery()!=null||u.getFragment()!=null||!(u.getPath()==null||u.getPath().isEmpty()||u.getPath().equals("/")))return;
+            runOnUiThread(()->{pendingTracking=new Intent(MainActivity.this,TrackingService.class).putExtra("base",base).putExtra("job",job).putExtra("session",session).putExtra("code",code);
+                if((checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED)||(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED))requestPermissions(android.os.Build.VERSION.SDK_INT>=33?new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.POST_NOTIFICATIONS}:new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},GPS_PERMISSION);else beginTracking();});
+        }
+        @JavascriptInterface public void stopTracking(){runOnUiThread(()->stopService(new Intent(MainActivity.this,TrackingService.class)));}
+        @JavascriptInterface public boolean isTracking(){return getSharedPreferences("trackship-gps",MODE_PRIVATE).getBoolean("active",false);}
+        @JavascriptInterface public void exportCsv(String csv){if(csv==null||csv.length()>200000)return;runOnUiThread(()->{pendingBackup=csv;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("text/csv");i.putExtra(Intent.EXTRA_TITLE,"TrackShip-bulk-template.csv");try{startActivityForResult(i,SAVE_BACKUP);}catch(Exception e){pendingBackup=null;}});}
         @JavascriptInterface public void exportBackup(String json,String name){
             if(json==null||json.length()>5000000)return;
             runOnUiThread(()->{pendingBackup=json;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"TrackShip-backup.json");try{startActivityForResult(i,SAVE_BACKUP);}catch(Exception e){pendingBackup=null;Toast.makeText(MainActivity.this,"No file manager is available.",Toast.LENGTH_LONG).show();}});
         }
     }
+    private void beginTracking(){if(pendingTracking==null)return;if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){pendingTracking=null;Toast.makeText(this,"Allow notifications so GPS sharing has a visible stop control.",Toast.LENGTH_LONG).show();return;}try{startForegroundService(pendingTracking);Toast.makeText(this,"Delivery GPS started. Use the notification to stop sharing.",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"GPS could not start. Check location permission and try again.",Toast.LENGTH_LONG).show();}pendingTracking=null;}
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==GPS_PERMISSION){if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED)beginTracking();else{pendingTracking=null;Toast.makeText(this,"Location permission is needed to share your delivery position.",Toast.LENGTH_LONG).show();}}}
     @Override protected void onActivityResult(int request,int result,Intent intent) {
         super.onActivityResult(request,result,intent);
         if(request==OPEN_BACKUP&&fileCallback!=null){fileCallback.onReceiveValue(result==RESULT_OK&&intent!=null&&intent.getData()!=null?new Uri[]{intent.getData()}:null);fileCallback=null;}

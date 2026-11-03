@@ -21,6 +21,7 @@ export function newShipment(fields, business) {
  return {...fields,riderToken:crypto.randomUUID().replaceAll('-','')+crypto.randomUUID().replaceAll('-',''),id,code:`TS-${id.slice(0,8).toUpperCase()}`,business:clean(business,80)||'My business',publicToken:crypto.randomUUID().replaceAll('-','')+crypto.randomUUID().replaceAll('-',''),createdAt:now,status:'Created',dirty:true,events:[{id:crypto.randomUUID(),status:'Created',note:'Shipment registered',at:now}]};
 }
 export function addEvent(shipment,status,note='') {
+ if(shipment.workflowVersion===3)throw new Error('Use the connected handoff workflow for this delivery.');
  if(!canTransition(shipment.status,status)) throw new Error('That delivery update is not allowed.');
  return {...shipment,status,dirty:true,events:[...shipment.events,{id:crypto.randomUUID(),status,note:clean(note,240),at:new Date().toISOString()}]};
 }
@@ -33,11 +34,13 @@ export function validateBackup(d) {
   if(!d||typeof d.profile?.name!=='string'||d.profile.name.length>80||typeof d.profile.phone!=='string'||d.profile.phone.length>20||!Array.isArray(d.shipments)||d.shipments.length>5000)return false;
   const ids=new Set();const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   for(const s of d.shipments){
-   if(!s||!uuid.test(s.id)||ids.has(s.id)||validateShipment(s).length||s.code!==`TS-${s.id.slice(0,8).toUpperCase()}`||!/^[a-f0-9]{64}$/.test(s.publicToken)||typeof s.business!=='string'||s.business.length>80||!Array.isArray(s.events)||s.events.length<1||s.events.length>6||s.events[0].status!=='Created'||s.createdAt!==s.events[0].at)return false;
-   for(let i=0;i<s.events.length;i++){const e=s.events[i];if(!uuid.test(e.id)||!Number.isFinite(Date.parse(e.at))||typeof e.note!=='string'||e.note.length>240||(i&&!canTransition(s.events[i-1].status,e.status)))return false;}
+   if(!s||!uuid.test(s.id)||ids.has(s.id)||validateShipment(s).length||s.code!==`TS-${s.id.slice(0,8).toUpperCase()}`||!/^[a-f0-9]{64}$/.test(s.publicToken)||typeof s.business!=='string'||s.business.length>80||!Array.isArray(s.events)||s.events.length<1||s.events.length>(s.workflowVersion===3?20:6)||s.events[0].status!=='Created'||s.createdAt!==s.events[0].at)return false;
+   for(let i=0;i<s.events.length;i++){const e=s.events[i];if(!uuid.test(e.id)||!Number.isFinite(Date.parse(e.at))||typeof e.note!=='string'||e.note.length>240||(i&&s.workflowVersion!==3&&!canTransition(s.events[i-1].status,e.status)))return false;}
    if(s.status!==s.events.at(-1).status)return false;
    ids.add(s.id);
   }
+  if(d.deviceLock&&(typeof d.deviceLock.salt!=='string'||d.deviceLock.salt.length<16||!/^[a-f0-9]{64}$/.test(d.deviceLock.hash)||!Number.isFinite(d.deviceLock.lockedUntil)||!Number.isInteger(d.deviceLock.attempts)||d.deviceLock.attempts<0))return false;
+  if(d.riderConnection){const u=new URL(d.riderConnection.base);if(u.protocol!=='https:'||u.origin!==d.riderConnection.base||!/^[a-f0-9]{64}$/.test(d.riderConnection.token))return false;}
   if(d.accounts){
    if(typeof d.accounts!=='object'||Array.isArray(d.accounts))return false;
    for(const role of ['vendor','rider'])if(d.accounts[role]&&validateOnboarding(role,d.accounts[role]).length)return false;
@@ -46,9 +49,9 @@ export function validateBackup(d) {
   if(d.riderJobs){
    if(!Array.isArray(d.riderJobs)||d.riderJobs.length>5000)return false;
    for(const job of d.riderJobs){
-    if(validateShipment(job).length||!uuid.test(job.id)||!Array.isArray(job.events)||!job.events.length||job.events.length>6||job.events[0].status!=='Created'||job.status!==job.events.at(-1).status||!/^[a-f0-9]{64}$/.test(job.dispatchToken))return false;
+    if(validateShipment(job).length||!uuid.test(job.id)||!Array.isArray(job.events)||!job.events.length||job.events.length>(job.workflowVersion===3?20:6)||job.events[0].status!=='Created'||job.status!==job.events.at(-1).status||!/^[a-f0-9]{64}$/.test(job.dispatchToken))return false;
     const u=new URL(job.remoteBase);if(u.protocol!=='https:'||u.origin!==job.remoteBase)return false;
-    for(let i=0;i<job.events.length;i++){const e=job.events[i];if(!uuid.test(e.id)||!Number.isFinite(Date.parse(e.at))||typeof e.note!=='string'||e.note.length>240||(i&&!canTransition(job.events[i-1].status,e.status)))return false;}
+    for(let i=0;i<job.events.length;i++){const e=job.events[i];if(!uuid.test(e.id)||!Number.isFinite(Date.parse(e.at))||typeof e.note!=='string'||e.note.length>240||(i&&job.workflowVersion!==3&&!canTransition(job.events[i-1].status,e.status)))return false;}
    }
   }
   if(d.connection){const u=new URL(d.connection.base);if(u.protocol!=='https:'||u.origin!==d.connection.base||!/^[a-f0-9]{64}$/.test(d.connection.token))return false;}
@@ -71,7 +74,7 @@ export function validateOnboarding(role,p) {
 }
 export function upgradeData(raw={}) {
  const source=raw&&typeof raw==='object'?raw:{};
- return {...source,profile:source.profile||{name:'',phone:''},shipments:Array.isArray(source.shipments)?source.shipments:[],connection:source.connection||null,accounts:{vendor:source.accounts?.vendor||null,rider:source.accounts?.rider||null},activeRole:['vendor','rider'].includes(source.activeRole)?source.activeRole:null,riderJobs:Array.isArray(source.riderJobs)?source.riderJobs:[],riderAvailable:source.riderAvailable===true,introSeen:source.introSeen===true};
+ return {...source,profile:source.profile||{name:'',phone:''},shipments:Array.isArray(source.shipments)?source.shipments:[],connection:source.connection||null,accounts:{vendor:source.accounts?.vendor||null,rider:source.accounts?.rider||null},activeRole:['vendor','rider'].includes(source.activeRole)?source.activeRole:null,riderJobs:Array.isArray(source.riderJobs)?source.riderJobs:[],riderConnection:source.riderConnection||null,theme:['dark','light'].includes(source.theme)?source.theme:'light',riderAvailable:source.riderAvailable===true,introSeen:source.introSeen===true};
 }
 export function visibleShipments(data,role) {
  if(role==='vendor')return data.shipments;
@@ -79,7 +82,7 @@ export function visibleShipments(data,role) {
  if(!phone)return [];
  const local=data.shipments.filter(s=>normalizePhone(s.riderPhone)===phone);
  const ids=new Set(local.map(s=>s.id));
- return [...local,...(data.riderJobs||[]).filter(s=>!ids.has(s.id))];
+ return [...local,...(data.riderJobs||[]).filter(s=>!ids.has(s.id)&&(s.workflowVersion!==3||data.riderConnection))];
 }
 export function historyRelation(local,remote) {
  const shortest=Math.min(local.events.length,remote.events.length);

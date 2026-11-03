@@ -27,6 +27,10 @@ services:
         generateValue: true
       - key: TRACKSHIP_ENABLE_PAYOUTS
         value: "false"
+      - key: TRACKSHIP_SEND_JOB_SMS
+        value: "false"
+      - key: TRACKSHIP_RIDER_CAPACITY
+        value: "5"
       - key: PAYSTACK_SECRET_KEY
         sync: false
       - key: TERMII_API_KEY

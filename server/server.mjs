@@ -20,8 +20,8 @@ export function createApp({providers,env=process.env,dataDir=process.env.DATA_DI
  function riderView(s){const {publicToken,riderToken,dirty,synced,...details}=s;return details;}
  const limits=new Map();const allowed=new Set(origins.split(',').map(s=>s.trim()));
  function rate(req,kind,max){const key=`${req.socket.remoteAddress}:${kind}`;const now=Date.now();if(limits.size>10000)for(const [k,v]of limits)if(v.until<now)limits.delete(k);const l=limits.get(key)||{count:0,until:now+60000};if(l.until<now){l.count=0;l.until=now+60000;}l.count++;limits.set(key,l);return l.count<=max;}
- function owner(req){const t=req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];if(!t)return null;const h=hash(t);return db.prepare('SELECT token_hash FROM workspaces WHERE token_hash=?').get(h)?h:null;}
- async function body(req){let total=0,parts=[];for await(const chunk of req){total+=chunk.length;if(total>65536){const e=new Error('Request is too large.');e.status=413;throw e;}parts.push(chunk);}try{return JSON.parse(Buffer.concat(parts).toString());}catch{const e=new Error('Invalid JSON.');e.status=400;throw e;}}
+ function owner(req){const t=req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];if(!t)return null;const h=hash(t);return db.prepare('SELECT token_hash FROM workspaces WHERE token_hash=? AND disabled=0').get(h)?h:advanced.ownerSession?.(req)||null;}
+ async function body(req,maxBytes=65536){let total=0,parts=[];for await(const chunk of req){total+=chunk.length;if(total>maxBytes){const e=new Error('Request is too large.');e.status=413;throw e;}parts.push(chunk);}try{return JSON.parse(Buffer.concat(parts).toString());}catch{const e=new Error('Invalid JSON.');e.status=400;throw e;}}
  function valid(s,id){
   if(!s||(s.riderToken!==undefined&&!publicToken.test(s.riderToken))||s.id!==id||!uuid.test(id)||!publicToken.test(s.publicToken||'')||s.code!==`TS-${id.slice(0,8).toUpperCase()}`||validateShipment(s).length)return false;
   if(typeof s.business!=='string'||!s.business.trim()||s.business.length>80||!Array.isArray(s.events)||s.events.length<1||s.events.length>6)return false;
@@ -41,10 +41,10 @@ export function createApp({providers,env=process.env,dataDir=process.env.DATA_DI
    if(req.method==='OPTIONS'){res.writeHead(allowed.has(origin)?204:403);res.end();return;}
    if(!rate(req,'all',300))return send(429,{error:'Too many requests. Try again in a minute.'});
    if(await advanced(req,res,url,send))return;
-   if(route==='/api/health'&&req.method==='GET')return send(200,{service:'trackship-ng',version:'0.3.1'});
+   if(route==='/api/health'&&req.method==='GET')return send(200,{service:'trackship-ng',version:'0.4.0'});
    if(route==='/api/workspaces'&&req.method==='POST'){
     if(!rate(req,'register',5))return send(429,{error:'Too many new connections. Try again in a minute.'});
-    await body(req);const token=randomBytes(32).toString('hex');db.prepare('INSERT INTO workspaces VALUES (?,?)').run(hash(token),new Date().toISOString());return send(201,{token});
+    await body(req);const token=randomBytes(32).toString('hex');db.prepare('INSERT INTO workspaces(token_hash,created_at) VALUES (?,?)').run(hash(token),new Date().toISOString());return send(201,{token});
    }
    if(route.startsWith('/api/shipments/')&&req.method==='GET'){
     const auth=owner(req);if(!auth)return send(401,{error:'Business access is required.'});
@@ -85,7 +85,7 @@ export function createApp({providers,env=process.env,dataDir=process.env.DATA_DI
    }
    if(route.startsWith('/api/'))return send(404,{error:'Not found.'});
    if(!['GET','HEAD'].includes(req.method))return send(405,{error:'Method not allowed.'});
-   const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.mjs':'core.mjs','/lifecycle.mjs':'lifecycle.mjs','/features.mjs':'features.mjs','/config.mjs':'config.mjs','/assets/leaflet.js':'assets/leaflet.js','/assets/leaflet.css':'assets/leaflet.css','/style.css':'style.css','/assets/courier.svg':'assets/courier.svg','/assets/route.svg':'assets/route.svg','/assets/courier-photo.png':'assets/courier-photo.png','/assets/Inter.ttf':'assets/Inter.ttf','/assets/Poppins-Regular.ttf':'assets/Poppins-Regular.ttf','/assets/Poppins-Medium.ttf':'assets/Poppins-Medium.ttf','/assets/Poppins-SemiBold.ttf':'assets/Poppins-SemiBold.ttf'};
+   const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.mjs':'core.mjs','/lifecycle.mjs':'lifecycle.mjs','/features.mjs':'features.mjs','/config.mjs':'config.mjs','/accounts.mjs':'accounts.mjs','/assets/leaflet.js':'assets/leaflet.js','/assets/leaflet.css':'assets/leaflet.css','/style.css':'style.css','/assets/courier.svg':'assets/courier.svg','/assets/route.svg':'assets/route.svg','/assets/courier-photo.png':'assets/courier-photo.png','/assets/Inter.ttf':'assets/Inter.ttf','/assets/Poppins-Regular.ttf':'assets/Poppins-Regular.ttf','/assets/Poppins-Medium.ttf':'assets/Poppins-Medium.ttf','/assets/Poppins-SemiBold.ttf':'assets/Poppins-SemiBold.ttf'};
    const filename=(route.startsWith('/t/')||route.startsWith('/r/')||route==='/payment-return')?'index.html':files[route];if(!filename)return send(404,{error:'Not found.'});
    const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.ttf':'font/ttf'};res.writeHead(200,{'Content-Type':types[path.extname(filename)]+'; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'web',filename)));
   }catch(e){if(!res.headersSent)send(e.status||500,{error:e.status?e.message:'The tracking service could not complete this request.'});else res.end();}

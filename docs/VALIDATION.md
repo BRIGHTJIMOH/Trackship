@@ -1,12 +1,16 @@
-# TrackShip NG 0.3.1 validation
+# TrackShip NG 0.4.0 validation
 
 Validated in the development environment on 3 November 2026 with Node 24, Java 21, Android API/Build Tools 35 and Chromium.
 
 - Core/API suite: **20 tests passed, none failed or skipped.** Coverage: legacy workflows; onboarding; migration; recipient privacy; bulk CSV/fee/state validation; full interstate custody; one-rider intrastate custody; acceptance distinct from physical possession; verified-payment amount/currency/mode checks; OTP rejection, lockout and idempotent completion; atomic, per-leg earnings; payout prerequisites/idempotency; protected identity review and AES-GCM storage; explicit GPS consent/start/stop, custody restrictions and stale-fix suppression; closed behavior for unconfigured providers; checkout reuse, signed webhook enforcement and snapshot ownership.
 - Browser suite: **passed.** Includes bundled Inter font loading, vendor/rider logout, PIN lock/unlock and saved-data retention. Also covers: personalized dashboards, night-mode persistence, per-delivery fees, explicit unconfigured-state errors, hosted checkout/verification flow, customer tracking without signup, dedicated rider onboarding, SMS phone verification, NIN/licence/home address submission without browser-storage persistence, acceptance versus collection, customer live map, OTP completion, earnings, atomic bulk creation and backups.
 - All payment/SMS operations in the suites use explicit dependency-injected test transports. The live-mode payout test uses a fake provider with a `live` label to test ledger logic; it does **not** transfer money. Browser GPS uses an injected test location and blocked map tile requests. No real phone location was read, and no road route was tested.
-- APK build/signature and Android metadata are checked separately. The package remains ng.trackship.app, version code 4 / version 0.3.1, Android 8+ / API 35 target. Location/foreground-service/notification permissions are declared, and the service is not exported.
+- APK build/signature and Android metadata are checked separately. The package remains ng.trackship.app, version code 5 / version 0.4.0, Android 8+ / API 35 target. Location/foreground-service/notification permissions are declared, and the service is not exported.
 
 Screenshots: `artifacts/v0.3/`. These are test results, not evidence of live provider activation.
 
 Not yet verified: actual Android installation/update, device GPS/permission/foreground notification and battery behavior, actual Paystack checkout/webhooks/transfers, actual Termii SMS delivery, provider identity verification, a Render deployment, live holding/escrow, refunds/disputes or production financial operations. No hosted public URL is configured in the distributed APK because no hosting account is connected. See `docs/LIVE-SETUP.md` for activation prerequisites and limitations.
+
+## Version 0.4 additions
+
+Backend suite: 24 passing checks, including independent SMS accounts/session revocation, government ID for bicycle riders, licence requirements for motor riders, area eligibility and one-winner acceptance. Browser coverage additionally exercises explicit signup/login, independent phones, vendor logout while rider completes delivery, visible night mode, a two-shipment + basket without CSV, account-scoped backups and returning cloud login on a fresh browser. Provider calls use isolated substitutes; no real money or SMS was sent. Android Keystore/JobScheduler notification behavior still needs physical-device validation.

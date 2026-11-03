@@ -1,6 +1,6 @@
 {
   "name": "trackship-ng",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "description": "TrackShip NG Android pilot and customer tracking service",
   "scripts": {

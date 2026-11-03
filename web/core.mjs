@@ -41,6 +41,7 @@ export function validateBackup(d) {
   }
   if(d.deviceLock&&(typeof d.deviceLock.salt!=='string'||d.deviceLock.salt.length<16||!/^[a-f0-9]{64}$/.test(d.deviceLock.hash)||!Number.isFinite(d.deviceLock.lockedUntil)||!Number.isInteger(d.deviceLock.attempts)||d.deviceLock.attempts<0))return false;
   if(d.riderConnection){const u=new URL(d.riderConnection.base);if(u.protocol!=='https:'||u.origin!==d.riderConnection.base||!/^[a-f0-9]{64}$/.test(d.riderConnection.token))return false;}
+  if(d.deviceAccounts){if(typeof d.deviceAccounts!=='object'||Array.isArray(d.deviceAccounts)||Object.keys(d.deviceAccounts).length>100)return false;for(const [key,a]of Object.entries(d.deviceAccounts)){if(!a||!['vendor','rider'].includes(a.role)||validateOnboarding(a.role,a.profile||{}).length||key!==a.role+':'+normalizePhone(a.profile.phone))return false;if(a.pin&&(typeof a.pin.salt!=='string'||a.pin.salt.length<16||!/^[a-f0-9]{64}$/.test(a.pin.hash)))return false;if(a.connection){const u=new URL(a.connection.base);if(u.protocol!=='https:'||u.origin!==a.connection.base||!/^[a-f0-9]{64}$/.test(a.connection.token))return false;}}}
   if(d.accounts){
    if(typeof d.accounts!=='object'||Array.isArray(d.accounts))return false;
    for(const role of ['vendor','rider'])if(d.accounts[role]&&validateOnboarding(role,d.accounts[role]).length)return false;
@@ -69,7 +70,7 @@ export function validateOnboarding(role,p) {
  for(const [k,label]of required)if(typeof p[k]!=='string'||!p[k].trim()||p[k].length>(k==='pickupAddress'?240:80))errors.push(`${label} is required.`);
  if(!/^0[789]\d{9}$/.test(normalizePhone(p.phone)))errors.push('Enter a valid Nigerian mobile number (e.g. 08012345678).');
  if(role==='rider'&&p.vehicle&&!['Motorcycle','Bicycle','Car','Van'].includes(p.vehicle))errors.push('Choose a supported vehicle type.');
- if(role==='rider'&&p.vehicle!=='Bicycle'&&(!clean(p.plate,24)||p.plate.length>24))errors.push('Enter your vehicle registration number.');
+
  return errors;
 }
 export function upgradeData(raw={}) {
@@ -77,13 +78,10 @@ export function upgradeData(raw={}) {
  return {...source,profile:source.profile||{name:'',phone:''},shipments:Array.isArray(source.shipments)?source.shipments:[],connection:source.connection||null,accounts:{vendor:source.accounts?.vendor||null,rider:source.accounts?.rider||null},activeRole:['vendor','rider'].includes(source.activeRole)?source.activeRole:null,riderJobs:Array.isArray(source.riderJobs)?source.riderJobs:[],riderConnection:source.riderConnection||null,theme:['dark','light'].includes(source.theme)?source.theme:'light',riderAvailable:source.riderAvailable===true,introSeen:source.introSeen===true};
 }
 export function visibleShipments(data,role) {
- if(role==='vendor')return data.shipments;
- const phone=normalizePhone(data.accounts?.rider?.phone);
- if(!phone)return [];
- const local=data.shipments.filter(s=>normalizePhone(s.riderPhone)===phone);
- const ids=new Set(local.map(s=>s.id));
- return [...local,...(data.riderJobs||[]).filter(s=>!ids.has(s.id)&&(s.workflowVersion!==3||data.riderConnection))];
+ if(role==='vendor')return data.shipments||[];
+ return (data.riderJobs||[]).filter(s=>s.workflowVersion!==3||data.riderConnection);
 }
+
 export function historyRelation(local,remote) {
  const shortest=Math.min(local.events.length,remote.events.length);
  for(let i=0;i<shortest;i++)if(JSON.stringify(local.events[i])!==JSON.stringify(remote.events[i]))return 'conflict';

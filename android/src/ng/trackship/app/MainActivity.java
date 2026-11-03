@@ -27,7 +27,7 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
     private String pendingBackup;
     private Intent pendingTracking;
-    private static final int GPS_PERMISSION=15;
+    private static final int GPS_PERMISSION=15,ALERT_PERMISSION=16;
     private static final String ORIGIN = "https://appassets.trackship.ng";
     private static final int OPEN_BACKUP = 10, SAVE_BACKUP = 11;
     @Override public void onCreate(Bundle state) {
@@ -50,12 +50,14 @@ public class MainActivity extends Activity {
         web.getSettings().setSupportMultipleWindows(false);
         web.addJavascriptInterface(new Bridge(), "TrackShip");
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view,String url){if(getIntent().getBooleanExtra("open-rider-alerts",false)){getIntent().removeExtra("open-rider-alerts");view.evaluateJavascript("window.TrackShipOpenAlerts?.()",null);}}
+
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
                 Uri uri=req.getUrl();
                 if (ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority())) {
                     String p=uri.getPath();
                     if (p==null || p.equals("/")) p="/index.html";
-                    if (!p.equals("/index.html")&&!p.equals("/app.js")&&!p.equals("/core.mjs")&&!p.equals("/lifecycle.mjs")&&!p.equals("/features.mjs")&&!p.equals("/config.mjs")&&!p.equals("/style.css")&&!p.equals("/assets/courier.svg")&&!p.equals("/assets/route.svg")&&!p.equals("/assets/courier-photo.png")&&!p.equals("/assets/Poppins-Regular.ttf")&&!p.equals("/assets/Inter.ttf")&&!p.equals("/assets/Poppins-Medium.ttf")&&!p.equals("/assets/Poppins-SemiBold.ttf")&&!p.equals("/assets/leaflet.js")&&!p.equals("/assets/leaflet.css"))
+                    if (!p.equals("/index.html")&&!p.equals("/app.js")&&!p.equals("/core.mjs")&&!p.equals("/lifecycle.mjs")&&!p.equals("/features.mjs")&&!p.equals("/config.mjs")&&!p.equals("/accounts.mjs")&&!p.equals("/style.css")&&!p.equals("/assets/courier.svg")&&!p.equals("/assets/route.svg")&&!p.equals("/assets/courier-photo.png")&&!p.equals("/assets/Poppins-Regular.ttf")&&!p.equals("/assets/Inter.ttf")&&!p.equals("/assets/Poppins-Medium.ttf")&&!p.equals("/assets/Poppins-SemiBold.ttf")&&!p.equals("/assets/leaflet.js")&&!p.equals("/assets/leaflet.css"))
                         return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",new HashMap<>(),new ByteArrayInputStream(new byte[0]));
                     try {
                         String mime=p.endsWith(".ttf")?"font/ttf":p.endsWith(".png")?"image/png":p.endsWith(".svg")?"image/svg+xml":p.endsWith(".html")?"text/html":p.endsWith(".css")?"text/css":"text/javascript";
@@ -102,6 +104,14 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void stopTracking(){runOnUiThread(()->stopService(new Intent(MainActivity.this,TrackingService.class)));}
         @JavascriptInterface public boolean isTracking(){return getSharedPreferences("trackship-gps",MODE_PRIVATE).getBoolean("active",false);}
+        @JavascriptInterface public boolean saveIdentity(String phone,String json){return new IdentityVault(MainActivity.this).save(phone,json);}
+        @JavascriptInterface public boolean hasIdentity(String phone){return new IdentityVault(MainActivity.this).exists(phone);}
+        @JavascriptInterface public String loadIdentity(String phone){return new IdentityVault(MainActivity.this).load(phone);}
+        @JavascriptInterface public void clearIdentity(String phone){new IdentityVault(MainActivity.this).remove(phone);}
+        @JavascriptInterface public void configureDeliveryAlerts(String base,String token){runOnUiThread(()->{if(!DeliveryAlerts.configure(MainActivity.this,base,token))return;if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED&&!getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).getBoolean("asked",false)){getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).edit().putBoolean("asked",true).apply();requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},ALERT_PERMISSION);}});}
+        @JavascriptInterface public void requestDeliveryAlertsPermission(){runOnUiThread(()->{if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},ALERT_PERMISSION);});}
+        @JavascriptInterface public void clearDeliveryAlerts(){runOnUiThread(()->DeliveryAlerts.clear(MainActivity.this));}
+        @JavascriptInterface public void notifyDelivery(String id,String title,String body){runOnUiThread(()->DeliveryAlerts.show(MainActivity.this,id,title,body));}
         @JavascriptInterface public void exportCsv(String csv){if(csv==null||csv.length()>200000)return;runOnUiThread(()->{pendingBackup=csv;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("text/csv");i.putExtra(Intent.EXTRA_TITLE,"TrackShip-bulk-template.csv");try{startActivityForResult(i,SAVE_BACKUP);}catch(Exception e){pendingBackup=null;}});}
         @JavascriptInterface public void exportBackup(String json,String name){
             if(json==null||json.length()>5000000)return;
@@ -115,6 +125,7 @@ public class MainActivity extends Activity {
         if(request==OPEN_BACKUP&&fileCallback!=null){fileCallback.onReceiveValue(result==RESULT_OK&&intent!=null&&intent.getData()!=null?new Uri[]{intent.getData()}:null);fileCallback=null;}
         if(request==SAVE_BACKUP){if(result==RESULT_OK&&intent!=null&&intent.getData()!=null&&pendingBackup!=null){try(OutputStream out=getContentResolver().openOutputStream(intent.getData())){out.write(pendingBackup.getBytes(StandardCharsets.UTF_8));Toast.makeText(this,"Backup saved. Keep this file private.",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"Could not save backup.",Toast.LENGTH_LONG).show();}}pendingBackup=null;}
     }
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(web!=null&&intent.getBooleanExtra("open-rider-alerts",false)){intent.removeExtra("open-rider-alerts");web.evaluateJavascript("window.TrackShipOpenAlerts?.()",null);}}
     @Override public void onBackPressed(){web.evaluateJavascript("window.TrackShipBack?.()",null);}
     @Override protected void onDestroy(){if(fileCallback!=null)fileCallback.onReceiveValue(null);web.removeJavascriptInterface("TrackShip");web.destroy();super.onDestroy();}
 }

@@ -2,7 +2,7 @@
 
 ## Current state
 
-Version 0.3.1 includes the application and server code for payment verification, handler acceptance/custody, SMS sign-in, encrypted rider identity submission, delivery OTP, GPS and earnings. The tests use isolated substitutes for payment/SMS providers and a test-only browser location. **No public server, merchant account, SMS account, live charge or bank payout has been activated.** Do not present this build as a verified live financial/identity service yet.
+Version 0.4.0 includes the application and server code for payment verification, handler acceptance/custody, SMS sign-in, encrypted rider identity submission, delivery OTP, GPS and earnings. The tests use isolated substitutes for payment/SMS providers and a test-only browser location. **No public server, merchant account, SMS account, live charge or bank payout has been activated.** Do not present this build as a verified live financial/identity service yet.
 
 The owner confirmed that no hosting or Paystack account currently exists. Account creation and provider approval are external prerequisites; these cannot be invented or supplied by the APK.
 
@@ -18,7 +18,7 @@ Do not post API keys, NINs, home addresses, bank details or passwords in chat, s
 
 `render.yaml` is a prepared Render Blueprint. It selects Node 24, a web service and a persistent disk for SQLite. The configured `starter` service and persistent storage are **paid resources**; reviewing or applying the Blueprint in your Render account is a separate user action. Nothing was purchased or deployed during development.
 
-Connect the repository and branch `apk-test-v0.3.1` in Render. Create the service from its Blueprint after reviewing the plan/cost. Set the requested values privately:
+Connect the repository and branch `apk-test-v0.4.0` in Render. Create the service from its Blueprint after reviewing the plan/cost. Set the requested values privately:
 
 | Setting | Meaning |
 | --- | --- |
@@ -33,7 +33,7 @@ Render supplies `RENDER_EXTERNAL_URL`; the backend uses it as the public origin.
 
 Verify:
 
-- `GET /api/health` returns service `trackship-ng`, version `0.3.1`.
+- `GET /api/health` returns service `trackship-ng`, version `0.4.0`.
 - `GET /api/capabilities` reports the expected payment environment and connected SMS/identity services.
 - Configure Paystack's webhook as `https://YOUR-SERVICE/api/payments/webhook`. Webhooks require the original raw Paystack signing key on the server; they cannot use an outbound-proxy placeholder as an HMAC key.
 - Never enable the test substitutes used in `tests/` on the hosted service. There is no application flag for enabling them.
@@ -85,6 +85,12 @@ Actual Android GPS, permissions, battery/background behavior and carrier network
 
 Use provider test mode first on at least two physical phones and a separate customer browser. Exercise intrastate and all interstate handoffs, sign-in/delivery SMS, GPS start/stop/background behavior, correct/wrong/expired OTP, duplicate webhooks and payout reconciliation. Verify backups, identity review/access and restoration after service restart. A real live charge/transfer should happen only after the provider accounts and business operations are activated. Deployment/account access remains the current external blocker.
 
-## Workspace logout
+## Independent accounts and notifications
 
-The visible Log out action exits either dashboard, stops the native GPS service and locks saved device profiles behind a six-digit app PIN. It does not erase shipments. Rider sessions and positions attached to that session are revoked on the server when reachable. Local vendor profile/PIN access is not a complete cloud merchant account/recovery implementation; do not describe it as such.
+Vendor and rider use separate SMS signup/login endpoints under `/api/accounts/`. Returning users log in; they do not create a replacement account. Vendor session revocation does not revoke rider sessions or prevent rider acceptance. Legacy anonymous workspaces can be claimed by the verified vendor account using their old private credential.
+
+Government ID type, number and front photo are required for bicycle riders as well as motor riders. Motor riders also need a driving licence number. Review submissions with the protected operator API; submission is not verification.
+
+Created shipments generate durable rider notifications for matching registered city/state/community and capacity. Unpaid offers cannot be accepted. Payment verification makes the offer ready; acceptance is transactional, so only one pickup rider can claim it. No online/offline flag is used. These are registered service areas, not live GPS-distance matching.
+
+The app inbox polls every ten seconds while open. Android JobScheduler checks at a minimum fifteen-minute interval, subject to OS delays, and needs notification permission. This is not instant push. `TRACKSHIP_SEND_JOB_SMS=false` avoids automatic SMS spending; optional SMS uses the configured provider when explicitly enabled. `TRACKSHIP_RIDER_CAPACITY=5` is the default active-job limit. Validate notification delivery on physical Android devices before promising background alerts.

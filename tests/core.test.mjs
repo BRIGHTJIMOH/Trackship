@@ -20,17 +20,17 @@ test('vendor and rider onboarding require different details and valid Nigerian p
  const rider={fullName:'Chika Obi',phone:'+2348098765432',city:'Abuja',vehicle:'Motorcycle',plate:'ABC-123-DE'};
  assert.deepEqual(validateOnboarding('vendor',vendor),[]);assert.deepEqual(validateOnboarding('rider',rider),[]);
  assert.ok(validateOnboarding('vendor',rider).length);assert.ok(validateOnboarding('rider',vendor).length);
- assert.ok(validateOnboarding('rider',{...rider,plate:''}).length);assert.deepEqual(validateOnboarding('rider',{...rider,vehicle:'Bicycle',plate:''}),[]);
+ assert.deepEqual(validateOnboarding('rider',{...rider,plate:''}),[]);assert.deepEqual(validateOnboarding('rider',{...rider,vehicle:'Bicycle',plate:''}),[]);
  assert.ok(validateOnboarding('vendor',{...vendor,phone:'123'}).length);
 });
 test('legacy data migration preserves shipments and asks for onboarding',async()=>{
  const {upgradeData}=await import('../web/core.mjs');const s=newShipment(fields,'Bright');const old={profile:{name:'Bright',phone:''},shipments:[s],connection:null};
  const d=upgradeData(old);assert.equal(d.shipments[0].id,s.id);assert.equal(d.activeRole,null);assert.equal(d.accounts.vendor,null);assert.equal(d.profile.name,'Bright');
 });
-test('rider workspace filters local deliveries by normalized assigned phone',async()=>{
+test('rider workspace never inherits a vendor shipment list',async()=>{
  const {visibleShipments,upgradeData}=await import('../web/core.mjs');
  const assigned=newShipment({...fields,riderPhone:'08098765432'},'Bright');const other=newShipment({...fields,riderPhone:'08012345678'},'Bright');
- const d=upgradeData({shipments:[assigned,other],accounts:{rider:{phone:'+2348098765432'}}});assert.deepEqual(visibleShipments(d,'rider').map(s=>s.id),[assigned.id]);assert.equal(visibleShipments(d,'vendor').length,2);
+ const d=upgradeData({shipments:[assigned,other],accounts:{rider:{phone:'+2348098765432'}}});assert.deepEqual(visibleShipments(d,'rider'),[]);d.riderJobs=[{...assigned,workflowVersion:2}];assert.deepEqual(visibleShipments(d,'rider').map(s=>s.id),[assigned.id]);assert.equal(visibleShipments(d,'vendor').length,2);
 });
 test('history reconciliation distinguishes rider updates, queued vendor updates and conflicts',async()=>{
  const {historyRelation}=await import('../web/core.mjs');const s=newShipment(fields,'Bright');const next=addEvent(s,'Picked up');

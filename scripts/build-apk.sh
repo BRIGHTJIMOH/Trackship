@@ -8,7 +8,7 @@ for file in "$ANDROID_JAR" "$BT/aapt2" "$BT/d8" "$BT/apksigner" "$TOOLS/ecj.jar"
   test -f "$file" || { echo "Missing build prerequisite: $file. Run bash scripts/setup-android.sh" >&2; exit 1; }
 done
 mkdir -p build/classes build/dex build/assets/web artifacts
-cp web/index.html web/style.css web/app.js web/core.mjs web/lifecycle.mjs web/features.mjs web/config.mjs build/assets/web/
+cp web/index.html web/style.css web/app.js web/core.mjs web/lifecycle.mjs web/features.mjs web/config.mjs web/accounts.mjs build/assets/web/
 cp -R web/assets build/assets/web/
 if test -n "${TRACKSHIP_SERVICE_URL:-}"; then
  python3 - <<'PYCONFIG'

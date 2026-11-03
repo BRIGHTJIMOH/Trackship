@@ -1,4 +1,4 @@
-# TrackShip NG · 0.3.1
+# TrackShip NG · 0.4.0
 
 Android application and Node/SQLite backend for Nigerian vendors and delivery handlers. The design follows the supplied orange-and-white references, with original onboarding photography and local Inter/Leaflet assets.
 
@@ -7,7 +7,7 @@ Android application and Node/SQLite backend for Nigerian vendors and delivery ha
 - Inter typography, dashboard/profile logout, a PBKDF2-hashed six-digit app PIN to unlock saved device workspaces, and rider-session revocation. Logout stops tracking and preserves shipments.
 - Vendor/rider local onboarding, prominent rider entry point, personalized dashboards and persistent night mode.
 - Intrastate and interstate shipments, agreed delivery fee and interstate leg allocations.
-- Atomic CSV import of up to 100 deliveries, history/search/type/status filters and private backups.
+- Manual + shipment baskets and atomic CSV import of up to 100 deliveries, history/search/type/status filters and account-scoped backups.
 - Hosted payment checkout with server-side verification, signed webhooks and idempotent payment references.
 - Pickup acceptance distinct from physical collection; carrier and last-mile handoff requests/acceptance.
 - SMS-verified rider sign-on, encrypted identity submission, protected identity review and payout prerequisites.
@@ -25,7 +25,7 @@ An internal payment/earnings ledger is **not regulated escrow** and does not cha
 
 ## Install/update
 
-The generated APK is `artifacts/TrackShip-NG-test.apk`; the repository download is `downloads/TrackShip-NG-v0.3.1.apk`. Android 8+ and a current System WebView are required. It uses the same package/signing identity as the earlier builds, with version code 3. Install over the old APK to retain profiles/shipments; do not uninstall without exporting a backup.
+The generated APK is `artifacts/TrackShip-NG-test.apk`; the repository download is `downloads/TrackShip-NG-v0.4.0.apk`. Android 8+ and a current System WebView are required. It uses the same package/signing identity as the earlier builds, with version code 5. Install over the old APK to retain profiles/shipments; do not uninstall without exporting a backup.
 
 Earlier manual shipments remain readable but are identified as legacy records. New shipments use the funded custody workflow. See [phone testing](docs/TEST-ON-YOUR-PHONE.md).
 
@@ -41,7 +41,7 @@ npm run test:ui
 npm start
 ```
 
-The service binds `127.0.0.1:3000`. `GET /api/health` returns `{"service":"trackship-ng","version":"0.3.1"}`. `GET /api/capabilities` reports connected providers. Test runners need permission for temporary local sockets and Chromium in restricted environments. Tests use temporary databases and injected transports only; production has no fake-provider switch.
+The service binds `127.0.0.1:3000`. `GET /api/health` returns `{"service":"trackship-ng","version":"0.4.0"}`. `GET /api/capabilities` reports connected providers. Test runners need permission for temporary local sockets and Chromium in restricted environments. Tests use temporary databases and injected transports only; production has no fake-provider switch.
 
 ```sh
 bash scripts/setup-android.sh
@@ -79,8 +79,12 @@ The database, keys, sign-in sessions and backups are private. Do not expose them
 - `scripts/`: toolchain setup and reproducible APK build.
 - `docs/`: test guide, activation prerequisites, assets and [validation limits](docs/VALIDATION.md).
 
-## Logout scope
+## Accounts, identity and delivery alerts
 
-The app PIN is a local device-workspace lock, not a replacement for production merchant authentication. It is set on first logout; saved profiles require it to reopen. Its salted PBKDF2 hash is stored, never the plaintext PIN. Five incorrect entries trigger a five-minute device lockout. There is no self-service forgotten-PIN recovery yet; retain a private backup and remember the PIN.
+Sign up and Log in are separate entry points. Each role/phone has its own profile, PIN, shipments and session. Vendor logout revokes its connected session and leaves the rider account operating independently. SMS login on a new phone restores the same cloud account/history when the service and SMS provider are configured. The local PIN is a salted PBKDF2 device lock, not cloud authentication; keep a private backup. Offline logout cannot immediately revoke a remote session.
 
-Rider logout clears the local session, stops GPS and revokes that server session/its active position when online. Other riders' sessions are unaffected. Offline logout cannot communicate revocation immediately; uploaded positions still expire from public view after two minutes. Merchant device access remains retained behind the local PIN; a complete verified vendor-account login/recovery system is not implemented. These are test/pilot limitations to resolve before a real financial launch.
+The header has a visible Night/Day button. Vendors can build a shipment basket using **+ Add another shipment**; CSV import remains optional. Backups include only the current account, with private customer data and access capabilities that must be protected.
+
+All riders, including bicycle riders, must submit a government ID number and front photo, residential address and emergency contact. Motor-vehicle riders also supply a driving licence. Android can keep an unsynced draft encrypted with Android Keystore; drafts are excluded from backups and lost on uninstall. Server identity submissions are encrypted and require operator review; saving is not independent identity verification.
+
+Riders receive offers matched to their registered pickup city/state/community, identity submission and active-job capacity. There is no online/offline toggle. This is service-area matching, not measured GPS proximity. The visible inbox polls every ten seconds; Android checks in the background on a minimum fifteen-minute schedule that the OS may delay. Instant Firebase push is not configured. Optional job SMS is disabled by default (`TRACKSHIP_SEND_JOB_SMS=false`); enable only after reviewing provider costs. `TRACKSHIP_RIDER_CAPACITY` defaults to 5.

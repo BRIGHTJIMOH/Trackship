@@ -41,7 +41,7 @@ export function createApp({providers,env=process.env,dataDir=process.env.DATA_DI
    if(req.method==='OPTIONS'){res.writeHead(allowed.has(origin)?204:403);res.end();return;}
    if(!rate(req,'all',300))return send(429,{error:'Too many requests. Try again in a minute.'});
    if(await advanced(req,res,url,send))return;
-   if(route==='/api/health'&&req.method==='GET')return send(200,{service:'trackship-ng',version:'0.5.2'});
+   if(route==='/api/health'&&req.method==='GET')return send(200,{service:'trackship-ng',version:'0.5.3'});
    if(route==='/api/workspaces'&&req.method==='POST'){
     if(!rate(req,'register',5))return send(429,{error:'Too many new connections. Try again in a minute.'});
     await body(req);const token=randomBytes(32).toString('hex');db.prepare('INSERT INTO workspaces(token_hash,created_at) VALUES (?,?)').run(hash(token),new Date().toISOString());return send(201,{token});
@@ -85,7 +85,7 @@ export function createApp({providers,env=process.env,dataDir=process.env.DATA_DI
    }
    if(route.startsWith('/api/'))return send(404,{error:'Not found.'});
    if(!['GET','HEAD'].includes(req.method))return send(405,{error:'Method not allowed.'});
-   const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.mjs':'core.mjs','/lifecycle.mjs':'lifecycle.mjs','/features.mjs':'features.mjs','/config.mjs':'config.mjs','/accounts.mjs':'accounts.mjs','/identity.mjs':'identity.mjs','/assets/leaflet.js':'assets/leaflet.js','/assets/leaflet.css':'assets/leaflet.css','/style.css':'style.css','/assets/courier.svg':'assets/courier.svg','/assets/route.svg':'assets/route.svg','/assets/courier-photo.png':'assets/courier-photo.png','/assets/Inter.ttf':'assets/Inter.ttf','/assets/Poppins-Regular.ttf':'assets/Poppins-Regular.ttf','/assets/Poppins-Medium.ttf':'assets/Poppins-Medium.ttf','/assets/Poppins-SemiBold.ttf':'assets/Poppins-SemiBold.ttf'};
+   const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.mjs':'core.mjs','/lifecycle.mjs':'lifecycle.mjs','/features.mjs':'features.mjs','/config.mjs':'config.mjs','/accounts.mjs':'accounts.mjs','/identity.mjs':'identity.mjs','/assets/leaflet.js':'assets/leaflet.js','/assets/leaflet.css':'assets/leaflet.css','/style.css':'style.css','/assets/courier.svg':'assets/courier.svg','/assets/route.svg':'assets/route.svg','/assets/sendrack-mark.svg':'assets/sendrack-mark.svg','/assets/courier-photo.png':'assets/courier-photo.png','/assets/Inter.ttf':'assets/Inter.ttf','/assets/Poppins-Regular.ttf':'assets/Poppins-Regular.ttf','/assets/Poppins-Medium.ttf':'assets/Poppins-Medium.ttf','/assets/Poppins-SemiBold.ttf':'assets/Poppins-SemiBold.ttf'};
    const filename=(route.startsWith('/t/')||route.startsWith('/r/')||route==='/payment-return')?'index.html':files[route];if(!filename)return send(404,{error:'Not found.'});
    const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.ttf':'font/ttf'};res.writeHead(200,{'Content-Type':types[path.extname(filename)]+'; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'web',filename)));
   }catch(e){if(!res.headersSent)send(e.status||500,{error:e.status?e.message:'The tracking service could not complete this request.'});else res.end();}

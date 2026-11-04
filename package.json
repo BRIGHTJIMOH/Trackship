@@ -1,6 +1,6 @@
 {
   "name": "sendrack",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "description": "SendRack Android pilot and customer tracking service",
   "scripts": {

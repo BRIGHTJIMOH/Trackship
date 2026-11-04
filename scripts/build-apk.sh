@@ -21,7 +21,7 @@ PYCONFIG
 fi
 "$BT/aapt2" compile --dir android/res -o build/resources.zip
 "$BT/aapt2" link -o build/resources.apk -I "$ANDROID_JAR" --manifest android/AndroidManifest.xml --java build/generated -A build/assets build/resources.zip
-java -jar "$TOOLS/ecj.jar" -source 1.8 -target 1.8 -classpath "$ANDROID_JAR" -d build/classes android/src/ng/trackship/app/*.java
+java -jar "$TOOLS/ecj.jar" -source 1.8 -target 1.8 -classpath "$ANDROID_JAR" -d build/classes android/src/ng/trackship/app/*.java build/generated/ng/trackship/app/R.java
 mapfile -t classes < <(find build/classes -name '*.class' -type f)
 "$BT/d8" --lib "$ANDROID_JAR" --min-api 26 --output build/dex "${classes[@]}"
 cp build/resources.apk build/unsigned.apk

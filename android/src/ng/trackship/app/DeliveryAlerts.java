@@ -28,7 +28,7 @@ public final class DeliveryAlerts {
   if(Build.VERSION.SDK_INT>=33&&c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return;
   android.content.SharedPreferences prefs=c.getSharedPreferences(PREF,Context.MODE_PRIVATE);Set<String> seen=new HashSet<>(prefs.getStringSet("seen",new HashSet<>()));if(seen.contains(id))return;
   NotificationManager manager=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);manager.createNotificationChannel(new NotificationChannel(CHANNEL,"New delivery offers",NotificationManager.IMPORTANCE_DEFAULT));Intent open=new Intent(c,MainActivity.class).putExtra("open-rider-alerts",true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);PendingIntent content=PendingIntent.getActivity(c,id.hashCode(),open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-  manager.notify(id.hashCode(),new Notification.Builder(c,CHANNEL).setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title).setContentText(message).setStyle(new Notification.BigTextStyle().bigText(message)).setContentIntent(content).setAutoCancel(true).build());
+  manager.notify(id.hashCode(),new Notification.Builder(c,CHANNEL).setSmallIcon(R.drawable.ic_brand_notification).setContentTitle(title).setContentText(message).setStyle(new Notification.BigTextStyle().bigText(message)).setContentIntent(content).setAutoCancel(true).build());
   if(seen.size()>200)seen.clear();seen.add(id);prefs.edit().putStringSet("seen",seen).apply();
  }
 }

@@ -1,13 +1,14 @@
 {
   "name": "sendrack",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "private": true,
   "description": "SendRack Android pilot and customer tracking service",
   "scripts": {
     "start": "node server/server.mjs",
     "test": "node --test --test-isolation=none tests/*.test.mjs",
     "test:ui": "node tests/ui.mjs",
-    "build:apk": "bash scripts/build-apk.sh"
+    "build:apk": "bash scripts/build-apk.sh",
+    "test:apk": "node tests/apk-ui.mjs"
   },
   "engines": {
     "node": ">=24"

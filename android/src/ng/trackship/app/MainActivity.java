@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
                 if (ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority())) {
                     String p=uri.getPath();
                     if (p==null || p.equals("/")) p="/index.html";
-                    if (!p.equals("/index.html")&&!p.equals("/app.js")&&!p.equals("/core.mjs")&&!p.equals("/lifecycle.mjs")&&!p.equals("/features.mjs")&&!p.equals("/config.mjs")&&!p.equals("/accounts.mjs")&&!p.equals("/identity.mjs")&&!p.equals("/style.css")&&!p.equals("/assets/courier.svg")&&!p.equals("/assets/route.svg")&&!p.equals("/assets/sendrack-mark.svg")&&!p.equals("/assets/courier-photo.png")&&!p.equals("/assets/Poppins-Regular.ttf")&&!p.equals("/assets/Inter.ttf")&&!p.equals("/assets/Poppins-Medium.ttf")&&!p.equals("/assets/Poppins-SemiBold.ttf")&&!p.equals("/assets/leaflet.js")&&!p.equals("/assets/leaflet.css"))
+                    if (!p.equals("/sendrack-entry.html")&&!p.equals("/sendrack-main.js")&&!p.equals("/sendrack-ui.css")&&!p.equals("/index.html")&&!p.equals("/app.js")&&!p.equals("/core.mjs")&&!p.equals("/lifecycle.mjs")&&!p.equals("/features.mjs")&&!p.equals("/config.mjs")&&!p.equals("/accounts.mjs")&&!p.equals("/identity.mjs")&&!p.equals("/style.css")&&!p.equals("/assets/courier.svg")&&!p.equals("/assets/route.svg")&&!p.equals("/assets/sendrack-mark.svg")&&!p.equals("/assets/courier-photo.png")&&!p.equals("/assets/Poppins-Regular.ttf")&&!p.equals("/assets/Inter.ttf")&&!p.equals("/assets/Poppins-Medium.ttf")&&!p.equals("/assets/Poppins-SemiBold.ttf")&&!p.equals("/assets/leaflet.js")&&!p.equals("/assets/leaflet.css"))
                         return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",new HashMap<>(),new ByteArrayInputStream(new byte[0]));
                     try {
                         String mime=p.endsWith(".ttf")?"font/ttf":p.endsWith(".png")?"image/png":p.endsWith(".svg")?"image/svg+xml":p.endsWith(".html")?"text/html":p.endsWith(".css")?"text/css":"text/javascript";
@@ -93,7 +93,7 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        web.loadUrl(ORIGIN+"/index.html?build="+appVersion);
+        web.loadUrl(ORIGIN+"/sendrack-entry.html?build="+appVersion);
     }
     private void openExternal(String url) {
         try {Uri u=Uri.parse(url);if("tel".equals(u.getScheme())){startActivity(new Intent(Intent.ACTION_DIAL,u));return;}if(!"https".equals(u.getScheme()))return;startActivity(new Intent(Intent.ACTION_VIEW,u));}

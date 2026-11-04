@@ -10,6 +10,10 @@ done
 mkdir -p build/classes build/dex build/assets/web artifacts
 cp web/index.html web/style.css web/app.js web/core.mjs web/lifecycle.mjs web/features.mjs web/config.mjs web/accounts.mjs web/identity.mjs build/assets/web/
 cp -R web/assets build/assets/web/
+# Distinct entry filenames avoid reusing screen files from older installed builds.
+cp web/index.html build/assets/web/sendrack-entry.html
+cp web/app.js build/assets/web/sendrack-main.js
+cp web/style.css build/assets/web/sendrack-ui.css
 if test -n "${TRACKSHIP_SERVICE_URL:-}"; then
  python3 - <<'PYCONFIG'
 import os,json,urllib.parse

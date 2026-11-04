@@ -1,96 +1,66 @@
-# SendRack · 0.5.4
+# SendRack · 0.6.0
 
-Android application and Node/SQLite backend for Nigerian vendors and delivery handlers. The design follows the supplied orange-and-white references, with original onboarding photography and local Inter/Leaflet assets.
+Android delivery app and Node backend for Nigerian vendors, riders and carriers. The app keeps the orange split-S identity, separate PIN-protected accounts, manual shipment baskets, custody handoffs and customer tracking links.
 
-## What is built
+## This update
 
-- Rotating loading logo, then direct Sign up / Log in with vendor/rider selection.
-- Separate phone accounts and PINs; saved shipments are preserved while every app restart or background return requires login. Android file selection is treated as a temporary signup interaction.
-- Account balance card below each name, with an eye to reveal/hide. Rider amounts come from the available real-delivery earnings ledger; unconnected and vendor wallet balances are unavailable, never fabricated.
-- Profile-only night mode and plain Log out. No dashboard identity shortcuts, vendor-to-rider switch, service connection form or backup controls.
-- Identity in signup: national ID/NIN card, voter’s card, international passport or driving licence for vendors and riders. Riders additionally supply NIN, residential address and emergency contact; motor vehicles require driving licence and vehicle registration. Android drafts use role-scoped Keystore encryption.
-- Intrastate/interstate shipments, manual + baskets and optional atomic CSV import, per-delivery payments, custody handoffs, OTP confirmation and per-leg earnings.
-- Area-matched rider offers, a durable notification inbox, Android scheduled background alerts, public no-signup tracking and explicit-consent real GPS sharing.
-- Details display saved package/service/date/value fields and omit absent metadata on older/CSV records.
+- Asynchronous PostgreSQL support for the hosted backend; SQLite retained for local development.
+- Render Blueprint for a Node service and managed PostgreSQL database, with a real readiness check.
+- Read-only SQLite migration preview, atomic import into an empty PostgreSQL target, row-count/checksum verification, rollback and identity-key verification.
+- Public MapTiler map configuration alongside the small OpenStreetMap pilot fallback. Map display never supplies an invented GPS fix, route or ETA.
+- The previous app package, signing identity, private origin, account/PIN storage and encrypted identity vault remain compatible. Android version code 11.
 
-## What is not live yet
+No Render resource, real charge, bank payout, SMS/email message or physical delivery journey was activated. The default APK service URL remains empty until the owner's hosting address is available. Vendor wallet funding is not implemented; its balance remains unavailable. Real customer links, remote GPS, verified payments and cross-phone accounts need the hosted backend/providers.
 
-The owner currently has no hosting or Paystack account connected. No public backend, real payment, bank payout, SMS account or identity-verification provider has been activated. Automated tests use isolated provider substitutes and a test-only browser location; they are not evidence of real provider operation.
+Public customer tracking needs no signup or SMS. Current cloud phone verification and delivery OTP still use the existing SMS compatibility flow. Email/password login, recovery and email delivery confirmation are pending before an SMS-free connected trial. No SMS provider is required by the Render Blueprint.
 
-The APK has an empty default service origin. Android signup with encrypted identity drafts, PIN login, night mode, package creation, bulk import and status-message sharing work. Public live links, remote dispatch, server identity review, recipient OTP, verified payments and cross-phone GPS require the deployed backend and connected providers. The app fails clearly when they are absent; no balances, OTPs or positions are secretly simulated.
-
-An internal payment/earnings ledger is **not regulated escrow** and does not change a provider's settlement schedule. Confirm a supported holding arrangement with the provider before promising to retain funds until delivery. Refund/dispute processing and a complete operator console are not implemented. Identity submissions are not independently verified just because they are saved. See [live setup](docs/LIVE-SETUP.md) before any real client or money trial.
-
-## Install/update
-
-The generated APK is `artifacts/SendRack-test.apk`; the repository download is `downloads/SendRack-S-Logo-v0.5.4.apk`. Android 8+ and a current System WebView are required. It uses the same package/signing identity as the earlier builds, with version code 10. Install over the old APK to retain profiles/shipments; do not uninstall, because unsynced records and encrypted ID drafts would be lost.
-
-Earlier manual shipments remain readable but are identified as legacy records. New shipments use the funded custody workflow. See [phone testing](docs/TEST-ON-YOUR-PHONE.md).
-
-## Development
-
-Prerequisites: Node 24 (built-in SQLite), Java 21 runtime and keytool, Python 3, Bash/curl; Chromium for UI tests.
+## Use
 
 ```sh
-cd /workspace/Trackship
 npm ci
 npm test
 npm run test:ui
 npm start
 ```
 
-The service binds `127.0.0.1:3000`. `GET /api/health` returns `{"service":"trackship-ng","version":"0.5.4"}`. `GET /api/capabilities` reports connected providers. Test runners need permission for temporary local sockets and Chromium in restricted environments. Tests use temporary databases and injected transports only; production has no fake-provider switch.
+Use Node 24. SQLite development data is kept in `.data/trackship.sqlite`; do not commit or expose it. `NODE_ENV=production` requires `DATABASE_URL` and never silently falls back to SQLite. See `.env.example` for non-secret settings. The server preserves the `trackship-ng` health identifier and existing TRACKSHIP_* configuration names for compatibility.
 
 ```sh
-bash scripts/setup-android.sh
-npm run build:apk
-# After a real backend has been deployed:
-TRACKSHIP_SERVICE_URL=https://YOUR-SERVICE npm run build:apk
+# With a disposable local PostgreSQL database selected privately:
+npm run test:postgres
+# With the production PostgreSQL connection selected privately:
+npm run db:check
+# Read-only preview of an existing backend SQLite file:
+npm run db:import -- /private/path/trackship.sqlite
+# Import into an empty target with the ORIGINAL identity encryption key configured:
+npm run db:import -- /private/path/trackship.sqlite --apply
 ```
 
-The build compiles Java, bundles offline web assets, generates DEX, aligns/signs the APK and verifies its signature. `/workspace/toolchains` holds checksum-verified SDK/compiler files. Preserve `/workspace/trackship-signing/test.keystore` for update compatibility; do not commit it. The build-time service origin is public configuration, never a credential. Provider and encryption secrets must not be bundled into the APK.
+The importer preserves accounts, customer links, sessions/token hashes, shipment histories, payment rows, proofs, encrypted documents and earnings. It refuses unknown source tables, occupied targets and incorrect identity keys. Stop writes to the old backend during cutover and preserve a consistent backup. Its in-memory snapshot is intended for pilot-size data.
 
-## Backend activation
+## Hosting and live GPS
 
-`render.yaml` prepares a Node 24 service with persistent disk. The selected Starter service/storage are paid resources requiring owner review and account activation; nothing is deployed automatically. See [activation instructions](docs/LIVE-SETUP.md) for Render, Paystack, Termii, webhook settings, identity encryption and payout gates. The optional Dockerfile is another deployment recipe, not a tested deployment.
+Read [Render/PostgreSQL setup](docs/RENDER-POSTGRES.md) and [live tracking](docs/LIVE-TRACKING.md). The Blueprint selects paid web/database plans that the owner must review before applying. Render supplies a private database connection; external PostgreSQL connections require verified TLS. Keep database, payment and identity secrets out of chat, source control and APKs.
 
-| Setting | Purpose |
-| --- | --- |
-| `HOST`, `PORT` | Bind address and HTTP port behind HTTPS termination |
-| `DATA_DIR` | Durable private SQLite storage directory |
-| `ALLOWED_ORIGINS` | Includes `https://appassets.trackship.ng` |
-| `TRACKSHIP_PUBLIC_URL` | Public HTTPS origin; Render can supply `RENDER_EXTERNAL_URL` instead |
-| `PAYSTACK_SECRET_KEY` | Private provider key; start with test mode |
-| `TERMII_API_KEY`, `TERMII_SENDER_ID` | SMS provider connection and approved sender |
-| `TRACKSHIP_IDENTITY_KEY` | At least 32 high-entropy characters, or 64 hex characters; preserve separately |
-| `TRACKSHIP_ADMIN_TOKEN` | Private operator identity-review credential |
-| `TRACKSHIP_ENABLE_PAYOUTS` | `false` by default; requires identity approval and provider activation |
+The current holder's phone supplies real GPS after explicit consent; customer links poll every five seconds. Fresh positions are shown, old positions expire after two minutes, and accepted custody transfers clear the previous holder's location. Every interstate handler must share their own phone location for continuous coverage. A parcel separated from the tracked phone needs an independent GPS device to be located.
 
-The database, keys, sign-in sessions and backups are private. Do not expose them as static files. Identity details are AES-256-GCM encrypted server-side and excluded from normal client profiles/backups/public tracking. Historical backup files may include session/dispatch capabilities and customer data; protect them. Backup controls have been removed from the app interface.
+`PUBLIC_MAPTILER_KEY` is an intentionally browser-visible, origin-restricted display key. Use a suitable map plan for scale. Google Maps billing is not required for this implementation. Test actual Android permissions, backgrounding, battery restrictions and a real route before demonstrating live tracking.
 
-## Layout
+PostgreSQL reads have a separate pool. Mutations use a conservative shared advisory lock while the pilot's JSON records are updated; external-provider latency limits write throughput. Before high-volume use, introduce per-shipment row locking/normalized tables and outbox processing with load tests.
 
-- `web/`: app/customer UI, delivery rules, bulk parsing, map and feature views.
-- `android/`: WebView shell, share/file/dial integration and explicit-consent foreground GPS service.
-- `server/`: legacy API compatibility, funded custody/payment/OTP/identity/earnings operations and real provider adapters.
-- `tests/`: regression, full custody/financial invariants and multi-device browser flows with test-only providers.
-- `scripts/`: toolchain setup and reproducible APK build.
-- `docs/`: test guide, activation prerequisites, assets and [validation limits](docs/VALIDATION.md).
+## APK
 
-## Accounts, identity and delivery alerts
+Build with Java 21, Python and the prepared Android toolchain:
 
-Sign up and Log in are separate entry points. Each role/phone has its own profile, PIN, shipments and session. Dashboard role switching is removed; change roles only after logging out. Vendor logout revokes its connected session and leaves independent riders operating. SMS login on a new phone restores the same cloud account/history when the service and SMS provider are configured. The PIN is a salted PBKDF2 device lock; five incorrect attempts cause a five-minute lockout. There is no local forgotten-PIN reset.
+```sh
+npm run build:apk
+# After the backend HTTPS address is known:
+TRACKSHIP_SERVICE_URL=https://YOUR-SERVICE npm run build:apk
+npm run test:apk
+```
 
-App backgrounding/restarting locks dashboard access, resets navigation and hides balances without deleting saved shipments or revoking an active delivery's provider session. Android's document picker is exempt so signup can attach an ID photo. Explicit Log out separately revokes the current service session when reachable. Offline logout cannot immediately revoke a remote session. Native lifecycle behavior must be tested on a physical phone.
+Output: `artifacts/SendRack-test.apk`. Repository download: `downloads/SendRack-v0.6.0.apk`. Install over the old app; uninstalling loses unsynced records and identity drafts. Preserve the existing signing key privately. The signed-APK UI check loads the bundled screen files and checks the split-S, current version, PIN migration and a retained shipment.
 
-Identity numbers/photos, NIN, licence, registration and home address are excluded from browser profiles and historical backups. Android stores an unsynced draft encrypted, separately for each role/phone; uninstall removes it. Hosted identity submissions are AES-GCM encrypted and require operator review. A submission is not an independent validity check. Legacy ID drafts without the newly required fields must be updated.
+## Financial and identity limits
 
-Offers match the registered pickup city/state/community, identity submission and active-job capacity. There is no online/offline toggle. This is service-area matching, not measured GPS proximity. The visible inbox polls every ten seconds; Android background checks have a minimum fifteen-minute schedule and can be delayed by the OS. Instant Firebase push is not configured. Optional job SMS defaults off (`TRACKSHIP_SEND_JOB_SMS=false`); `TRACKSHIP_RIDER_CAPACITY` defaults to 5.
-
-The product was renamed from TrackShip NG to SendRack in 0.5.1. The Android package, signing key, private storage keys, database filename, native bridge, API service identifier and existing TRACKSHIP_* deployment settings remain compatible so installed profiles, PINs, encrypted ID drafts and shipments can be retained. The repository remains BRIGHTJIMOH/Trackship.
-
-Version 0.5.2 refreshes WebView cached assets on upgrade, disables screen resource caching, uses versioned entry resources and shows SendRack · v0.5.4 on the login screen. It does not clear localStorage, profiles, PINs, shipments or encrypted identity drafts. Physical Android confirmation of the reported stale-screen issue remains required.
-
-Version 0.5.3 introduces the SendRack split-S route mark across app headers, loading screen, browser icon, Android launcher and notification icons. Editable SVG exports are in `downloads/SendRack-logo/`. The UI and native Android assets share the same path geometry.
-
-Version 0.5.4 loads the app through fresh SendRack HTML/JavaScript/CSS entry names and places the version badge beside the login wordmark. `npm run test:apk` boots the actual signed APK web assets with an older saved account and checks the new logo and retained shipments. This does not substitute for physical Android confirmation.
+A payment/earnings ledger is not regulated escrow and does not alter Paystack settlement timing. Obtain a provider-supported holding arrangement before promising release-after-delivery. Payouts stay disabled until provider activation, approved rider identity and verified payout-account setup. Refund/dispute/reconciliation operations need review before real-money use. Identity uploads are encrypted submissions for review, not independent government verification. See [validation](docs/VALIDATION.md).

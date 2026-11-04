@@ -5,3 +5,8 @@ artifacts/
 *.keystore
 *.jks
 .env
+
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*

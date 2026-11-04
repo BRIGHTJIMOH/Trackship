@@ -72,7 +72,7 @@ public class MainActivity extends Activity {
                         headers.put("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");
                         headers.put("Pragma","no-cache");
                         headers.put("Expires","0");
-                        headers.put("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https:; img-src 'self' data: https://tile.openstreetmap.org; frame-src 'none'; object-src 'none'; base-uri 'none'");
+                        headers.put("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https:; img-src 'self' data: https://tile.openstreetmap.org https://api.maptiler.com; frame-src 'none'; object-src 'none'; base-uri 'none'");
                         return new WebResourceResponse(mime,"UTF-8",200,"OK",headers,getAssets().open("web"+p));
                     } catch (Exception e) {return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));}
                 }

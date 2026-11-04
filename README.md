@@ -1,31 +1,29 @@
-# TrackShip NG · 0.4.0
+# TrackShip NG · 0.5.0
 
 Android application and Node/SQLite backend for Nigerian vendors and delivery handlers. The design follows the supplied orange-and-white references, with original onboarding photography and local Inter/Leaflet assets.
 
 ## What is built
 
-- Inter typography, dashboard/profile logout, a PBKDF2-hashed six-digit app PIN to unlock saved device workspaces, and rider-session revocation. Logout stops tracking and preserves shipments.
-- Vendor/rider local onboarding, prominent rider entry point, personalized dashboards and persistent night mode.
-- Intrastate and interstate shipments, agreed delivery fee and interstate leg allocations.
-- Manual + shipment baskets and atomic CSV import of up to 100 deliveries, history/search/type/status filters and account-scoped backups.
-- Hosted payment checkout with server-side verification, signed webhooks and idempotent payment references.
-- Pickup acceptance distinct from physical collection; carrier and last-mile handoff requests/acceptance.
-- SMS-verified rider sign-on, encrypted identity submission, protected identity review and payout prerequisites.
-- Recipient SMS OTP with expiration/attempt limits and exactly-once delivery completion/earnings.
-- Per-leg earnings ledger, explicit test/live distinction, account resolution and gated provider transfers.
-- Public customer tracking without signup, fresh GPS map points, no invented ETA/distance, and an Android foreground location service with visible stop control.
+- Rotating loading logo, then direct Sign up / Log in with vendor/rider selection.
+- Separate phone accounts and PINs; saved shipments are preserved while every app restart or background return requires login. Android file selection is treated as a temporary signup interaction.
+- Account balance card below each name, with an eye to reveal/hide. Rider amounts come from the available real-delivery earnings ledger; unconnected and vendor wallet balances are unavailable, never fabricated.
+- Profile-only night mode and plain Log out. No dashboard identity shortcuts, vendor-to-rider switch, service connection form or backup controls.
+- Identity in signup: national ID/NIN card, voter’s card, international passport or driving licence for vendors and riders. Riders additionally supply NIN, residential address and emergency contact; motor vehicles require driving licence and vehicle registration. Android drafts use role-scoped Keystore encryption.
+- Intrastate/interstate shipments, manual + baskets and optional atomic CSV import, per-delivery payments, custody handoffs, OTP confirmation and per-leg earnings.
+- Area-matched rider offers, a durable notification inbox, Android scheduled background alerts, public no-signup tracking and explicit-consent real GPS sharing.
+- Details display saved package/service/date/value fields and omit absent metadata on older/CSV records.
 
 ## What is not live yet
 
 The owner currently has no hosting or Paystack account connected. No public backend, real payment, bank payout, SMS account or identity-verification provider has been activated. Automated tests use isolated provider substitutes and a test-only browser location; they are not evidence of real provider operation.
 
-The APK has an empty default service origin. Phone-only profile setup, night mode, package creation, bulk import and status-message sharing work. Public live links, remote dispatch, secure identity submission, recipient OTP, verified payments and cross-phone GPS require the deployed backend and connected providers. The app fails clearly when they are absent; no balances, OTPs or positions are secretly simulated.
+The APK has an empty default service origin. Android signup with encrypted identity drafts, PIN login, night mode, package creation, bulk import and status-message sharing work. Public live links, remote dispatch, server identity review, recipient OTP, verified payments and cross-phone GPS require the deployed backend and connected providers. The app fails clearly when they are absent; no balances, OTPs or positions are secretly simulated.
 
 An internal payment/earnings ledger is **not regulated escrow** and does not change a provider's settlement schedule. Confirm a supported holding arrangement with the provider before promising to retain funds until delivery. Refund/dispute processing and a complete operator console are not implemented. Identity submissions are not independently verified just because they are saved. See [live setup](docs/LIVE-SETUP.md) before any real client or money trial.
 
 ## Install/update
 
-The generated APK is `artifacts/TrackShip-NG-test.apk`; the repository download is `downloads/TrackShip-NG-v0.4.0.apk`. Android 8+ and a current System WebView are required. It uses the same package/signing identity as the earlier builds, with version code 5. Install over the old APK to retain profiles/shipments; do not uninstall without exporting a backup.
+The generated APK is `artifacts/TrackShip-NG-test.apk`; the repository download is `downloads/TrackShip-NG-v0.5.0.apk`. Android 8+ and a current System WebView are required. It uses the same package/signing identity as the earlier builds, with version code 6. Install over the old APK to retain profiles/shipments; do not uninstall, because unsynced records and encrypted ID drafts would be lost.
 
 Earlier manual shipments remain readable but are identified as legacy records. New shipments use the funded custody workflow. See [phone testing](docs/TEST-ON-YOUR-PHONE.md).
 
@@ -41,7 +39,7 @@ npm run test:ui
 npm start
 ```
 
-The service binds `127.0.0.1:3000`. `GET /api/health` returns `{"service":"trackship-ng","version":"0.4.0"}`. `GET /api/capabilities` reports connected providers. Test runners need permission for temporary local sockets and Chromium in restricted environments. Tests use temporary databases and injected transports only; production has no fake-provider switch.
+The service binds `127.0.0.1:3000`. `GET /api/health` returns `{"service":"trackship-ng","version":"0.5.0"}`. `GET /api/capabilities` reports connected providers. Test runners need permission for temporary local sockets and Chromium in restricted environments. Tests use temporary databases and injected transports only; production has no fake-provider switch.
 
 ```sh
 bash scripts/setup-android.sh
@@ -68,7 +66,7 @@ The build compiles Java, bundles offline web assets, generates DEX, aligns/signs
 | `TRACKSHIP_ADMIN_TOKEN` | Private operator identity-review credential |
 | `TRACKSHIP_ENABLE_PAYOUTS` | `false` by default; requires identity approval and provider activation |
 
-The database, keys, sign-in sessions and backups are private. Do not expose them as static files. Identity details are AES-256-GCM encrypted server-side and excluded from normal client profiles/backups/public tracking. Backups still include session/dispatch capabilities and customer data; protect them.
+The database, keys, sign-in sessions and backups are private. Do not expose them as static files. Identity details are AES-256-GCM encrypted server-side and excluded from normal client profiles/backups/public tracking. Historical backup files may include session/dispatch capabilities and customer data; protect them. Backup controls have been removed from the app interface.
 
 ## Layout
 
@@ -81,10 +79,10 @@ The database, keys, sign-in sessions and backups are private. Do not expose them
 
 ## Accounts, identity and delivery alerts
 
-Sign up and Log in are separate entry points. Each role/phone has its own profile, PIN, shipments and session. Vendor logout revokes its connected session and leaves the rider account operating independently. SMS login on a new phone restores the same cloud account/history when the service and SMS provider are configured. The local PIN is a salted PBKDF2 device lock, not cloud authentication; keep a private backup. Offline logout cannot immediately revoke a remote session.
+Sign up and Log in are separate entry points. Each role/phone has its own profile, PIN, shipments and session. Dashboard role switching is removed; change roles only after logging out. Vendor logout revokes its connected session and leaves independent riders operating. SMS login on a new phone restores the same cloud account/history when the service and SMS provider are configured. The PIN is a salted PBKDF2 device lock; five incorrect attempts cause a five-minute lockout. There is no local forgotten-PIN reset.
 
-The header has a visible Night/Day button. Vendors can build a shipment basket using **+ Add another shipment**; CSV import remains optional. Backups include only the current account, with private customer data and access capabilities that must be protected.
+App backgrounding/restarting locks dashboard access, resets navigation and hides balances without deleting saved shipments or revoking an active delivery's provider session. Android's document picker is exempt so signup can attach an ID photo. Explicit Log out separately revokes the current service session when reachable. Offline logout cannot immediately revoke a remote session. Native lifecycle behavior must be tested on a physical phone.
 
-All riders, including bicycle riders, must submit a government ID number and front photo, residential address and emergency contact. Motor-vehicle riders also supply a driving licence. Android can keep an unsynced draft encrypted with Android Keystore; drafts are excluded from backups and lost on uninstall. Server identity submissions are encrypted and require operator review; saving is not independent identity verification.
+Identity numbers/photos, NIN, licence, registration and home address are excluded from browser profiles and historical backups. Android stores an unsynced draft encrypted, separately for each role/phone; uninstall removes it. Hosted identity submissions are AES-GCM encrypted and require operator review. A submission is not an independent validity check. Legacy ID drafts without the newly required fields must be updated.
 
-Riders receive offers matched to their registered pickup city/state/community, identity submission and active-job capacity. There is no online/offline toggle. This is service-area matching, not measured GPS proximity. The visible inbox polls every ten seconds; Android checks in the background on a minimum fifteen-minute schedule that the OS may delay. Instant Firebase push is not configured. Optional job SMS is disabled by default (`TRACKSHIP_SEND_JOB_SMS=false`); enable only after reviewing provider costs. `TRACKSHIP_RIDER_CAPACITY` defaults to 5.
+Offers match the registered pickup city/state/community, identity submission and active-job capacity. There is no online/offline toggle. This is service-area matching, not measured GPS proximity. The visible inbox polls every ten seconds; Android background checks have a minimum fifteen-minute schedule and can be delayed by the OS. Instant Firebase push is not configured. Optional job SMS defaults off (`TRACKSHIP_SEND_JOB_SMS=false`); `TRACKSHIP_RIDER_CAPACITY` defaults to 5.

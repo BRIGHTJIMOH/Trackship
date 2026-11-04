@@ -27,6 +27,7 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
     private String pendingBackup;
     private Intent pendingTracking;
+    private boolean documentFlow=false,needsReauth=false;
     private static final int GPS_PERMISSION=15,ALERT_PERMISSION=16;
     private static final String ORIGIN = "https://appassets.trackship.ng";
     private static final int OPEN_BACKUP = 10, SAVE_BACKUP = 11;
@@ -57,7 +58,7 @@ public class MainActivity extends Activity {
                 if (ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority())) {
                     String p=uri.getPath();
                     if (p==null || p.equals("/")) p="/index.html";
-                    if (!p.equals("/index.html")&&!p.equals("/app.js")&&!p.equals("/core.mjs")&&!p.equals("/lifecycle.mjs")&&!p.equals("/features.mjs")&&!p.equals("/config.mjs")&&!p.equals("/accounts.mjs")&&!p.equals("/style.css")&&!p.equals("/assets/courier.svg")&&!p.equals("/assets/route.svg")&&!p.equals("/assets/courier-photo.png")&&!p.equals("/assets/Poppins-Regular.ttf")&&!p.equals("/assets/Inter.ttf")&&!p.equals("/assets/Poppins-Medium.ttf")&&!p.equals("/assets/Poppins-SemiBold.ttf")&&!p.equals("/assets/leaflet.js")&&!p.equals("/assets/leaflet.css"))
+                    if (!p.equals("/index.html")&&!p.equals("/app.js")&&!p.equals("/core.mjs")&&!p.equals("/lifecycle.mjs")&&!p.equals("/features.mjs")&&!p.equals("/config.mjs")&&!p.equals("/accounts.mjs")&&!p.equals("/identity.mjs")&&!p.equals("/style.css")&&!p.equals("/assets/courier.svg")&&!p.equals("/assets/route.svg")&&!p.equals("/assets/courier-photo.png")&&!p.equals("/assets/Poppins-Regular.ttf")&&!p.equals("/assets/Inter.ttf")&&!p.equals("/assets/Poppins-Medium.ttf")&&!p.equals("/assets/Poppins-SemiBold.ttf")&&!p.equals("/assets/leaflet.js")&&!p.equals("/assets/leaflet.css"))
                         return new WebResourceResponse("text/plain","UTF-8",404,"Not Found",new HashMap<>(),new ByteArrayInputStream(new byte[0]));
                     try {
                         String mime=p.endsWith(".ttf")?"font/ttf":p.endsWith(".png")?"image/png":p.endsWith(".svg")?"image/svg+xml":p.endsWith(".html")?"text/html":p.endsWith(".css")?"text/css":"text/javascript";
@@ -79,7 +80,7 @@ public class MainActivity extends Activity {
                 if(fileCallback!=null)fileCallback.onReceiveValue(null);
                 fileCallback=callback;
                 Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.addCategory(Intent.CATEGORY_OPENABLE);
-                try {startActivityForResult(i,OPEN_BACKUP);}catch(Exception e){fileCallback.onReceiveValue(null);fileCallback=null;}
+                try {documentFlow=true;startActivityForResult(i,OPEN_BACKUP);}catch(Exception e){fileCallback.onReceiveValue(null);fileCallback=null;documentFlow=false;}
                 return true;
             }
         });
@@ -104,6 +105,10 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void stopTracking(){runOnUiThread(()->stopService(new Intent(MainActivity.this,TrackingService.class)));}
         @JavascriptInterface public boolean isTracking(){return getSharedPreferences("trackship-gps",MODE_PRIVATE).getBoolean("active",false);}
+        private boolean validIdentityAccount(String role,String phone){return role!=null&&role.matches("vendor|rider")&&phone!=null&&phone.matches("0[789][0-9]{9}");}
+        @JavascriptInterface public boolean saveAccountIdentity(String role,String phone,String json){return validIdentityAccount(role,phone)&&new IdentityVault(MainActivity.this).save(role+":"+phone,json);}
+        @JavascriptInterface public String loadAccountIdentity(String role,String phone){if(!validIdentityAccount(role,phone))return null;IdentityVault vault=new IdentityVault(MainActivity.this);String value=vault.load(role+":"+phone);return value==null&&role.equals("rider")?vault.load(phone):value;}
+        @JavascriptInterface public void clearAccountIdentity(String role,String phone){if(validIdentityAccount(role,phone)){IdentityVault vault=new IdentityVault(MainActivity.this);vault.remove(role+":"+phone);if(role.equals("rider"))vault.remove(phone);}}
         @JavascriptInterface public boolean saveIdentity(String phone,String json){return new IdentityVault(MainActivity.this).save(phone,json);}
         @JavascriptInterface public boolean hasIdentity(String phone){return new IdentityVault(MainActivity.this).exists(phone);}
         @JavascriptInterface public String loadIdentity(String phone){return new IdentityVault(MainActivity.this).load(phone);}
@@ -122,8 +127,18 @@ public class MainActivity extends Activity {
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==GPS_PERMISSION){if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED)beginTracking();else{pendingTracking=null;Toast.makeText(this,"Location permission is needed to share your delivery position.",Toast.LENGTH_LONG).show();}}}
     @Override protected void onActivityResult(int request,int result,Intent intent) {
         super.onActivityResult(request,result,intent);
+        documentFlow=false;
         if(request==OPEN_BACKUP&&fileCallback!=null){fileCallback.onReceiveValue(result==RESULT_OK&&intent!=null&&intent.getData()!=null?new Uri[]{intent.getData()}:null);fileCallback=null;}
         if(request==SAVE_BACKUP){if(result==RESULT_OK&&intent!=null&&intent.getData()!=null&&pendingBackup!=null){try(OutputStream out=getContentResolver().openOutputStream(intent.getData())){out.write(pendingBackup.getBytes(StandardCharsets.UTF_8));Toast.makeText(this,"Backup saved. Keep this file private.",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"Could not save backup.",Toast.LENGTH_LONG).show();}}pendingBackup=null;}
+    }
+    @Override protected void onStop(){
+        if(web!=null&&!documentFlow){needsReauth=true;web.setVisibility(View.INVISIBLE);web.evaluateJavascript("window.TrackShipLock?.()",null);}
+        super.onStop();
+    }
+    @Override protected void onStart(){
+        super.onStart();
+        if(web!=null&&needsReauth){needsReauth=false;web.evaluateJavascript("window.TrackShipLock?.()",value->{if(web!=null)web.setVisibility(View.VISIBLE);});}
+        else if(web!=null)web.setVisibility(View.VISIBLE);
     }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(web!=null&&intent.getBooleanExtra("open-rider-alerts",false)){intent.removeExtra("open-rider-alerts");web.evaluateJavascript("window.TrackShipOpenAlerts?.()",null);}}
     @Override public void onBackPressed(){web.evaluateJavascript("window.TrackShipBack?.()",null);}

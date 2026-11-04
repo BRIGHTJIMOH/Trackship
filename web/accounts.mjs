@@ -17,3 +17,6 @@ export function migrateDeviceAccounts(data){
  delete next.deviceLock;delete next.riderAvailable;return next;
 }
 export function exportCurrentAccount(data){const saved=stashAccount(data),role=data.activeRole,profile=data.accounts?.[role];if(!role||!profile)throw new Error('Log in before exporting your account.');const key=accountKey(role,profile.phone);return {...saved,accounts:{vendor:role==='vendor'?profile:null,rider:role==='rider'?profile:null},deviceAccounts:{[key]:saved.deviceAccounts[key]},roleLocks:{[role]:saved.roleLocks?.[role]||null},shipments:role==='vendor'?data.shipments:[],connection:role==='vendor'?data.connection:null,profile:role==='vendor'?data.profile:{name:'',phone:''},riderJobs:role==='rider'?data.riderJobs:[],riderConnection:role==='rider'?data.riderConnection:null};}
+
+// Reauthentication preserves records and scoped service credentials, never an open dashboard.
+export function lockDeviceAccounts(data){const saved=stashAccount(data);return {...saved,lastRole:saved.activeRole||saved.lastRole||null,activeRole:null,activeAccountKey:null,connection:null,riderConnection:null,shipments:[],riderJobs:[],shipmentBasket:[],profile:{name:'',phone:''}};}

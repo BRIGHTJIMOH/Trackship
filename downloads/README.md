@@ -1,34 +1,25 @@
-# Try TrackShip NG 0.4.0
+# Try TrackShip NG 0.5.0
 
-Install this APK over your existing TrackShip build; the package name and signing identity are unchanged. Do not uninstall unless you first export a backup. Your existing shipments/profiles are retained.
+Install this APK over your existing TrackShip app. The package and signing identity are unchanged. Do not uninstall: that removes unsynced shipments and encrypted identity drafts.
 
-## What you can test immediately
+## Corrections to check
 
-- Choose **Sign up** for a new profile or **Log in** for a saved account; vendor and rider accounts have separate PINs and records.
-- **Log out** fully exits either dashboard. The other role keeps its own saved account.
-- Use the visible **Night/Day** button in the dashboard header.
-- Create a shipment, then tap **+ Add another shipment** to build a basket without CSV. Review and create the basket together.
-- Rider onboarding asks for government ID, including for bicycles; motor riders also need a driving licence. No vehicle-registration substitute or online/offline toggle remains.
-- Android saves unsynced identity drafts encrypted; these drafts are not included in backups. Saving a draft does not verify identity.
-- Profile exports/restores a private backup for the current account only.
+1. Open the app: a rotating TrackShip logo leads directly to Sign up / Log in. There are no introduction slides.
+2. Log in using your saved role, phone and six-digit PIN. Existing shipments stay saved. Minimizing or closing the app requires login again; it returns to Home after login.
+3. Vendor and rider Home show Account balance below the name. Use the eye to hide/show it. Unavailable balances are labelled; no funds are invented. Vendor wallet funding is not active.
+4. Open Profile for Night mode, identity updates and a plain Log out. There are no backup/service connection controls or role-switch shortcuts inside a vendor dashboard.
+5. New vendor signup includes government ID and address, including national ID/NIN card, voter’s card, international passport or driving licence.
+6. New rider signup includes government ID/photo, NIN, residential address and emergency contact. Motor riders also enter their driving licence and vehicle registration. Bicycles do not need motor documents.
+7. Create packages with size, description, optional declared value/date, delivery service and fees. Details show saved information; absent fields on older/CSV shipments are omitted. Use + Add another shipment to create a manual basket.
 
-## What needs the hosted service and provider accounts
-
-Public customer links, secure phone sign-on, encrypted identity submission, delivery OTP, verified payments, remote custody handoffs, cross-phone live GPS and bank payouts need the activated backend. None is secretly simulated in the APK. The owner currently has no Render/Paystack accounts; see `docs/LIVE-SETUP.md` for those prerequisites.
-
-The rider can prepare an encrypted identity draft on Android and submit it after secure server sign-on. The app does not save those fields to its local profile or backup, and does not claim they are verified merely because they were submitted.
+Documents stay private. Android keeps unsynced identity drafts encrypted, outside app profiles and backup files. Submitting identity is not automatic verification. Do not use somebody else's real documents for testing.
 
 ## Connected delivery flow
 
-1. Vendor creates and pays for a synced shipment.
-2. Vendor shares the customer tracking URL. Eligible riders in the registered pickup area receive an offer; private dispatch links remain available for handoffs.
-3. Rider verifies their own account, submits identity details and accepts a funded nearby offer. Vendor can be logged out.
-4. Accept delivery → customer sees rider acceptance while custody remains with the vendor.
-5. Confirm collection → custody becomes the pickup rider’s. They can explicitly start GPS sharing.
-6. Intrastate: start delivery. Interstate: offer to carrier → carrier accepts → starts journey → confirms arrival → offers to last-mile rider → last-mile rider accepts → starts final delivery.
-7. The final rider requests the recipient’s OTP after reaching the customer. The customer reads it out only after receiving the parcel.
-8. Correct OTP completes the delivery and records each handler’s earnings exactly once. Test-mode credits are marked as test credits and are not withdrawable.
+Hosting, merchant and SMS accounts are still not activated. Public tracking links, cross-phone SMS login, payments, recipient OTP, rider matching/notifications, server identity review, bank payouts and remote GPS need the hosted service/providers. The app does not simulate them.
 
-GPS has a visible Android notification and Stop action. A fresh position is shown to vendor/customer; stale positions are hidden. Native location permissions/background operation still require a physical-device check. No measured ETA is invented.
+With the service configured: the vendor creates and pays for each shipment; eligible riders see area offers and can accept even while the vendor is logged out. Acceptance differs from collection. Interstate parcels pass through carrier and last-mile handoffs. The final rider requests the customer OTP after handing over the parcel; correct OTP completes the delivery and records earnings once. Test credits are clearly labelled and cannot be withdrawn.
 
-Area notifications require the hosted service. The open inbox refreshes every ten seconds; Android background checks run at least fifteen minutes apart and can be delayed by the OS. Instant push is not configured.
+An internal ledger is not regulated escrow or a bank balance. Provider-supported holding and financial operations must be arranged before any live-money demonstration.
+
+The open notification inbox refreshes every ten seconds; Android background checks are at least fifteen minutes apart and may be delayed. Real GPS has a visible stop notification. Physical-phone installation, minimize/reopen, ID photo selection, notifications and GPS still need device checks.

@@ -35,7 +35,7 @@ public class TrackingService extends Service implements LocationListener {
         Intent open=new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent stopIntent=PendingIntent.getService(this,11,stop,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         PendingIntent openIntent=PendingIntent.getActivity(this,12,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        return new Notification.Builder(this,CHANNEL).setSmallIcon(android.R.drawable.ic_menu_mylocation).setContentTitle("TrackShip · delivery GPS is on").setContentText(message).setContentIntent(openIntent).setOngoing(true).addAction(new Notification.Action.Builder(android.R.drawable.ic_media_pause,"Stop sharing",stopIntent).build()).build();
+        return new Notification.Builder(this,CHANNEL).setSmallIcon(android.R.drawable.ic_menu_mylocation).setContentTitle("SendRack · delivery GPS is on").setContentText(message).setContentIntent(openIntent).setOngoing(true).addAction(new Notification.Action.Builder(android.R.drawable.ic_media_pause,"Stop sharing",stopIntent).build()).build();
     }
     @Override public int onStartCommand(Intent intent,int flags,int startId){
         if(intent==null||STOP.equals(intent.getAction())){stopSelf();return START_NOT_STICKY;}

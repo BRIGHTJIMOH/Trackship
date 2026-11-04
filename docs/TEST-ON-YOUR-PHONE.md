@@ -1,10 +1,10 @@
-# Try TrackShip NG 0.5.0
+# Try SendRack 0.5.1
 
-Install this APK over your existing TrackShip app. The package and signing identity are unchanged. Do not uninstall: that removes unsynced shipments and encrypted identity drafts.
+Install this APK over your existing SendRack app. The package and signing identity are unchanged. Do not uninstall: that removes unsynced shipments and encrypted identity drafts.
 
 ## Corrections to check
 
-1. Open the app: a rotating TrackShip logo leads directly to Sign up / Log in. There are no introduction slides.
+1. Open the app: a rotating SendRack logo leads directly to Sign up / Log in. There are no introduction slides.
 2. Log in using your saved role, phone and six-digit PIN. Existing shipments stay saved. Minimizing or closing the app requires login again; it returns to Home after login.
 3. Vendor and rider Home show Account balance below the name. Use the eye to hide/show it. Unavailable balances are labelled; no funds are invented. Vendor wallet funding is not active.
 4. Open Profile for Night mode, identity updates and a plain Log out. There are no backup/service connection controls or role-switch shortcuts inside a vendor dashboard.

@@ -41,7 +41,7 @@ export function createApp({providers,env=process.env,dataDir=process.env.DATA_DI
    if(req.method==='OPTIONS'){res.writeHead(allowed.has(origin)?204:403);res.end();return;}
    if(!rate(req,'all',300))return send(429,{error:'Too many requests. Try again in a minute.'});
    if(await advanced(req,res,url,send))return;
-   if(route==='/api/health'&&req.method==='GET')return send(200,{service:'trackship-ng',version:'0.5.0'});
+   if(route==='/api/health'&&req.method==='GET')return send(200,{service:'trackship-ng',version:'0.5.1'});
    if(route==='/api/workspaces'&&req.method==='POST'){
     if(!rate(req,'register',5))return send(429,{error:'Too many new connections. Try again in a minute.'});
     await body(req);const token=randomBytes(32).toString('hex');db.prepare('INSERT INTO workspaces(token_hash,created_at) VALUES (?,?)').run(hash(token),new Date().toISOString());return send(201,{token});
@@ -94,6 +94,6 @@ export function createApp({providers,env=process.env,dataDir=process.env.DATA_DI
  server.on('close',()=>db.close());return server;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- const server=createApp();const port=Number(process.env.PORT||3000);server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log(`TrackShip service listening on port ${port}`));
+ const server=createApp();const port=Number(process.env.PORT||3000);server.listen(port,process.env.HOST||'127.0.0.1',()=>console.log(`SendRack service listening on port ${port}`));
  for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>server.close(()=>process.exit(0)));
 }

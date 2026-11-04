@@ -1,6 +1,6 @@
 # Visual assets
 
-The orange/white palette, rounded cards, pill navigation, shipment summary, timeline, stepped package flow, monochrome onboarding and typography follow the UI references supplied by the user. App branding remains TrackShip NG rather than the reference product's name.
+The orange/white palette, rounded cards, pill navigation, shipment summary, timeline, stepped package flow, monochrome onboarding and typography follow the UI references supplied by the user. App branding remains SendRack rather than the reference product's name.
 
 - `web/assets/courier-photo.png`: original AI-generated onboarding photograph made for this app, 3 November 2026. No external person identity or product branding was requested.
 - `web/assets/courier.svg` and `route.svg`: original vector assets created for this app.

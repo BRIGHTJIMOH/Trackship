@@ -39,7 +39,7 @@ if ! test -f "$KEY_DIR/test.keystore"; then
  keytool -genkeypair -keystore "$KEY_DIR/test.keystore" -storepass android -keypass android -alias trackship-test -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=TrackShip NG Test, O=TrackShip NG, C=NG" -noprompt
  chmod 600 "$KEY_DIR/test.keystore"
 fi
-"$BT/apksigner" sign --ks "$KEY_DIR/test.keystore" --ks-key-alias trackship-test --ks-pass pass:android --key-pass pass:android --out artifacts/TrackShip-NG-test.apk build/aligned.apk
-"$BT/apksigner" verify --verbose artifacts/TrackShip-NG-test.apk
-sha256sum artifacts/TrackShip-NG-test.apk > artifacts/TrackShip-NG-test.apk.sha256
-printf 'Test APK: artifacts/TrackShip-NG-test.apk\n'
+"$BT/apksigner" sign --ks "$KEY_DIR/test.keystore" --ks-key-alias trackship-test --ks-pass pass:android --key-pass pass:android --out artifacts/SendRack-test.apk build/aligned.apk
+"$BT/apksigner" verify --verbose artifacts/SendRack-test.apk
+sha256sum artifacts/SendRack-test.apk > artifacts/SendRack-test.apk.sha256
+printf 'Test APK: artifacts/SendRack-test.apk\n'

@@ -2,7 +2,7 @@
 
 ## Current state
 
-Version 0.5.1 includes the application and server code for payment verification, handler acceptance/custody, SMS sign-in, encrypted rider identity submission, delivery OTP, GPS and earnings. The tests use isolated substitutes for payment/SMS providers and a test-only browser location. **No public server, merchant account, SMS account, live charge or bank payout has been activated.** Do not present this build as a verified live financial/identity service yet.
+Version 0.5.2 includes the application and server code for payment verification, handler acceptance/custody, SMS sign-in, encrypted rider identity submission, delivery OTP, GPS and earnings. The tests use isolated substitutes for payment/SMS providers and a test-only browser location. **No public server, merchant account, SMS account, live charge or bank payout has been activated.** Do not present this build as a verified live financial/identity service yet.
 
 The owner confirmed that no hosting or Paystack account currently exists. Account creation and provider approval are external prerequisites; these cannot be invented or supplied by the APK.
 
@@ -18,7 +18,7 @@ Do not post API keys, NINs, home addresses, bank details or passwords in chat, s
 
 `render.yaml` is a prepared Render Blueprint. It selects Node 24, a web service and a persistent disk for SQLite. The configured `starter` service and persistent storage are **paid resources**; reviewing or applying the Blueprint in your Render account is a separate user action. Nothing was purchased or deployed during development.
 
-Connect the repository and branch `apk-test-v0.5.1` in Render. Create the service from its Blueprint after reviewing the plan/cost. Set the requested values privately:
+Connect the repository and branch `apk-test-v0.5.2` in Render. Create the service from its Blueprint after reviewing the plan/cost. Set the requested values privately:
 
 | Setting | Meaning |
 | --- | --- |
@@ -33,7 +33,7 @@ Render supplies `RENDER_EXTERNAL_URL`; the backend uses it as the public origin.
 
 Verify:
 
-- `GET /api/health` returns service `trackship-ng`, version `0.5.1`.
+- `GET /api/health` returns service `trackship-ng`, version `0.5.2`.
 - `GET /api/capabilities` reports the expected payment environment and connected SMS/identity services.
 - Configure Paystack's webhook as `https://YOUR-SERVICE/api/payments/webhook`. Webhooks require the original raw Paystack signing key on the server; they cannot use an outbound-proxy placeholder as an HMAC key.
 - Never enable the test substitutes used in `tests/` on the hosted service. There is no application flag for enabling them.

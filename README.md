@@ -1,4 +1,4 @@
-# SendRack · 0.5.1
+# SendRack · 0.5.2
 
 Android application and Node/SQLite backend for Nigerian vendors and delivery handlers. The design follows the supplied orange-and-white references, with original onboarding photography and local Inter/Leaflet assets.
 
@@ -23,7 +23,7 @@ An internal payment/earnings ledger is **not regulated escrow** and does not cha
 
 ## Install/update
 
-The generated APK is `artifacts/SendRack-test.apk`; the repository download is `downloads/SendRack-v0.5.1.apk`. Android 8+ and a current System WebView are required. It uses the same package/signing identity as the earlier builds, with version code 7. Install over the old APK to retain profiles/shipments; do not uninstall, because unsynced records and encrypted ID drafts would be lost.
+The generated APK is `artifacts/SendRack-test.apk`; the repository download is `downloads/SendRack-v0.5.2.apk`. Android 8+ and a current System WebView are required. It uses the same package/signing identity as the earlier builds, with version code 8. Install over the old APK to retain profiles/shipments; do not uninstall, because unsynced records and encrypted ID drafts would be lost.
 
 Earlier manual shipments remain readable but are identified as legacy records. New shipments use the funded custody workflow. See [phone testing](docs/TEST-ON-YOUR-PHONE.md).
 
@@ -39,7 +39,7 @@ npm run test:ui
 npm start
 ```
 
-The service binds `127.0.0.1:3000`. `GET /api/health` returns `{"service":"trackship-ng","version":"0.5.1"}`. `GET /api/capabilities` reports connected providers. Test runners need permission for temporary local sockets and Chromium in restricted environments. Tests use temporary databases and injected transports only; production has no fake-provider switch.
+The service binds `127.0.0.1:3000`. `GET /api/health` returns `{"service":"trackship-ng","version":"0.5.2"}`. `GET /api/capabilities` reports connected providers. Test runners need permission for temporary local sockets and Chromium in restricted environments. Tests use temporary databases and injected transports only; production has no fake-provider switch.
 
 ```sh
 bash scripts/setup-android.sh
@@ -88,3 +88,5 @@ Identity numbers/photos, NIN, licence, registration and home address are exclude
 Offers match the registered pickup city/state/community, identity submission and active-job capacity. There is no online/offline toggle. This is service-area matching, not measured GPS proximity. The visible inbox polls every ten seconds; Android background checks have a minimum fifteen-minute schedule and can be delayed by the OS. Instant Firebase push is not configured. Optional job SMS defaults off (`TRACKSHIP_SEND_JOB_SMS=false`); `TRACKSHIP_RIDER_CAPACITY` defaults to 5.
 
 The product was renamed from TrackShip NG to SendRack in 0.5.1. The Android package, signing key, private storage keys, database filename, native bridge, API service identifier and existing TRACKSHIP_* deployment settings remain compatible so installed profiles, PINs, encrypted ID drafts and shipments can be retained. The repository remains BRIGHTJIMOH/Trackship.
+
+Version 0.5.2 refreshes WebView cached assets on upgrade, disables screen resource caching, uses versioned entry resources and shows SendRack · v0.5.2 on the login screen. It does not clear localStorage, profiles, PINs, shipments or encrypted identity drafts. Physical Android confirmation of the reported stale-screen issue remains required.

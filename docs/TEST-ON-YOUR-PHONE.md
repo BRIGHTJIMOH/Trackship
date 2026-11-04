@@ -1,4 +1,4 @@
-# Try SendRack 0.5.1
+# Try SendRack 0.5.2
 
 Install this APK over your existing SendRack app. The package and signing identity are unchanged. Do not uninstall: that removes unsynced shipments and encrypted identity drafts.
 

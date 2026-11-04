@@ -43,6 +43,12 @@ public class MainActivity extends Activity {
             });
         }
         web.setBackgroundColor(0xfff1f0ee);
+        // Refresh packaged screens on upgrade without touching DOM storage or identity keys.
+        String appVersion="unknown";
+        try {appVersion=getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception ignored){}
+        android.content.SharedPreferences assets=getSharedPreferences("sendrack-asset-version",MODE_PRIVATE);
+        if(!appVersion.equals(assets.getString("version",null))){web.clearCache(true);assets.edit().putString("version",appVersion).apply();}
+        web.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setDomStorageEnabled(true);
         web.getSettings().setAllowFileAccess(false);
@@ -63,6 +69,9 @@ public class MainActivity extends Activity {
                     try {
                         String mime=p.endsWith(".ttf")?"font/ttf":p.endsWith(".png")?"image/png":p.endsWith(".svg")?"image/svg+xml":p.endsWith(".html")?"text/html":p.endsWith(".css")?"text/css":"text/javascript";
                         Map<String,String> headers=new HashMap<>();
+                        headers.put("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");
+                        headers.put("Pragma","no-cache");
+                        headers.put("Expires","0");
                         headers.put("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https:; img-src 'self' data: https://tile.openstreetmap.org; frame-src 'none'; object-src 'none'; base-uri 'none'");
                         return new WebResourceResponse(mime,"UTF-8",200,"OK",headers,getAssets().open("web"+p));
                     } catch (Exception e) {return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));}
@@ -84,7 +93,7 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-        web.loadUrl(ORIGIN+"/index.html");
+        web.loadUrl(ORIGIN+"/index.html?build="+appVersion);
     }
     private void openExternal(String url) {
         try {Uri u=Uri.parse(url);if("tel".equals(u.getScheme())){startActivity(new Intent(Intent.ACTION_DIAL,u));return;}if(!"https".equals(u.getScheme()))return;startActivity(new Intent(Intent.ACTION_VIEW,u));}

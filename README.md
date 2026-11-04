@@ -1,14 +1,18 @@
-# SendRack · 0.6.0
+# SendRack · 0.7.0
 
 Android delivery app and Node backend for Nigerian vendors, riders and carriers. The app keeps the orange split-S identity, separate PIN-protected accounts, manual shipment baskets, custody handoffs and customer tracking links.
 
 ## This update
 
+- Four-second rotating startup logo, followed by login/signup.
+- Separate owner web dashboard at `/admin`: shipments, custody, users, identity review, route creation/pricing, settlement records and audit history.
+- Owner routes supply authoritative prices to individual and CSV shipments, with existing shipment prices preserved.
+
 - Asynchronous PostgreSQL support for the hosted backend; SQLite retained for local development.
 - Render Blueprint for a Node service and managed PostgreSQL database, with a real readiness check.
 - Read-only SQLite migration preview, atomic import into an empty PostgreSQL target, row-count/checksum verification, rollback and identity-key verification.
 - Public MapTiler map configuration alongside the small OpenStreetMap pilot fallback. Map display never supplies an invented GPS fix, route or ETA.
-- The previous app package, signing identity, private origin, account/PIN storage and encrypted identity vault remain compatible. Android version code 11.
+- The previous app package, signing identity, private origin, account/PIN storage and encrypted identity vault remain compatible. Android version code 12.
 
 No Render resource, real charge, bank payout, SMS/email message or physical delivery journey was activated. The default APK service URL remains empty until the owner's hosting address is available. Vendor wallet funding is not implemented; its balance remains unavailable. Real customer links, remote GPS, verified payments and cross-phone accounts need the hosted backend/providers.
 
@@ -20,6 +24,7 @@ Public customer tracking needs no signup or SMS. Current cloud phone verificatio
 npm ci
 npm test
 npm run test:ui
+npm run test:admin
 npm start
 ```
 
@@ -37,6 +42,8 @@ npm run db:import -- /private/path/trackship.sqlite --apply
 ```
 
 The importer preserves accounts, customer links, sessions/token hashes, shipment histories, payment rows, proofs, encrypted documents and earnings. It refuses unknown source tables, occupied targets and incorrect identity keys. Stop writes to the old backend during cutover and preserve a consistent backup. Its in-memory snapshot is intended for pilot-size data.
+
+See [owner dashboard setup](docs/ADMIN-DASHBOARD.md) for private owner login and route controls.
 
 ## Hosting and live GPS
 
@@ -59,7 +66,7 @@ TRACKSHIP_SERVICE_URL=https://YOUR-SERVICE npm run build:apk
 npm run test:apk
 ```
 
-Output: `artifacts/SendRack-test.apk`. Repository download: `downloads/SendRack-v0.6.0.apk`. Install over the old app; uninstalling loses unsynced records and identity drafts. Preserve the existing signing key privately. The signed-APK UI check loads the bundled screen files and checks the split-S, current version, PIN migration and a retained shipment.
+Output: `artifacts/SendRack-test.apk`. Repository download: `downloads/SendRack-v0.7.0.apk`. Install over the old app; uninstalling loses unsynced records and identity drafts. Preserve the existing signing key privately. The signed-APK UI check loads the bundled screen files and checks the split-S, current version, PIN migration and a retained shipment.
 
 ## Financial and identity limits
 

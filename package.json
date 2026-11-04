@@ -1,6 +1,6 @@
 {
   "name": "sendrack",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "SendRack Android pilot and customer tracking service",
   "scripts": {
@@ -11,7 +11,8 @@
     "test:apk": "node tests/apk-ui.mjs",
     "db:check": "node scripts/check-database.mjs",
     "db:import": "node server/migrate-sqlite.mjs",
-    "test:postgres": "node scripts/test-postgres.mjs"
+    "test:postgres": "node scripts/test-postgres.mjs",
+    "test:admin": "node tests/admin-ui.mjs"
   },
   "engines": {
     "node": ">=24"

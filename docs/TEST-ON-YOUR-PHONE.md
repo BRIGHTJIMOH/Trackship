@@ -1,6 +1,8 @@
-# Try SendRack 0.6.0
+# Try SendRack 0.7.0
 
-Install over the existing app; do not uninstall. Your saved profiles, PINs, shipments and encrypted identity drafts stay in the same app storage. Look for the split-S logo and v0.6.0 badge beside the login wordmark.
+Install over the existing app; do not uninstall. Your saved profiles, PINs, shipments and encrypted identity drafts stay in the same app storage. Look for the split-S logo and v0.7.0 badge beside the login wordmark.
+
+The rotating startup logo stays visible for four seconds before login/signup. The separate owner web dashboard will be available at the hosted `/admin` address after Render is connected; see ADMIN-DASHBOARD.md.
 
 This version prepares the app/backend for Render PostgreSQL and configurable MapTiler maps. The owner's hosting and merchant accounts are still being prepared; the distributed APK has no public backend address yet. Local signup/PIN access, shipment baskets, night mode and status sharing remain usable. A hosted service and provider setup are needed for public tracking links, remote accounts, actual payments and GPS sharing across phones.
 

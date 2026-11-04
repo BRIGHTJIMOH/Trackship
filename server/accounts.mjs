@@ -39,7 +39,7 @@ export async function accounts(db, {
     const t = raw(req);
     if (!t) return null;
     const s = await db.prepare('SELECT vendor_id,expires FROM vendor_sessions WHERE token_hash=?').get(hash(t));
-    return s && s.expires > Date.now() ? await db.prepare('SELECT * FROM vendor_accounts WHERE id=?').get(s.vendor_id) : null;
+    const account=s&&s.expires>Date.now()?await db.prepare('SELECT * FROM vendor_accounts WHERE id=?').get(s.vendor_id):null;return account&&!account.suspended?account:null;
   }
   const publicProfile = (role, phone, input = {}) => {
     const names = role === 'vendor' ? ['businessName', 'ownerName', 'city', 'state', 'community', 'pickupAddress', 'category'] : ['fullName', 'city', 'state', 'community', 'vehicle'];
@@ -73,7 +73,8 @@ export async function accounts(db, {
         rate(req);
         const recent = await db.prepare('SELECT created FROM account_challenges WHERE phone=? ORDER BY created DESC LIMIT 1').get(phone);
         if (recent && Date.now() - recent.created < 60000) fail('Wait one minute before requesting another code.', 429);
-        const profile = publicProfile(p.role, phone, p.profile);
+        const known=await db.prepare('SELECT suspended FROM '+(p.role==='vendor'?'vendor_accounts':'rider_profiles')+' WHERE phone=?').get(phone);if(known?.suspended)fail('Account access is unavailable. Contact support.',403);
+      const profile = publicProfile(p.role, phone, p.profile);
         if (p.intent === 'signup') {
           const errors = validateOnboarding(p.role, profile);
           if (errors.length) fail(errors[0]);
@@ -96,7 +97,8 @@ export async function accounts(db, {
         if (!/^\d{6}$/.test(p.code || '') || !same(hash(c.salt + p.code), c.hash)) fail('Incorrect sign-in code.', 401);
         const existing = c.role === 'vendor' ? await db.prepare('SELECT * FROM vendor_accounts WHERE phone=?').get(c.phone) : await db.prepare('SELECT * FROM rider_profiles WHERE phone=?').get(c.phone);
         if (c.intent === 'login' && !existing) fail('No account was found for this phone and role. Choose Sign up.', 404);
-        const authToken = token();
+        if(existing?.suspended)fail('Account access is unavailable. Contact support.',403);
+      const authToken = token();
         let account,
           profile,
           created = false;
@@ -162,7 +164,8 @@ export async function accounts(db, {
         const session = t ? await db.prepare('SELECT rider_id,expires FROM rider_sessions WHERE token_hash=?').get(hash(t)) : null;
         if (!session || session.expires < Date.now()) fail('Log in to your account.', 401);
         const r = await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(session.rider_id);
-        const profile = publicProfile('rider', r.phone, p);
+        if(r.suspended)fail('Account access is unavailable. Contact support.',403);
+      const profile = publicProfile('rider', r.phone, p);
         const errors = validateOnboarding('rider', profile);
         if (errors.length) fail(errors[0]);
         await db.prepare('UPDATE rider_profiles SET public_profile=? WHERE id=?').run(JSON.stringify(profile), r.id);

@@ -19,6 +19,7 @@ export async function marketplace(db, {
   await db.exec('CREATE TABLE IF NOT EXISTS delivery_notifications(id TEXT PRIMARY KEY,rider_id TEXT,shipment_id TEXT,phase TEXT,title TEXT,body TEXT,seen INTEGER DEFAULT 0,created INTEGER,UNIQUE(rider_id,shipment_id,phase))');
   const open = async () => (await db.prepare('SELECT payload FROM shipments').all()).map(r => JSON.parse(r.payload)).filter(s => s.workflowVersion === 3 && s.status === 'Created' && Date.now() - Date.parse(s.createdAt) < 7 * 86400000);
   async function eligible(r, s) {
+    if(r.suspended)return false;
     if (!['submitted', 'approved'].includes(r.identity_status) || r.identity_format < 4) return false;
     let p;
     try {

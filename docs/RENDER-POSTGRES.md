@@ -14,8 +14,10 @@ The Blueprint selects paid plans. Review the current web/database price, storage
 
 ## When the Render account is ready
 
-1. Connect `BRIGHTJIMOH/Trackship` and select the prepared `apk-test-v0.6.0` branch. Create the Blueprint from `render.yaml` after reviewing its plans. Render provisions the database and supplies `DATABASE_URL` privately.
-2. `DATABASE_SSL=disable` in this Blueprint applies only to Render's private internal connection. Use `DATABASE_SSL=require` for an external/public PostgreSQL connection. TLS certificate verification is enabled in that mode; do not disable certificate verification.
+1. Connect `BRIGHTJIMOH/Trackship` and select the prepared `apk-test-v0.7.0` branch. Create the Blueprint from `render.yaml` after reviewing its plans. Render provisions the database and supplies `DATABASE_URL` privately.
+2. Set `ADMIN_PASSWORD` privately in Render to a unique password of at least 14 characters. The owner dashboard is `https://YOUR-SERVICE/admin`; it has no default password or public signup. See [owner dashboard](ADMIN-DASHBOARD.md).
+
+   `DATABASE_SSL=disable` in this Blueprint applies only to Render's private internal connection. Use `DATABASE_SSL=require` for an external/public PostgreSQL connection. TLS certificate verification is enabled in that mode; do not disable certificate verification.
 3. Keep the generated identity/admin secrets private. If importing existing identity documents, replace the generated identity key with the original key before migration. The importer refuses a missing/wrong key rather than copying unreadable documents.
 4. Confirm `/api/ready` returns `ready: true` and `database: postgres`. Run `npm run db:check` in the service environment. Never paste a database URL or key into chat, a screenshot, a commit or the Android app.
 5. Add `PAYSTACK_SECRET_KEY` privately when the merchant account is available; start with test mode. Configure the Paystack webhook at `/api/payments/webhook`. Bank payouts remain disabled until identity review, account resolution and provider funding/approval are checked.

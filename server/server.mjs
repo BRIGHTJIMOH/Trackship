@@ -128,7 +128,7 @@ export async function createApp({
       if (route === '/api/ready' && req.method === 'GET'){await db.prepare('SELECT 1 AS ready').get();return send(200,{ready:true,database:db.kind});}
       if (route === '/api/health' && req.method === 'GET') return send(200, {
         service: 'trackship-ng',
-        version: '0.6.0'
+        version: '0.7.0'
       });
       if (route === '/api/workspaces' && req.method === 'POST') {
         if (!rate(req, 'register', 5)) return send(429, {
@@ -196,7 +196,8 @@ export async function createApp({
         const id = route.slice('/api/shipments/'.length);
         const s = await body(req);
         const existing = await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);
-        if (s.workflowVersion === 3 || existing && JSON.parse(existing.payload).workflowVersion === 3) return send(409, {
+        if(!existing&&!await advanced.legacyCreationAllowed())return send(409,{error:'New shipments must use a configured route and the current delivery workflow.'});
+      if (s.workflowVersion === 3 || existing && JSON.parse(existing.payload).workflowVersion === 3) return send(409, {
           error: 'Funded deliveries must use authenticated handoff actions.'
         });
         if (!valid(s, id)) return send(400, {
@@ -249,6 +250,8 @@ export async function createApp({
       if (!['GET', 'HEAD'].includes(req.method)) return send(405, {
         error: 'Method not allowed.'
       });
+      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css'};
+      if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
       const files = {
         '/sendrack-entry.html': 'index.html',
         '/sendrack-main.js': 'app.js',

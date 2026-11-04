@@ -1,3 +1,5 @@
+import {routeCatalog} from './route-catalog.mjs';
+import {adminConsole} from './admin.mjs';
 import {publicMapConfig} from './maps.mjs';
 import { validateIdentity } from '../web/identity.mjs';
 import { accounts } from './accounts.mjs';
@@ -60,10 +62,8 @@ export async function operations(db, {
     if (!raw) fail('Verify your rider phone number to continue.', 401);
     const session = await db.prepare('SELECT rider_id,expires FROM rider_sessions WHERE token_hash=?').get(digest(raw));
     if (!session || session.expires < Date.now()) fail('Rider sign-in expired. Verify your phone again.', 401);
-    return {
-      ...(await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(session.rider_id)),
-      sessionHash: digest(raw)
-    };
+    const profile=await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(session.rider_id);if(profile?.suspended)fail('This rider account is suspended. Contact support.',403);
+    return {...profile,sessionHash:digest(raw)};
   }
   async function job(raw) {
     const j = tokenPattern.test(raw) ? await db.prepare('SELECT shipment_id,leg FROM job_tokens WHERE token_hash=?').get(digest(raw)) : null;
@@ -122,7 +122,7 @@ export async function operations(db, {
   const capabilities = () => ({
     maps:publicMapConfig(env),
     service: 'trackship-ng',
-    version: '0.6.0',
+    version: '0.7.0',
     payments: providers.paymentReady,
     paymentMode: providers.paymentReady ? providers.mode : null,
     sms: providers.smsReady,
@@ -220,8 +220,15 @@ export async function operations(db, {
     providers,
     env
   });
+  const catalog=await routeCatalog(db);
+  const adminAccess=await adminConsole(db,{body,env,catalog});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await adminAccess.route(req,res,url,send))return true;
+    if(path==='/api/routes'&&req.method==='GET'){send(200,{routes:await catalog.list(true),requireRoutes:(await catalog.pricing()).requireRoutes});return true;}
+    if(path==='/api/routes/quotes'&&req.method==='POST'){const input=await body(req);if(!Array.isArray(input.rows)||!input.rows.length||input.rows.length>100)fail('Quote between 1 and 100 shipments.');const quotes=[];for(const row of input.rows)quotes.push(await catalog.quote(row.routeId,row));send(200,{quotes});return true;}
+    const routeQuote=path.match(/^\/api\/routes\/([a-f0-9-]{36})\/quote$/);
+    if(routeQuote&&req.method==='POST'){send(200,await catalog.quote(routeQuote[1],await body(req)));return true;}
     if (await accountAccess.route(req, path, send)) return true;
     if (await market.route(req, path, send)) return true;
     if (path === '/api/accounts/identity' && req.method === 'POST') {
@@ -259,20 +266,17 @@ export async function operations(db, {
     const vendorIdentity = path.match(/^\/api\/admin\/vendors\/([0-9a-f-]+)\/identity$/);
     if (vendorIdentity) {
       const provided = req.headers.authorization?.replace(/^Bearer /, '') || '';
-      if (!env.TRACKSHIP_ADMIN_TOKEN || !equal(provided, env.TRACKSHIP_ADMIN_TOKEN)) fail('Operator access is required.', 403);
+      const reviewer=await adminAccess.authorize(req).catch(e=>{if(e.status===401)fail('Operator access is required.',403);throw e;});
       const v = await db.prepare('SELECT * FROM vendor_accounts WHERE id=?').get(vendorIdentity[1]);
       if (!v?.identity_cipher) fail('Identity record not found.', 404);
       if (req.method === 'GET') {
-        send(200, {
-          ...decrypt(v),
-          status: v.identity_status
-        });
+        const identity=decrypt(v);await adminAccess.audit(reviewer.actor,'identity.view','vendor',v.id);send(200,{...identity,status:v.identity_status,version:digest(v.identity_cipher)});
         return true;
       }
       if (req.method === 'POST') {
         const p = await body(req);
         if (!['approved', 'rejected'].includes(p.status)) fail('Choose approved or rejected.');
-        await db.prepare('UPDATE vendor_accounts SET identity_status=? WHERE id=?').run(p.status, v.id);
+        if((!reviewer.operator||p.version)&&p.version!==digest(v.identity_cipher))fail('Identity documents changed. Open the latest submission before reviewing.',409);await transaction(async()=>{await db.prepare('UPDATE vendor_accounts SET identity_status=? WHERE id=?').run(p.status,v.id);await adminAccess.audit(reviewer.actor,'identity.review','vendor',v.id,p.status+' · '+digest(v.identity_cipher).slice(0,16));});
         send(200, {
           status: p.status
         });
@@ -314,6 +318,7 @@ export async function operations(db, {
       const phone = normalizePhone(input.phone);
       if (!/^0[789]\d{9}$/.test(phone)) fail('Enter a valid Nigerian mobile phone.');
       if (!providers.smsReady) fail('SMS sign-in is not configured on this service.', 503);
+      if((await db.prepare('SELECT suspended FROM rider_profiles WHERE phone=?').get(phone))?.suspended)fail('Account access is unavailable. Contact support.',403);
       const recent = await db.prepare('SELECT created FROM auth_challenges WHERE phone=? ORDER BY created DESC LIMIT 1').get(phone);
       if (recent && Date.now() - recent.created < 60000) fail('Wait one minute before requesting another code.', 429);
       const id = randomUUID(),
@@ -345,6 +350,7 @@ export async function operations(db, {
           await db.prepare('INSERT INTO rider_profiles(id,phone,display_name) VALUES (?,?,?)').run(id, c.phone, 'Rider');
           r = await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(id);
         }
+        if(r.suspended)fail('Account access is unavailable. Contact support.',403);
         await db.prepare('INSERT INTO rider_sessions VALUES (?,?,?)').run(digest(session), r.id, Date.now() + 30 * 86400000);
       });
       send(200, {
@@ -411,20 +417,17 @@ export async function operations(db, {
     const admin = path.match(/^\/api\/admin\/riders\/([0-9a-f-]+)\/identity$/);
     if (admin) {
       const provided = req.headers.authorization?.replace(/^Bearer /, '') || '';
-      if (!env.TRACKSHIP_ADMIN_TOKEN || !equal(provided, env.TRACKSHIP_ADMIN_TOKEN)) fail('Operator access is required.', 403);
+      const reviewer=await adminAccess.authorize(req).catch(e=>{if(e.status===401)fail('Operator access is required.',403);throw e;});
       const r = await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(admin[1]);
       if (!r?.identity_cipher) fail('Identity record not found.', 404);
       if (req.method === 'GET') {
-        send(200, {
-          ...decrypt(r),
-          status: r.identity_status
-        });
+        const identity=decrypt(r);await adminAccess.audit(reviewer.actor,'identity.view','rider',r.id);send(200,{...identity,status:r.identity_status,version:digest(r.identity_cipher)});
         return true;
       }
       if (req.method === 'POST') {
         const input = await body(req);
         if (!['approved', 'rejected'].includes(input.status)) fail('Choose approved or rejected.');
-        await db.prepare('UPDATE rider_profiles SET identity_status=? WHERE id=?').run(input.status, r.id);
+        if((!reviewer.operator||input.version)&&input.version!==digest(r.identity_cipher))fail('Identity documents changed. Open the latest submission before reviewing.',409);await transaction(async()=>{await db.prepare('UPDATE rider_profiles SET identity_status=? WHERE id=?').run(input.status,r.id);await adminAccess.audit(reviewer.actor,'identity.review','rider',r.id,input.status+' · '+digest(r.identity_cipher).slice(0,16));});
         send(200, {
           status: input.status
         });
@@ -448,19 +451,13 @@ export async function operations(db, {
       return true;
     }
     if (path === '/api/v3/shipments' && req.method === 'POST') {
-      const merchant = await owner(req);
-      if (!merchant) fail('Business access is required.', 401);
-      const s = await body(req);
-      const errors = validateTransport(s);
-      if (errors.length) fail(errors[0]);
-      if (!uuid.test(s.id) || !tokenPattern.test(s.publicToken || '') || !s.jobTokens || !tokenPattern.test(s.jobTokens.pickup || '') || s.deliveryType === 'interstate' && (!tokenPattern.test(s.jobTokens.carrier || '') || !tokenPattern.test(s.jobTokens.lastmile || ''))) fail('Invalid shipment references.');
-      const existing = await db.prepare('SELECT owner,payload FROM shipments WHERE id=?').get(s.id);
-      if (existing) {
-        if (existing.owner !== merchant) fail('Shipment not found.', 404);
-        send(200, JSON.parse(existing.payload));
-        return true;
-      }
-      const fees = s.deliveryType === 'interstate' ? {
+      const merchant = await owner(req);if(!merchant)fail('Business access is required.',401);
+      let s=await body(req);if(!uuid.test(s.id||'')||!tokenPattern.test(s.publicToken||'')||!s.jobTokens||!tokenPattern.test(s.jobTokens.pickup||''))fail('Invalid shipment references.');
+      const existing=await db.prepare('SELECT owner,payload FROM shipments WHERE id=?').get(s.id);if(existing){if(existing.owner!==merchant)fail('Shipment not found.',404);send(200,JSON.parse(existing.payload));return true;}
+      let quoted=null;if(s.routeId){quoted=await catalog.quote(s.routeId,s);if(s.pricingBreakdown&&(s.pricingBreakdown.routeRevision!==quoted.routeRevision||s.pricingBreakdown.pricingRevision!==quoted.pricingRevision))fail('Route pricing changed. Refresh the quote and review before creating this shipment.',409);s={...s,deliveryFee:(quoted.totalKobo/100).toFixed(2),pickupFee:(quoted.fees.pickup/100).toFixed(2),carrierFee:(quoted.fees.carrier/100).toFixed(2),lastMileFee:(quoted.fees.lastmile/100).toFixed(2),pricingBreakdown:quoted};}else{if((await catalog.pricing()).requireRoutes)fail('Choose a configured delivery route.');delete s.pricingBreakdown;}
+      const errors=validateTransport(s);if(errors.length)fail(errors[0]);
+      if(s.deliveryType==='interstate'&&(!tokenPattern.test(s.jobTokens.carrier||'')||!tokenPattern.test(s.jobTokens.lastmile||'')))fail('Invalid shipment references.');
+      const fees = quoted?quoted.fees:s.deliveryType === 'interstate' ? {
         pickup: feeKobo(s.pickupFee),
         carrier: feeKobo(s.carrierFee),
         lastmile: feeKobo(s.lastMileFee)
@@ -816,6 +813,7 @@ export async function operations(db, {
     }
     return false;
   };
+  router.legacyCreationAllowed=async()=>!(await catalog.pricing()).requireRoutes;
   router.ownerSession = accountAccess.owner;
   return router;
 }

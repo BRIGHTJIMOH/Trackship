@@ -36,6 +36,10 @@ services:
         generateValue: true
       - key: TRACKSHIP_ADMIN_TOKEN
         generateValue: true
+      - key: ADMIN_USERNAME
+        value: owner
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: TRACKSHIP_ENABLE_PAYOUTS
         value: "false"
       - key: TRACKSHIP_SEND_JOB_SMS

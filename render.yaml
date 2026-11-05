@@ -1,7 +1,7 @@
 # Review the paid web/database plans before applying this Blueprint.
 databases:
   - name: sendrack-db
-    plan: basic-256mb
+    plan: free
     region: frankfurt
     postgresMajorVersion: "17"
     databaseName: sendrack
@@ -11,7 +11,7 @@ services:
   - type: web
     name: sendrack-api
     runtime: node
-    plan: starter
+    plan: free
     region: frankfurt
     buildCommand: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
     startCommand: npm start

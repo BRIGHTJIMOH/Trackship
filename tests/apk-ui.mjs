@@ -7,7 +7,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {pbkdf2Sync} from 'node:crypto';
 import {newShipment} from '../web/core.mjs';
-const apk=path.resolve('artifacts/SendRack-test.apk'),dir=mkdtempSync(path.join(tmpdir(),'sendrack-apk-ui-'));
+const apk=path.resolve(process.env.SENDRACK_APK_PATH||'artifacts/SendRack-test.apk'),dir=mkdtempSync(path.join(tmpdir(),'sendrack-apk-ui-'));
 execFileSync('python3',['-c',`import zipfile,sys,pathlib
 with zipfile.ZipFile(sys.argv[1]) as z:
  for n in z.namelist():
@@ -30,5 +30,5 @@ try{
  assert.equal(await page.locator('.brand-mark').evaluate(n=>getComputedStyle(n).stroke),'none');assert.ok(requests.includes('/sendrack-main.js'));assert.ok(requests.includes('/sendrack-ui.css'));assert.equal(requests.includes('/app.js'),false);
  mkdirSync('artifacts/apk-ui',{recursive:true});await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:'artifacts/apk-ui/SendRack-v0.7.0-login.png',fullPage:true,animations:'disabled'});
  await page.getByLabel('6-digit app PIN').fill(pin);await page.locator('#local-login button').click();await page.getByRole('heading',{name:profile.businessName,exact:true}).waitFor();await page.getByText('Retained shipment',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('trackship-v1')).shipments[0].id),shipment.id);assert.deepEqual(errors,[]);
- console.log('Signed-APK UI passed: fresh entry files, split-S geometry, visible v0.7.0 badge, old account PIN login and retained shipment.');
+ console.log('Packaged-APK assets UI passed (signature/device lifecycle not tested): fresh entry files, split-S geometry, visible v0.7.0 badge, old account PIN login and retained shipment.');
 }finally{await browser.close();await new Promise(r=>server.close(r));rmSync(dir,{recursive:true,force:true});}

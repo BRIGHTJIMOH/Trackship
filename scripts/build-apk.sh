@@ -37,11 +37,15 @@ PY
 "$BT/zipalign" -f -p 4 build/unsigned.apk build/aligned.apk
 # A local test signing identity, never a Play Store release key.
 KEY_DIR="${TRACKSHIP_KEY_DIR:-/workspace/trackship-signing}"
-mkdir -p "$KEY_DIR"
-chmod 700 "$KEY_DIR"
 if ! test -f "$KEY_DIR/test.keystore"; then
- keytool -genkeypair -keystore "$KEY_DIR/test.keystore" -storepass android -keypass android -alias trackship-test -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=TrackShip NG Test, O=TrackShip NG, C=NG" -noprompt
- chmod 600 "$KEY_DIR/test.keystore"
+ echo "Original signing key missing: configure TRACKSHIP_KEY_DIR. Refusing to replace the app signing identity." >&2
+ exit 1
+fi
+EXPECTED_CERT="46d13c6e672b351f992871414a5d2b63dda3a373acd35edfa99a452cdb0d6708"
+ACTUAL_CERT=$(keytool -exportcert -keystore "$KEY_DIR/test.keystore" -storepass android -alias trackship-test | sha256sum | cut -d ' ' -f 1)
+if test "$ACTUAL_CERT" != "$EXPECTED_CERT"; then
+ echo "Signing certificate does not match the existing SendRack app. Refusing to sign." >&2
+ exit 1
 fi
 "$BT/apksigner" sign --ks "$KEY_DIR/test.keystore" --ks-key-alias trackship-test --ks-pass pass:android --key-pass pass:android --out artifacts/SendRack-test.apk build/aligned.apk
 "$BT/apksigner" verify --verbose artifacts/SendRack-test.apk

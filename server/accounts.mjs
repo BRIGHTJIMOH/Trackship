@@ -47,6 +47,10 @@ export async function accounts(db, {
       phone
     };
     for (const k of names) if (typeof input[k] === 'string') p[k] = input[k].trim().slice(0, k === 'pickupAddress' ? 240 : 80);
+    if(input.profilePhoto!==undefined){
+      if(typeof input.profilePhoto!=='string'||input.profilePhoto.length>100000||input.profilePhoto&&!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(input.profilePhoto))fail('Choose a valid profile photo.');
+      p.profilePhoto=input.profilePhoto;
+    }
     return p;
   };
   async function transaction(fn) {
@@ -65,7 +69,7 @@ export async function accounts(db, {
     owner: async req => (await vendor(req))?.owner_key || null,
     async route(req, path, send) {
       if (path === '/api/accounts/request-code' && req.method === 'POST') {
-        const p = await body(req);
+        const p = await body(req, 180000);
         if (!['vendor', 'rider'].includes(p.role) || !['signup', 'login'].includes(p.intent)) fail('Choose Vendor or Rider and Sign up or Log in.');
         const phone = normalizePhone(p.phone);
         if (!/^0[789]\d{9}$/.test(phone)) fail('Enter a valid Nigerian phone number.');
@@ -148,7 +152,7 @@ export async function accounts(db, {
         return true;
       }
       if (path === '/api/accounts/profile' && req.method === 'POST') {
-        const p = await body(req),
+        const p = await body(req, 180000),
           v = await vendor(req);
         if (v) {
           const profile = publicProfile('vendor', v.phone, p);

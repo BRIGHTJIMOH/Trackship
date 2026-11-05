@@ -22,6 +22,7 @@ export async function createApp({
   await db.exec('CREATE TABLE IF NOT EXISTS workspaces (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS shipments (id TEXT PRIMARY KEY, owner TEXT NOT NULL, public_hash TEXT UNIQUE NOT NULL, payload TEXT NOT NULL)');
   if (!(await db.prepare('PRAGMA table_info(shipments)').all()).some(c => c.name === 'rider_hash')) await db.exec('ALTER TABLE shipments ADD COLUMN rider_hash TEXT');
   await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS shipments_rider_hash ON shipments(rider_hash)');
+  await db.exec('CREATE TABLE IF NOT EXISTS marketing_waitlist(email TEXT PRIMARY KEY,name TEXT,role TEXT,city TEXT,created_at TEXT NOT NULL)');
   });}catch(e){await db.close();throw e;}
   function riderView(s) {
     const {
@@ -124,6 +125,13 @@ export async function createApp({
       if (!rate(req, 'all', 300)) return send(429, {
         error: 'Too many requests. Try again in a minute.'
       });
+      if(route==='/api/waitlist'&&req.method==='POST'){
+        if(!rate(req,'waitlist',5))return send(429,{error:'Please try again in a minute.'});
+        const p=await body(req,4096),email=typeof p.email==='string'?p.email.trim().toLowerCase():'';
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||!['vendor','rider'].includes(p.role)||typeof p.name!=='string'||!p.name.trim()||p.name.length>80||typeof p.city!=='string'||!p.city.trim()||p.city.length>80||p.consent!==true)return send(400,{error:'Enter your name, email, city, role and consent.'});
+        await db.prepare('INSERT INTO marketing_waitlist(email,name,role,city,created_at) VALUES (?,?,?,?,?) ON CONFLICT(email) DO NOTHING').run(email,p.name.trim(),p.role,p.city.trim(),new Date().toISOString());
+        return send(200,{message:'You’re on the list. We’ll email you with SendRack updates.'});
+      }
       if (await advanced(req, res, url, send)) return;
       if (route === '/api/ready' && req.method === 'GET'){await db.prepare('SELECT 1 AS ready').get();return send(200,{ready:true,database:db.kind});}
       if (route === '/api/health' && req.method === 'GET') return send(200, {
@@ -253,6 +261,10 @@ export async function createApp({
       const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css'};
       if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
       const files = {
+        '/welcome':'marketing.html',
+        '/welcome/':'marketing.html',
+        '/marketing.css':'marketing.css',
+        '/marketing.js':'marketing.js',
         '/sendrack-entry.html': 'index.html',
         '/sendrack-main.js': 'app.js',
         '/sendrack-ui.css': 'style.css',

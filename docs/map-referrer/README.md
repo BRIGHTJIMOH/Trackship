@@ -47,3 +47,17 @@ After merging/deploying, check actual browser Network entries on the real HTTPS 
 - Test an actual rejected tile separately from a successful feed, then recover by loading a fresh view after correcting configuration. Do not infer working tiles from a feed banner.
 
 This branch is prepared as a focused PR to `apk-test-v0.7.0`, separate from marketing PR #11. It has not been deployed here.
+
+## Complete all-view provider refresh and fallback validation
+
+Follow-up implementation centralises approved tile URL validation, origin-only Leaflet options and provider status in `web/map-display.mjs`, shared by the vendor/rider/customer component and admin. The server explicitly serves the module; both original and separate-test APK build scripts include it without changing signing identity. Installed APKs still need a future signed update to receive bundled code changes.
+
+The app's indefinite `mapConfigs` cache is removed. Configuration is re-fetched with `cache: no-store` whenever a map mounts or the user selects **Reload map provider**. Concurrent configuration fetches to the same backend coalesce; obsolete replies cannot update a replacement map. A temporary configuration failure is displayed separately and is not silently converted into a different provider. Marker/GPS rendering remains independent of tile loading. Refreshing the same app map retains its map instance/viewport.
+
+Admin checks the provider configuration on every operations-feed response, including deltas. Key rotation, key removal and provider changes replace only the tile layer; map instance, zoom/centre, filters and selection remain. **Reconnect / refresh** retries failed tiles after refreshing provider configuration. Tile status is based on tile load/error events and decoded images, not a successful feed. Invalid configuration cannot keep reporting an old layer as healthy.
+
+Removing/emptying `PUBLIC_MAPTILER_KEY` selects `openstreetmap-pilot` with `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, zoom limit 19 and required attribution. A configured key selects MapTiler. This is the existing documented pilot fallback, not a new service or paid plan. A MapTiler 403 does not automatically bypass the configured provider or disable restrictions. In Render, an environment change requires its normal service redeployment; in-page retries then obtain the new configuration.
+
+`node tests/map-provider-ui.mjs` exercises actual vendor and rider app navigation, the real `/t/<token>` page and authenticated `/admin` using isolated accounts and separate browser contexts. Controlled provider image responses cover initial MapTiler load, rotated keys while open, 403 on uncached tiles, key removal → OSM on every view without page reload, OSM failure, configuration API failure and retained admin centre/zoom/filter. Keys in fixtures are deliberately fake; request reports redact tracking paths. [Four-view evidence](provider-switch-evidence.json).
+
+Server tests now pass **60**, with **4** environment-dependent skips and zero failures. Existing 2,000-shipment admin operations UI and full signup/payment/custody/OTP app browser suites also pass. Live MapTiler success, real production key settings and the current Render runtime commit remain unverified because of the separately documented network block; no keys were requested in chat or restrictions changed.

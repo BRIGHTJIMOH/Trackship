@@ -1,3 +1,4 @@
+import {validatedMapConfig,createMapTiles} from '/map-display.mjs';
 import {
   stageColors,
   gpsState,
@@ -57,6 +58,7 @@ export function liveOperationsMap({
     markers = new Map();
   let map = null,
     tiles = null,
+    tileConfigKey = null,
     cursor = null,
     flight = null,
     controller = null,
@@ -341,27 +343,24 @@ export function liveOperationsMap({
         zoomAnimation: false,
         markerZoomAnimation: false,
       }).setView([9.08, 8.68], 6);
-      const tileStatus = element.querySelector(".map-tiles-status");
-      let tileFailures = 0;
-      tiles = L.tileLayer(feed.maps.tileUrl, {
-        attribution: feed.maps.attribution,
-        maxZoom: feed.maps.maxZoom,
-        // Send only the origin to external tiles, never tracking tokens/private paths.
-        referrerPolicy: "strict-origin-when-cross-origin",
-      });
-      tiles.on("loading", () => {
-        tileFailures = 0;
-        tileStatus.textContent = "Loading map tiles…";
-      });
-      tiles.on("tileerror", () => {
-        tileFailures++;
-        tileStatus.textContent = "Map tiles unavailable. Shipment-feed connection does not confirm tile access.";
-      });
-      tiles.on("load", () => {
-        if (!tileFailures) tileStatus.textContent = "Map tiles loaded for the current view.";
-      });
-      tiles.addTo(map);
       map.on("zoomend moveend", renderMarkers);
+    }
+    // Feed configuration is authoritative even for delta responses. Swap only tiles;
+    // preserve map instance, zoom, filters, selection and open dashboard forms.
+    try {
+      const config = validatedMapConfig(feed.maps);
+      const nextKey = JSON.stringify(config);
+      if (tileConfigKey !== nextKey) {
+        if (tiles) tiles.remove();
+        tiles = createMapTiles(L, map, config, element.querySelector(".map-tiles-status"));
+        tileConfigKey = nextKey;
+      }
+    } catch {
+      if (tiles) tiles.remove();
+      tiles = null; tileConfigKey = null;
+      const status = element.querySelector(".map-tiles-status");
+      status.dataset.state = "error";
+      status.textContent = "Map provider configuration unavailable. Shipment-feed connectivity and GPS are separate.";
     }
     if (!initialized) {
       const points = [...records.values()]
@@ -428,7 +427,10 @@ export function liveOperationsMap({
     if (map) map.invalidateSize({ pan: false });
     void refresh(true);
   }
-  element.querySelector("[data-map-refresh]").onclick = () => refresh(true);
+  element.querySelector("[data-map-refresh]").onclick = async () => {
+    await refresh(true);
+    if (tiles && element.querySelector(".map-tiles-status").dataset.state === "error") tiles.redraw();
+  };
   element.querySelector(".map-filters").addEventListener("input", (e) => {
     const name = e.target.name;
     if (!(name in filters)) return;

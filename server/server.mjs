@@ -277,6 +277,7 @@ export async function createApp({
         '/core.mjs': 'core.mjs',
         '/lifecycle.mjs': 'lifecycle.mjs',
         '/features.mjs': 'features.mjs',
+        '/map-display.mjs': 'map-display.mjs',
         '/config.mjs': 'config.mjs',
         '/accounts.mjs': 'accounts.mjs',
         '/identity.mjs': 'identity.mjs',

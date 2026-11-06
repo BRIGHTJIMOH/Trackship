@@ -7,7 +7,7 @@
       "status": 403
     },
     {
-      "referer": "http://127.0.0.1:46203/",
+      "referer": "http://127.0.0.1:44473/",
       "origin": null,
       "status": 200
     }
@@ -17,7 +17,7 @@
       "layer": "customer/app",
       "tileRequests": 6,
       "headers": {
-        "referer": "http://127.0.0.1:38459/",
+        "referer": "http://127.0.0.1:46715/",
         "origin": null,
         "status": 200
       }
@@ -30,7 +30,7 @@
       "layer": "admin operations",
       "recoveredOnNewView": true,
       "headers": {
-        "referer": "http://127.0.0.1:38459/",
+        "referer": "http://127.0.0.1:46715/",
         "origin": null,
         "status": 200
       }

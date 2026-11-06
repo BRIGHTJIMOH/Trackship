@@ -282,6 +282,8 @@ export async function createApp({
         '/assets/leaflet.js': 'assets/leaflet.js',
         '/assets/leaflet.css': 'assets/leaflet.css',
         '/style.css': 'style.css',
+        '/assets/product-vendor.jpg':'assets/product-vendor.jpg',
+        '/assets/product-rider.jpg':'assets/product-rider.jpg',
         '/assets/courier.svg': 'assets/courier.svg',
         '/assets/route.svg': 'assets/route.svg',
         '/assets/sendrack-mark.svg': 'assets/sendrack-mark.svg',
@@ -302,6 +304,7 @@ export async function createApp({
         '.css': 'text/css',
         '.svg': 'image/svg+xml',
         '.png': 'image/png',
+        '.jpg': 'image/jpeg',
         '.ttf': 'font/ttf'
       };
       res.writeHead(200, {

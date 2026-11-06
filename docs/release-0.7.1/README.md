@@ -45,6 +45,8 @@ The signed APK and SHA-256 manifest are in `downloads/`; see `SendRack-Test-0.7.
 
 ### Data separation
 
+The test app targets the same live backend, so authenticated cloud writes are real once it is deployed/configured; the different application ID does not create a separate server database. Use accounts and recipient contacts you control. Do not change existing payment mode or payout settings just to test.
+
 The two application IDs have separate Android storage, WebView local storage, app PINs, identity vaults and Android Keystore namespaces. **Local records do not automatically transfer between installations.** Keep the existing app installed. Previously server-synced records can be retrieved only by authenticating the corresponding existing cloud account. Phone-only accounts without verified email require authenticated email linking from a valid existing cloud session or legitimate SMS/recovery access if available; knowing a phone/new email does not grant access. No account is silently recreated or marked verified.
 
 ### Private test-key retention

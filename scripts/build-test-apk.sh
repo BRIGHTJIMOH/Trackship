@@ -41,7 +41,7 @@ import os,pathlib,shutil,json,urllib.parse
 root=pathlib.Path('build/sendrack-test');assets=root/'assets/web'
 url=os.environ['SENDRACK_TEST_SERVICE_URL'].rstrip('/');u=urllib.parse.urlparse(url)
 if u.scheme!='https' or not u.hostname or u.username or u.password or u.path or u.query or u.fragment:raise SystemExit('Test backend must be an HTTPS origin.')
-for name in ['index.html','style.css','app.js','core.mjs','lifecycle.mjs','features.mjs','accounts.mjs','identity.mjs']:
+for name in ['index.html','style.css','app.js','core.mjs','lifecycle.mjs','features.mjs','map-display.mjs','accounts.mjs','identity.mjs']:
  shutil.copy2(pathlib.Path('web')/name,assets/name)
 shutil.copytree('web/assets',assets/'assets',dirs_exist_ok=True)
 for name in ['index.html','app.js']:

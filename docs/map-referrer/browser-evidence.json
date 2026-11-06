@@ -1,0 +1,39 @@
+{
+  "notice": "Controlled local receiver and intercepted provider responses; NOT live MapTiler verification",
+  "wireExperiment": [
+    {
+      "referer": null,
+      "origin": null,
+      "status": 403
+    },
+    {
+      "referer": "http://127.0.0.1:44473/",
+      "origin": null,
+      "status": 200
+    }
+  ],
+  "layers": [
+    {
+      "layer": "customer/app",
+      "tileRequests": 6,
+      "headers": {
+        "referer": "http://127.0.0.1:46715/",
+        "origin": null,
+        "status": 200
+      }
+    },
+    {
+      "layer": "admin operations",
+      "failedTilesRemainVisibleAcrossFeedRefresh": true
+    },
+    {
+      "layer": "admin operations",
+      "recoveredOnNewView": true,
+      "headers": {
+        "referer": "http://127.0.0.1:46715/",
+        "origin": null,
+        "status": 200
+      }
+    }
+  ]
+}

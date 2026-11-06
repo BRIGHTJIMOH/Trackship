@@ -1,3 +1,4 @@
+import {validatedMapConfig,createMapTiles} from '/map-display.mjs';
 import {
   stageColors,
   gpsState,
@@ -25,7 +26,7 @@ export function liveOperationsMap({
   const element = document.createElement("section");
   element.id = "live-operations";
   element.className = "panel live-operations";
-  element.innerHTML = `<div class="panel-head"><div><h2>Live Operations Map</h2><p class="muted">Current-holder GPS · recorded fixes, never simulated movement</p></div><button class="secondary" data-map-refresh>Reconnect / refresh</button></div><div class="map-filters"><label>State<select name="state" aria-label="Map state"><option value="">All states</option></select></label><label>City<select name="city" aria-label="Map city"><option value="">All cities</option></select></label><label>Route<select name="route" aria-label="Map route"><option value="">All routes</option></select></label><label>Status<select name="status" aria-label="Map status"><option value="">All stages</option></select></label><label>Custody chain<select name="type" aria-label="Map custody chain"><option value="">Both chains</option><option value="intrastate">Intrastate</option><option value="interstate">Interstate</option><option value="legacy">Earlier workflow</option></select></label><label class="map-search">Shipment search<input name="search" aria-label="Map shipment search" placeholder="Tracking reference, route or city" maxlength="100"></label><label class="map-lastknown"><input name="showStale" type="checkbox">Show last known positions (grey)</label></div><p class="map-connection" role="status" aria-live="polite">Connecting to authorized operations…</p><div class="map-legend">${Object.entries(
+  element.innerHTML = `<div class="panel-head"><div><h2>Live Operations Map</h2><p class="muted">Current-holder GPS · recorded fixes, never simulated movement</p></div><button class="secondary" data-map-refresh>Reconnect / refresh</button></div><div class="map-filters"><label>State<select name="state" aria-label="Map state"><option value="">All states</option></select></label><label>City<select name="city" aria-label="Map city"><option value="">All cities</option></select></label><label>Route<select name="route" aria-label="Map route"><option value="">All routes</option></select></label><label>Status<select name="status" aria-label="Map status"><option value="">All stages</option></select></label><label>Custody chain<select name="type" aria-label="Map custody chain"><option value="">Both chains</option><option value="intrastate">Intrastate</option><option value="interstate">Interstate</option><option value="legacy">Earlier workflow</option></select></label><label class="map-search">Shipment search<input name="search" aria-label="Map shipment search" placeholder="Tracking reference, route or city" maxlength="100"></label><label class="map-lastknown"><input name="showStale" type="checkbox">Show last known positions (grey)</label></div><p class="map-connection" role="status" aria-live="polite">Connecting to authorized operations…</p><p class="map-tiles-status muted" role="status" aria-live="polite">Map tiles not checked yet.</p><div class="map-legend">${Object.entries(
     {
       waiting: "Awaiting assignment",
       assigned: "Assigned / pickup travel",
@@ -57,6 +58,7 @@ export function liveOperationsMap({
     markers = new Map();
   let map = null,
     tiles = null,
+    tileConfigKey = null,
     cursor = null,
     flight = null,
     controller = null,
@@ -341,15 +343,24 @@ export function liveOperationsMap({
         zoomAnimation: false,
         markerZoomAnimation: false,
       }).setView([9.08, 8.68], 6);
-      tiles = L.tileLayer(feed.maps.tileUrl, {
-        attribution: feed.maps.attribution,
-        maxZoom: feed.maps.maxZoom,
-      }).addTo(map);
       map.on("zoomend moveend", renderMarkers);
-      tiles.on("tileerror", () => {
-        element.querySelector(".map-count").textContent =
-          "Some map tiles are unavailable. GPS and shipment records remain available.";
-      });
+    }
+    // Feed configuration is authoritative even for delta responses. Swap only tiles;
+    // preserve map instance, zoom, filters, selection and open dashboard forms.
+    try {
+      const config = validatedMapConfig(feed.maps);
+      const nextKey = JSON.stringify(config);
+      if (tileConfigKey !== nextKey) {
+        if (tiles) tiles.remove();
+        tiles = createMapTiles(L, map, config, element.querySelector(".map-tiles-status"));
+        tileConfigKey = nextKey;
+      }
+    } catch {
+      if (tiles) tiles.remove();
+      tiles = null; tileConfigKey = null;
+      const status = element.querySelector(".map-tiles-status");
+      status.dataset.state = "error";
+      status.textContent = "Map provider configuration unavailable. Shipment-feed connectivity and GPS are separate.";
     }
     if (!initialized) {
       const points = [...records.values()]
@@ -416,7 +427,10 @@ export function liveOperationsMap({
     if (map) map.invalidateSize({ pan: false });
     void refresh(true);
   }
-  element.querySelector("[data-map-refresh]").onclick = () => refresh(true);
+  element.querySelector("[data-map-refresh]").onclick = async () => {
+    await refresh(true);
+    if (tiles && element.querySelector(".map-tiles-status").dataset.state === "error") tiles.redraw();
+  };
   element.querySelector(".map-filters").addEventListener("input", (e) => {
     const name = e.target.name;
     if (!(name in filters)) return;

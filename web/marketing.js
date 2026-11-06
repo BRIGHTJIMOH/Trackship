@@ -16,7 +16,10 @@ for(const demo of document.querySelectorAll('[data-demo]')){
  new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;reflect();},{threshold:.15}).observe(demo);
  document.addEventListener('visibilitychange',reflect);reflect();
 }
-const scene=document.querySelector('.scene');let sceneVisible=false;
-const sceneMotion=()=>{scene.dataset.playing=String(sceneVisible&&!document.hidden&&!reducedMotion.matches);};
-new IntersectionObserver(entries=>{sceneVisible=entries[0].isIntersecting;sceneMotion();},{threshold:.1}).observe(scene);
-reducedMotion.addEventListener('change',sceneMotion);document.addEventListener('visibilitychange',sceneMotion);sceneMotion();
+for(const illustration of document.querySelectorAll('.scene,.journey-illustration')){
+ let visible=false,playing=!reducedMotion.matches;const button=illustration.querySelector('.illustration-toggle');
+ const reflect=()=>{illustration.dataset.playing=String(visible&&playing&&!document.hidden&&!reducedMotion.matches);button.disabled=reducedMotion.matches;button.textContent=reducedMotion.matches?'Motion reduced':playing?'Pause illustration':'Play illustration';button.setAttribute('aria-label',(playing?'Pause ':'Play ')+(illustration.classList.contains('scene')?'parcel':'route')+' illustration');};
+ button.addEventListener('click',()=>{if(!reducedMotion.matches){playing=!playing;reflect();}});
+ new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;reflect();},{threshold:.1}).observe(illustration);
+ reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches)playing=false;reflect();});document.addEventListener('visibilitychange',reflect);reflect();
+}

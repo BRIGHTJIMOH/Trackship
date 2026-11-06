@@ -1,0 +1,13 @@
+{
+  "activeSampleShipments": 2000,
+  "carrierCount": 60,
+  "fixtureSeedMs": 557,
+  "initialFeedBytes": 1514039,
+  "initialFeedAndMapMs": 1104,
+  "maxConcurrentFeedRequests": 1,
+  "feedRequests": 8,
+  "renderedMarkers": 6,
+  "browser": "Chromium desktop/mobile emulation",
+  "tiles": "Mock PNG tiles; no provider billing",
+  "gps": "Static sample server records, not devices or simulated production movement"
+}

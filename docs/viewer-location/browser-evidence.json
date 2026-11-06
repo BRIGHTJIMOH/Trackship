@@ -1,0 +1,35 @@
+{
+  "notice": "Local browser tests with controlled tiles and static sample shipment fixes; native bridge simulated, not physical Android GPS",
+  "cases": [
+    {
+      "view": "vendor",
+      "browserPermission": "granted/denied/retry using Chromium permissions",
+      "approximateAccuracyMeters": 1500,
+      "timeoutAndUnavailable": "controlled callbacks",
+      "shipmentMissing": "explained; viewer never substituted"
+    },
+    {
+      "view": "rider",
+      "browserPermission": "granted/denied/retry using Chromium permissions",
+      "approximateAccuracyMeters": 1500,
+      "timeoutAndUnavailable": "controlled callbacks",
+      "shipmentMissing": "explained; viewer never substituted"
+    },
+    {
+      "view": "customer",
+      "browserPermission": "granted/denied/retry using Chromium permissions",
+      "approximateAccuracyMeters": 1500,
+      "timeoutAndUnavailable": "controlled callbacks",
+      "shipmentMissing": "explained; viewer never substituted"
+    },
+    {
+      "view": "admin",
+      "browserPermission": "granted/denied/retry using Chromium permissions",
+      "approximateAccuracyMeters": 1500,
+      "timeoutAndUnavailable": "controlled callbacks",
+      "shipmentMissing": "explained; viewer never substituted"
+    }
+  ],
+  "readOnlySnapshotRequests": 4,
+  "mutations": []
+}

@@ -443,5 +443,5 @@ export async function dispatchHttp(
     }
     fail("Not found.", 404);
   }
-  return { enabled, route, engine, tick: () => engine.sweep() };
+  return { enabled, route, engine,authorizeOperations:stepup.authorize, tick: () => engine.sweep() };
 }

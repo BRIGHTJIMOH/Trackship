@@ -1,3 +1,4 @@
+import {liveOperations} from './live-operations.mjs';
 import {dispatchHttp} from './dispatch-http.mjs';
 import {routeCatalog} from './route-catalog.mjs';
 import {adminConsole} from './admin.mjs';
@@ -224,9 +225,11 @@ export async function operations(db, {
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const dispatch=await dispatchHttp(db,{env,body,vendor:accountAccess.vendor,rider,admin:adminAccess,catalog,providers,getShipment,putShipment,creditEarnings});
+  const liveMap=liveOperations(db,{env,authorize:async req=>{try{const session=await adminAccess.authorize(req,{operator:false});return {id:session.actor,role:'super-admin'};}catch(error){if(dispatch.authorizeOperations){const operator=await dispatch.authorizeOperations(req,'dispatch.read');return {id:operator.id,role:'operations'};}throw error;}}});
   const notifyPaid=async s=>{if(s.workflowVersion===5){if(dispatch.enabled){await db.prepare("UPDATE dispatch_jobs SET next_at=? WHERE shipment_id=? AND state='waiting-payment'").run(Date.now(),s.id);await dispatch.engine.search(s.id);}}else await market.notify(s,'ready');};
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await liveMap(req,url,send))return true;
     if(await dispatch.route(req,res,url,send))return true;
     if(await adminAccess.route(req,res,url,send))return true;
     if(path==='/api/routes'&&req.method==='GET'){send(200,{routes:await catalog.list(true),requireRoutes:(await catalog.pricing()).requireRoutes});return true;}
@@ -685,6 +688,7 @@ export async function operations(db, {
           }
           if (fresh.locationConsent?.actor !== r.id || fresh.locationConsent?.leg !== leg || fresh.locationConsent?.sessionHash !== r.sessionHash) fail('Start location sharing explicitly before uploading a position.', 403);
           if (typeof p.lat !== 'number' || typeof p.lng !== 'number' || !Number.isFinite(p.lat) || !Number.isFinite(p.lng) || p.lat < -90 || p.lat > 90 || p.lng < -180 || p.lng > 180 || !Number.isFinite(p.accuracy) || p.accuracy < 0 || p.accuracy > 5000) fail('Invalid GPS fix.');
+          if(p.observedAt!==undefined&&(!Number.isSafeInteger(p.observedAt)||p.observedAt>Date.now()||Date.now()-p.observedAt>30000))fail('A current GPS observation timestamp is required.');
           const next = {
             ...fresh,
             location: {
@@ -692,6 +696,8 @@ export async function operations(db, {
               lng: p.lng,
               accuracy: p.accuracy,
               at: new Date().toISOString(),
+              receivedAt: new Date().toISOString(),
+              observedAt: p.observedAt===undefined?null:new Date(p.observedAt).toISOString(),
               leg
             }
           };

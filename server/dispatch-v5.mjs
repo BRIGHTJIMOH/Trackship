@@ -1092,6 +1092,7 @@ export async function dispatchWorkflow(
             lng: fix.lng,
             accuracy: fix.accuracy,
             at: new Date(fix.observedAt).toISOString(),
+            receivedAt: new Date(now()).toISOString(),
             leg,
           };
         }

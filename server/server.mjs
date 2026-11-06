@@ -261,7 +261,7 @@ export async function createApp({
       if (!['GET', 'HEAD'].includes(req.method)) return send(405, {
         error: 'Method not allowed.'
       });
-      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css'};
+      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css'};
       if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
       const files = {
         '/welcome':'marketing.html',

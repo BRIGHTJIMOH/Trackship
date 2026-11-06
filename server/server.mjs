@@ -283,6 +283,7 @@ export async function createApp({
         '/assets/leaflet.js': 'assets/leaflet.js',
         '/assets/leaflet.css': 'assets/leaflet.css',
         '/style.css': 'style.css',
+        '/assets/demo-vendor-dashboard.jpg':'assets/demo-vendor-dashboard.jpg',
         '/assets/demo-vendor-create.jpg':'assets/demo-vendor-create.jpg',
         '/assets/demo-vendor-details.jpg':'assets/demo-vendor-details.jpg',
         '/assets/demo-vendor-tracking.jpg':'assets/demo-vendor-tracking.jpg',

@@ -15,7 +15,10 @@ export async function routeCatalog(db){
   const previous=id?await get(id):null;if(id&&!previous)fail('Route not found.',404);if(previous&&input.revision!==previous.revision)fail('This route changed. Refresh before saving.',409);
   const p={...previous,...(previous?{pickupFee:previous.pickupKobo/100,carrierFee:previous.carrierKobo/100,lastMileFee:previous.lastMileKobo/100}:{}),...input};for(const [key,label]of [['origin','Pickup city'],['destination','Destination city']])if(typeof p[key]!=='string'||!p[key].trim()||p[key].length>80)fail(label+' is required.');
   if(!NIGERIAN_STATES.includes(p.originState)||!NIGERIAN_STATES.includes(p.destinationState))fail('Choose valid route states.');
-  const type=p.originState===p.destinationState?'intrastate':'interstate';
+  const inferred=p.originState===p.destinationState?'intrastate':'interstate';
+  const type=input.deliveryType===undefined?inferred:input.deliveryType;
+  if(!['intrastate','interstate'].includes(type))fail('Choose Interstate or Intrastate.');
+  if(type!==inferred)fail(type==='intrastate'?'Intrastate routes must use the same pickup and destination state.':'Interstate routes must use different pickup and destination states.');
   const amount=(value,optional)=>optional?0:feeKobo(value);
   const pickup=amount(p.pickupFee,false),carrier=amount(p.carrierFee,type==='intrastate'),lastmile=amount(p.lastMileFee,type==='intrastate');
   if(pickup+carrier+lastmile>1000000000)fail('Route fee exceeds the supported limit.');

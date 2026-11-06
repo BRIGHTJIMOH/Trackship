@@ -1,3 +1,4 @@
+import {viewerMapControls} from '/viewer-location.mjs';
 import {validatedMapConfig,createMapTiles} from '/map-display.mjs';
 import {
   stageColors,
@@ -59,6 +60,7 @@ export function liveOperationsMap({
   let map = null,
     tiles = null,
     tileConfigKey = null,
+    viewerControls = null,
     cursor = null,
     flight = null,
     controller = null,
@@ -343,7 +345,17 @@ export function liveOperationsMap({
         zoomAnimation: false,
         markerZoomAnimation: false,
       }).setView([9.08, 8.68], 6);
+      map.on("movestart", () => { initialized = true; });
       map.on("zoomend moveend", renderMarkers);
+      const host = document.createElement("div");
+      element.querySelector(".operations-map").before(host);
+      viewerControls = viewerMapControls({L,map,host,getShipment:()=>{
+        const shipment=records.get(selected);
+        if(!shipment)return {position:null,message:"Select a delivery first. Your device location is not a shipment position."};
+        const freshness=gpsState(shipment,clock());
+        if(!shipment.gps.position || freshness!=="fresh" && !(filters.showStale && freshness==="stale"))return {position:null,message:"The selected shipment has no current authorized GPS fix. Your location is separate; no rider position is guessed."};
+        return {position:shipment.gps.position,message:freshness==="fresh"?"Viewing the selected shipment holder’s recorded GPS.":"Viewing last known shipment GPS — stale, not live."};
+      },getAll:()=>[...records.values()].filter(shipment=>matchesOperations(shipment,filters)&&shipment.gps.position&&(gpsState(shipment,clock())==="fresh"||filters.showStale&&gpsState(shipment,clock())==="stale")).map(shipment=>shipment.gps.position)});
     }
     // Feed configuration is authoritative even for delta responses. Swap only tiles;
     // preserve map instance, zoom, filters, selection and open dashboard forms.
@@ -467,6 +479,7 @@ export function liveOperationsMap({
     controller?.abort();
     clearInterval(poll);
     clearInterval(freshTimer);
+    viewerControls?.destroy();
     map?.remove();
     map = null;
     records.clear();

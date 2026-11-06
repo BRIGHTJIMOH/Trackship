@@ -1,3 +1,4 @@
+import {dispatchHttp} from './dispatch-http.mjs';
 import {routeCatalog} from './route-catalog.mjs';
 import {adminConsole} from './admin.mjs';
 import {publicMapConfig} from './maps.mjs';
@@ -222,8 +223,11 @@ export async function operations(db, {
   });
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
+  const dispatch=await dispatchHttp(db,{env,body,vendor:accountAccess.vendor,rider,admin:adminAccess,catalog,providers,getShipment,putShipment,creditEarnings});
+  const notifyPaid=async s=>{if(s.workflowVersion===5){if(dispatch.enabled){await db.prepare("UPDATE dispatch_jobs SET next_at=? WHERE shipment_id=? AND state='waiting-payment'").run(Date.now(),s.id);await dispatch.engine.search(s.id);}}else await market.notify(s,'ready');};
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await dispatch.route(req,res,url,send))return true;
     if(await adminAccess.route(req,res,url,send))return true;
     if(path==='/api/routes'&&req.method==='GET'){send(200,{routes:await catalog.list(true),requireRoutes:(await catalog.pricing()).requireRoutes});return true;}
     if(path==='/api/routes/quotes'&&req.method==='POST'){const input=await body(req);if(!Array.isArray(input.rows)||!input.rows.length||input.rows.length>100)fail('Quote between 1 and 100 shipments.');const quotes=[];for(const row of input.rows)quotes.push(await catalog.quote(row.routeId,row));send(200,{quotes});return true;}
@@ -296,6 +300,7 @@ export async function operations(db, {
       }
       if (raw && (await db.prepare('SELECT rider_id FROM rider_sessions WHERE token_hash=?').get(digest(raw)))) {
         const hash = digest(raw);
+        if(dispatch.enabled){await db.prepare('DELETE FROM dispatch_positions WHERE session_hash=?').run(hash);await db.prepare("UPDATE dispatch_installations SET revoked=1,token_cipher='' WHERE session_hash=?").run(hash);await db.prepare("DELETE FROM dispatch_location_consents WHERE session_hash=?").run(hash);}
         await transaction(async () => {
           for (const row of await db.prepare('SELECT payload FROM shipments').all()) {
             const s = JSON.parse(row.payload);
@@ -516,14 +521,15 @@ export async function operations(db, {
       const row = await db.prepare('SELECT payload FROM shipments WHERE id=? AND owner=?').get(paymentRoute[1], merchant);
       if (!row) fail('Shipment not found.', 404);
       const s = JSON.parse(row.payload);
-      if (s.workflowVersion !== 3) fail('Create a new delivery to use the funded workflow.');
+      if (![3,5].includes(s.workflowVersion)) fail('Create a new delivery to use the funded workflow.');
+      if(s.workflowVersion===5&&!dispatch.enabled)fail('Dispatch preview is unavailable.',503);
       if (!providers.paymentReady) fail('Paystack is not configured on this service.', 503);
       if (paymentRoute[2] === 'verify-payment') {
         const ref = s.payment.reference;
         if (!ref) fail('No payment has been started.', 404);
         const result = await providers.verify(ref);
         const updated = await verifyFunding(ref, result);
-        await market.notify(updated, 'ready');
+        await notifyPaid(updated);
         send(200, {
           payment: updated.payment
         });
@@ -575,7 +581,7 @@ export async function operations(db, {
         amount: s.payment.amount,
         currency: 'NGN',
         reference: ref,
-        callback_url: publicUrl + '/payment-return',
+        callback_url: publicUrl + (s.workflowVersion===5?'/app/dispatch':'/payment-return'),
         metadata: {
           shipment_id: s.id
         }
@@ -615,7 +621,7 @@ export async function operations(db, {
         }
         const result = await providers.verify(ref);
         const paid = await verifyFunding(ref, result);
-        await market.notify(paid, 'ready');
+        await notifyPaid(paid);
       }
       if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(event.event)) {
         const ref = event.data?.reference;
@@ -823,6 +829,8 @@ export async function operations(db, {
     return false;
   };
   router.legacyCreationAllowed=async()=>!(await catalog.pricing()).requireRoutes;
+  router.dispatchTick=dispatch.tick;
+  router.dispatchEnabled=dispatch.enabled;
   router.ownerSession = accountAccess.owner;
   return router;
 }

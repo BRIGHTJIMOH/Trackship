@@ -1,5 +1,7 @@
 # Dispatch extension plan and baseline
 
+> Historical phase-one checkpoint. The stacked [phase-two preview](PHASE-2.md) adds HTTP/UI/worker integration; it remains blocked on production.
+
 Baseline inspected: owner-designated deployment branch `apk-test-v0.7.0`, commit `00f45703645acdd31d4cf662f48dfc6ddf6c0740`. PR #6 (route types and phone journeys) is merged. Email-verification PR #4 remains separate. Existing website/waitlist/admin/free resources are retained.
 
 Reviewable phases:

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateShipment, canTransition, publicShipment } from '../web/core.mjs';
 import { operations } from './operations.mjs';
+import { dispatchPublic } from '../web/dispatch-flow.mjs';
 import { flowPublic } from '../web/lifecycle.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const hash = s => createHash('sha256').update(s).digest('hex');
@@ -166,6 +167,7 @@ export async function createApp({
           error: 'Dispatch not found. Ask your vendor for a current link.'
         });
         const s = JSON.parse(row.payload);
+        if(s.workflowVersion===5)return send(409,{error:'Use authenticated dispatch actions for this delivery.'});
         if (req.method === 'GET' && !riderRoute[2]) return send(200, riderView(s));
         if (req.method === 'POST' && riderRoute[2]) {
           const event = await body(req);
@@ -205,7 +207,7 @@ export async function createApp({
         const s = await body(req);
         const existing = await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);
         if(!existing&&!await advanced.legacyCreationAllowed())return send(409,{error:'New shipments must use a configured route and the current delivery workflow.'});
-      if (s.workflowVersion === 3 || existing && JSON.parse(existing.payload).workflowVersion === 3) return send(409, {
+      if ([3,5].includes(s.workflowVersion) || existing && [3,5].includes(JSON.parse(existing.payload).workflowVersion)) return send(409, {
           error: 'Funded deliveries must use authenticated handoff actions.'
         });
         if (!valid(s, id)) return send(400, {
@@ -250,7 +252,8 @@ export async function createApp({
           error: 'Delivery not found.'
         });
         const shipment = JSON.parse(row.payload);
-        return send(200, shipment.workflowVersion === 3 ? flowPublic(shipment) : publicShipment(shipment));
+        const publicView=shipment.workflowVersion===5?dispatchPublic(shipment):shipment.workflowVersion===3?flowPublic(shipment):publicShipment(shipment);
+        return publicView?send(200,publicView):send(404,{error:'Delivery not found.'});
       }
       if (route.startsWith('/api/')) return send(404, {
         error: 'Not found.'
@@ -271,6 +274,12 @@ export async function createApp({
         '/': 'marketing.html',
         '/app': 'index.html',
         '/app/': 'index.html',
+        '/app/dispatch':'dispatch.html',
+        '/admin/dispatch':'dispatch.html',
+        '/dispatch.js':'dispatch.js',
+        '/dispatch-link.js':'dispatch-link.js',
+        '/dispatch.css':'dispatch.css',
+        '/dispatch-flow.mjs':'dispatch-flow.mjs',
         '/index.html': 'index.html',
         '/app.js': 'app.js',
         '/core.mjs': 'core.mjs',
@@ -299,7 +308,9 @@ export async function createApp({
         '/assets/Poppins-Medium.ttf': 'assets/Poppins-Medium.ttf',
         '/assets/Poppins-SemiBold.ttf': 'assets/Poppins-SemiBold.ttf'
       };
-      const filename = route.startsWith('/t/') || route.startsWith('/r/') || route === '/payment-return' ? 'index.html' : files[route];
+      let dispatchTracking=false;
+      if(route.startsWith('/t/')&&/^[a-f0-9]{64}$/.test(route.slice(3))){const row=await db.prepare('SELECT payload FROM shipments WHERE public_hash=?').get(hash(route.slice(3)));dispatchTracking=row&&JSON.parse(row.payload).workflowVersion===5;}
+      const filename = dispatchTracking?'dispatch.html':route.startsWith('/t/') || route.startsWith('/r/') || route === '/payment-return' ? 'index.html' : files[route];
       if (!filename) return send(404, {
         error: 'Not found.'
       });
@@ -326,6 +337,8 @@ export async function createApp({
   server.requestTimeout = 30000;
   server.headersTimeout = 15000;
   server.on('close',()=>{server.databaseClosed=db.close();});
+  server.runDispatchTick=advanced.dispatchTick;
+  server.dispatchEnabled=advanced.dispatchEnabled;
   server.databaseKind=db.kind;
   server.database=db;
   return server;

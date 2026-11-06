@@ -1,5 +1,7 @@
 # Setup, activation and recovery
 
+> Historical phase-one checkpoint. The stacked [phase-two preview](PHASE-2.md) adds HTTP/UI/worker integration; it remains blocked on production.
+
 ## Scope of this PR
 
 This is **phase 1**, not a completed product rollout. The v5 service is a tested internal domain module, not mounted on HTTP routes, called from the existing creation/payment flow, or enabled by an environment flag. Setting the variables below does **not** activate nearby dispatch. Existing v3 shipments continue unchanged. The only existing runtime change in this PR restricts v3 dispatch previews to area/fee data and prevents another rider reading an assigned shipment or replaying its completion.

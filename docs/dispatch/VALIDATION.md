@@ -1,5 +1,7 @@
 # Phase-one validation
 
+> Historical phase-one checkpoint. The stacked [phase-two preview](PHASE-2.md) adds HTTP/UI/worker integration; it remains blocked on production.
+
 Baseline remote head fetched from `apk-test-v0.7.0`: `00f45703645acdd31d4cf662f48dfc6ddf6c0740` (PR #6 merge). This identifies the Git deployment branch head; Render's actual running commit was not independently verified.
 
 Commands completed locally:

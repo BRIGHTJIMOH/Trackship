@@ -1,4 +1,4 @@
-// Phase-one domain service. Not mounted on public HTTP routes until the v5 UI/auth adapter is reviewed.
+// Versioned domain service. The HTTP adapter is restricted to explicitly enabled nonproduction previews.
 import {
   createHash,
   randomBytes,
@@ -445,7 +445,10 @@ export async function dispatchWorkflow(
     outbox,
     publicView: dispatchPublic,
     // Caller must supply a server-priced, server-created shipment. This never accepts a browser payload.
-    async initialize(s, { vendorId, allowedVehicles, pickupCoordinates }) {
+    async initialize(
+      s,
+      { vendorId, allowedVehicles, pickupCoordinates, register, registered },
+    ) {
       outbox.crypto.seal({ preflight: true });
       if (
         s.workflowVersion !== 3 ||
@@ -461,7 +464,12 @@ export async function dispatchWorkflow(
           400,
         );
       return tx(async () => {
-        const current = await getShipment(s.id);
+        let current = await getShipment(s.id);
+        if (register) {
+          if (current) fail("Shipment reference already exists.");
+          await register();
+          current = await getShipment(s.id);
+        }
         if (
           !current ||
           current.workflowVersion !== 3 ||
@@ -498,7 +506,12 @@ export async function dispatchWorkflow(
         await db
           .prepare("INSERT INTO dispatch_jobs VALUES (?,0,?,'waiting-payment')")
           .run(s.id, now());
-        return event(s, "Shipment created", { kind: "vendor", id: vendorId });
+        const result = await event(s, "Shipment created", {
+          kind: "vendor",
+          id: vendorId,
+        });
+        if (registered) await registered(result);
+        return result;
       });
     },
     async position(actor, fix) {
@@ -730,6 +743,8 @@ export async function dispatchWorkflow(
           current = holder(s) === actor.id;
         const safe = {
           id: s.id,
+          jobLeg: leg,
+          carrying: current,
           code: s.code,
           workflowVersion: 5,
           status: s.status,
@@ -1254,6 +1269,16 @@ export async function dispatchWorkflow(
         return { status: s.status, custodian: s.custodian };
       });
     },
+    async handovers(actor) {
+      return db.withRequest("GET", async () => {
+        await authenticated(actor);
+        return db
+          .prepare(
+            "SELECT id,shipment_id,from_id,to_id,from_leg,to_leg,state,expires,created FROM dispatch_handovers WHERE (from_id=? OR to_id=?) AND state='pending' AND expires>? ORDER BY created DESC LIMIT 100",
+          )
+          .all(actor.id, actor.id, now());
+      });
+    },
     async sweep() {
       const ids = await db.withRequest("GET", () =>
         db
@@ -1262,7 +1287,15 @@ export async function dispatchWorkflow(
           )
           .all(now()),
       );
-      for (const row of ids) await api.search(row.shipment_id);
+      for (const row of ids) {
+        const result = await api.search(row.shipment_id);
+        if (result.reason === "not-dispatchable")
+          await db.withRequest("POST", () =>
+            db
+              .prepare("UPDATE dispatch_jobs SET next_at=? WHERE shipment_id=?")
+              .run(now() + 60000, row.shipment_id),
+          );
+      }
       return outbox.tick(20);
     },
   };

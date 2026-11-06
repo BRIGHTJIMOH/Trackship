@@ -126,6 +126,7 @@ export async function operations(db, {
     payments: providers.paymentReady,
     paymentMode: providers.paymentReady ? providers.mode : null,
     sms: providers.smsReady,
+    email: Boolean(providers.emailReady),
     identity: providers.identityReady,
     publicUrl: publicOrigin || null,
     payouts: env.TRACKSHIP_ENABLE_PAYOUTS === 'true'

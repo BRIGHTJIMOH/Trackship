@@ -41,14 +41,14 @@ import os,pathlib,shutil,json,urllib.parse
 root=pathlib.Path('build/sendrack-test');assets=root/'assets/web'
 url=os.environ['SENDRACK_TEST_SERVICE_URL'].rstrip('/');u=urllib.parse.urlparse(url)
 if u.scheme!='https' or not u.hostname or u.username or u.password or u.path or u.query or u.fragment:raise SystemExit('Test backend must be an HTTPS origin.')
-for name in ['index.html','style.css','app.js','core.mjs','lifecycle.mjs','features.mjs','map-display.mjs','accounts.mjs','identity.mjs']:
+for name in ['index.html','style.css','app.js','core.mjs','lifecycle.mjs','features.mjs','map-display.mjs','viewer-location.mjs','map-controls.css','accounts.mjs','identity.mjs']:
  shutil.copy2(pathlib.Path('web')/name,assets/name)
 shutil.copytree('web/assets',assets/'assets',dirs_exist_ok=True)
 for name in ['index.html','app.js']:
- p=assets/name;s=p.read_text().replace('SendRack','SendRack Test').replace('0.7.0','0.7.1-test.1');p.write_text(s)
+ p=assets/name;s=p.read_text().replace('SendRack','SendRack Test').replace('0.7.0','0.7.2-test.1');p.write_text(s)
 (assets/'config.mjs').write_text('export const SERVICE_URL = '+json.dumps(url)+';\n')
 for source,target in [('index.html','sendrack-entry.html'),('app.js','sendrack-main.js'),('style.css','sendrack-ui.css')]:shutil.copy2(assets/source,assets/target)
-manifest=pathlib.Path('android/AndroidManifest.xml').read_text().replace('package="ng.trackship.app"','package="ng.sendrack.test"').replace('android:versionCode="13"','android:versionCode="1"').replace('android:versionName="0.7.0"','android:versionName="0.7.1-test.1"').replace('android:label="SendRack"','android:label="SendRack Test"')
+manifest=pathlib.Path('android/AndroidManifest.xml').read_text().replace('package="ng.trackship.app"','package="ng.sendrack.test"').replace('android:versionCode="13"','android:versionCode="2"').replace('android:versionName="0.7.0"','android:versionName="0.7.2-test.1"').replace('android:label="SendRack"','android:label="SendRack Test"')
 (root/'AndroidManifest.xml').write_text(manifest)
 for p in pathlib.Path('android/src/ng/trackship/app').glob('*.java'):
  s=p.read_text().replace('ng.trackship.app','ng.sendrack.test')
@@ -65,8 +65,8 @@ import zipfile
 with zipfile.ZipFile('build/sendrack-test/unsigned.apk','a',compression=zipfile.ZIP_DEFLATED) as z:z.write('build/sendrack-test/dex/classes.dex','classes.dex')
 PY
 "$BT/zipalign" -f -p 4 "$WORK/unsigned.apk" "$WORK/aligned.apk"
-"$BT/apksigner" sign --ks "$KEY" --ks-key-alias sendrack-test --ks-pass "file:$PASSWORD" --out artifacts/SendRack-Test-0.7.1-test.1.apk "$WORK/aligned.apk"
-"$BT/apksigner" verify --verbose --print-certs artifacts/SendRack-Test-0.7.1-test.1.apk
-sha256sum artifacts/SendRack-Test-0.7.1-test.1.apk > artifacts/SendRack-Test-0.7.1-test.1.apk.sha256
-"$BT/aapt2" dump badging artifacts/SendRack-Test-0.7.1-test.1.apk | head -6
+"$BT/apksigner" sign --ks "$KEY" --ks-key-alias sendrack-test --ks-pass "file:$PASSWORD" --out artifacts/SendRack-Test-0.7.2-test.1.apk "$WORK/aligned.apk"
+"$BT/apksigner" verify --verbose --print-certs artifacts/SendRack-Test-0.7.2-test.1.apk
+sha256sum artifacts/SendRack-Test-0.7.2-test.1.apk > artifacts/SendRack-Test-0.7.2-test.1.apk.sha256
+"$BT/aapt2" dump badging artifacts/SendRack-Test-0.7.2-test.1.apk | head -6
 printf 'Separate SendRack Test APK built. Original package/key unchanged. Test key retained privately outside the repository.\n'

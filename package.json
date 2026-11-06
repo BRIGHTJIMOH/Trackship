@@ -14,7 +14,8 @@
     "test:postgres": "node scripts/test-postgres.mjs",
     "test:admin": "node tests/admin-ui.mjs",
     "test:dispatch": "node tests/dispatch-ui.mjs",
-    "dispatch:worker": "node scripts/dispatch-worker.mjs"
+    "dispatch:worker": "node scripts/dispatch-worker.mjs",
+    "test:live-map": "node tests/live-map-ui.mjs"
   },
   "engines": {
     "node": ">=24"

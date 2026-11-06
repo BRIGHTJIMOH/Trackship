@@ -638,7 +638,15 @@ export async function operations(db, {
         s,
         leg
       } = await job(jobs[1]);
+      if (s.workflowVersion !== 3) fail('This delivery uses a different authenticated workflow.', 409);
       if (req.method === 'GET' && !jobs[2]) {
+        if (s.actors?.[leg]?.id && s.actors[leg].id !== r.id) fail('This parcel is assigned to another handler.', 403);
+        // A private dispatch link permits an area/earnings preview, not customer PII.
+        if (!s.actors?.[leg]?.id) {
+          const preview = {id:s.id,code:s.code,workflowVersion:3,jobLeg:leg,deliveryType:s.deliveryType,status:s.status,custodian:s.custodian,business:s.business,origin:s.origin,originState:s.originState,destination:s.destination,destinationState:s.destinationState,description:s.description,fees:{[leg]:s.fees[leg]},payment:{status:s.payment.status},actors:{},events:flowPublic(s).events,location:null,locationSharing:false,createdAt:s.createdAt};
+          send(200, preview);
+          return true;
+        }
         send(200, jobView(s, leg));
         return true;
       }
@@ -700,6 +708,7 @@ export async function operations(db, {
           action: 'resend-otp'
         };
         if (s.status === 'Delivered' && input.action === 'complete') {
+          if (s.actors?.[leg]?.id !== r.id) fail('This parcel is assigned to another handler.', 403);
           send(200, jobView(s, leg));
           return true;
         }

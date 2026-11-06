@@ -1,0 +1,31 @@
+{
+  "name": "SendRack Test",
+  "applicationId": "ng.sendrack.test",
+  "originalApplicationId": "ng.trackship.app",
+  "versionName": "0.7.1-test.1",
+  "versionCode": 1,
+  "minSdk": 26,
+  "targetSdk": 35,
+  "backend": "https://sendrack-api.onrender.com",
+  "sha256": "e1721b60db4e685e83b356c2af876e8394de9eb18cf3a0060d8ace344cf45cc5",
+  "signingCertificateSha256": "d34b55d2982e55a2623157423ba2ad634ce2844c482144b53f53d88f0b8ecfa5",
+  "sourceCommit": "4c2dab253df6db46e6929b6a187688654601e21e",
+  "bytes": 3431431,
+  "verification": {
+    "apkSignature": "verified",
+    "packagedAssets": "Chromium using local backend with mocked providers; unmodified packaged Render URL intercepted only in tests",
+    "unitTests": {
+      "passed": 58,
+      "skippedPostgreSQL": 4,
+      "failed": 0
+    },
+    "adminMapEmptyState": "passed locally with zero shipments and no-GPS shipment; no same-origin asset errors or JS errors",
+    "existingAdminAndQuietRefresh": "passed",
+    "physicalDevice": false,
+    "androidEmulator": false,
+    "liveRender": "Blocked by enforced environment network policy; running commit unverified",
+    "realResendDelivery": "unverified; requires private Render provider settings"
+  },
+  "dataSeparation": "Installs alongside original app; local records do not transfer automatically. Cloud accounts require proper authentication.",
+  "keyRetention": "Private workspace key plus encrypted recovery copy and separate private recovery key; off-workspace archival remains required."
+}

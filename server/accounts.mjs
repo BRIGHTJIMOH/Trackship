@@ -1,3 +1,4 @@
+import {emailAccounts} from './email-accounts.mjs';
 import { randomUUID, randomBytes, randomInt, createHash, timingSafeEqual } from 'node:crypto';
 import { normalizePhone, validateOnboarding } from '../web/core.mjs';
 const hash = s => createHash('sha256').update(s).digest('hex');
@@ -64,10 +65,12 @@ export async function accounts(db, {
       throw e;
     }
   }
+  const emailRoute=await emailAccounts(db,{body,providers,publicProfile,vendor});
   return {
     vendor,
     owner: async req => (await vendor(req))?.owner_key || null,
     async route(req, path, send) {
+      if(await emailRoute(req,path,send))return true;
       if (path === '/api/accounts/request-code' && req.method === 'POST') {
         const p = await body(req, 180000);
         if (!['vendor', 'rider'].includes(p.role) || !['signup', 'login'].includes(p.intent)) fail('Choose Vendor or Rider and Sign up or Log in.');
@@ -145,6 +148,8 @@ export async function accounts(db, {
           profile: {
             ...profile,
             id: account.id,
+            email: account.email||null,
+            emailVerifiedAt: account.email_verified_at||null,
             phone: c.phone,
             identityStatus: account.identity_status || 'missing'
           }

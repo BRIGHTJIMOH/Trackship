@@ -24,7 +24,28 @@ Accounts with neither a valid hosted session nor functioning legacy SMS need ope
 - Verification checks the original role, account ID and linked email; suspension and revoked sessions still apply.
 - Email verification does not verify the contact phone, approve government ID or activate payouts.
 
-## Provider setup: Resend
+## Resend test sender: no domain required
+
+For testing before you own a domain, use the Resend API key from your own account and set the following on the existing Render service `sendrack-api`:
+
+| Variable | Test value |
+| --- | --- |
+| `RESEND_API_KEY` | Your real private Resend API key, entered only in Render |
+| `EMAIL_FROM` | `SendRack <onboarding@resend.dev>` |
+
+Enter the `EMAIL_FROM` value without surrounding quotes in Render. `.env.example` quotes it for dotenv syntax. The runtime still reads the sender from `EMAIL_FROM`; it never silently falls back to a test sender.
+
+Use **the exact email address registered to the Resend account owning that API key** as the signup/login recipient. Resend enforces this restriction for its `resend.dev` test domain and returns 403 for other inboxes. The app shows an actionable error, retains the signup details/ID payload and does not create a verified account on rejection. The sender address is not the recipient: do not sign up as `onboarding@resend.dev`.
+
+Both a vendor and rider can be tested with your one permitted account email because addresses are unique per role. Use distinct contact phone numbers and legitimate test data. Existing verified accounts should use returning login rather than creating a duplicate of the same role. Normal cooldown, attempt limits, expiry and single-use codes still apply. Read the real code in your inbox; the application does not return a development code or auto-verify anything.
+
+This is **private account-only testing**, not public email signup. It does not authorize using test event addresses such as `delivered@resend.dev` for app login: those do not give you a real inbox in which to receive the code. Invite other testers only after you own and verify a sender domain, then replace `EMAIL_FROM` with your domain sender. No code change or verification relaxation is needed for that switch.
+
+Resend's official restriction: [403 Error Using resend.dev Domain](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain).
+
+No live Render environment setting was changed here; these values are prepared in the source configuration and must be applied privately to the existing service along with the email-verification deployment. Keep all database/environment settings and free plans unchanged.
+
+## Public sending later: Resend domain setup
 
 1. Create or use your Resend account. Add a domain you control and publish the DNS records Resend supplies. Wait until the sender domain is verified. Use an address on that domain (for example `SendRack <accounts@YOUR-VERIFIED-DOMAIN>`). A provider sandbox/test sender may be restricted to the provider-account owner's address and is not sufficient for public signup.
 2. Create a sending API key scoped to the sender/domain where supported. Store it privately in the existing Render service's Environment settings; never put it in GitHub, the web app, an APK or chat.

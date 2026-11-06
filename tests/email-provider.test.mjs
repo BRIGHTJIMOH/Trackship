@@ -9,3 +9,14 @@ test('Resend adapter requires a private key and sender, sends code only to provi
  globalThis.fetch=async()=>({ok:false,json:async()=>({message:'private provider failure'})});await assert.rejects(provider.email('user@example.com','Code','123456'),e=>e.status===503&&!e.message.includes('123456')&&!e.message.includes('private provider'));
  }finally{globalThis.fetch=original;}
 });
+test('Resend account-only test sender stays configurable and reports restricted recipients without pretending to send',async()=>{
+ const original=globalThis.fetch,provider=providersFromEnv({RESEND_API_KEY:'re_test_only',EMAIL_FROM:'SendRack <onboarding@resend.dev>'});assert.equal(provider.emailReady,true);
+ try{
+  let actual;
+  globalThis.fetch=async(url,options)=>{actual=JSON.parse(options.body);return {ok:true,status:200,json:async()=>({id:'account-only-test'})};};
+  assert.equal(await provider.email('account-owner@example.com','Signup code','Your code is 123456'),true);assert.equal(actual.from,'SendRack <onboarding@resend.dev>');assert.deepEqual(actual.to,['account-owner@example.com']);assert.equal(actual.text,'Your code is 123456');
+  globalThis.fetch=async()=>({ok:false,status:403,json:async()=>({message:'private account email or provider detail'})});
+  await assert.rejects(provider.email('someone-else@example.com','Signup code','Your code is 123456'),e=>e.status===503&&e.message.includes('email registered to your Resend account')&&!e.message.includes('123456')&&!e.message.includes('private account'));
+  assert.equal(providersFromEnv({RESEND_API_KEY:'re_test_only'}).emailReady,false);
+ }finally{globalThis.fetch=original;}
+});

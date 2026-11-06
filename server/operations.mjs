@@ -1,3 +1,4 @@
+import {liveOperations} from './live-operations.mjs';
 import {routeCatalog} from './route-catalog.mjs';
 import {adminConsole} from './admin.mjs';
 import {publicMapConfig} from './maps.mjs';
@@ -122,7 +123,7 @@ export async function operations(db, {
   const capabilities = () => ({
     maps:publicMapConfig(env),
     service: 'trackship-ng',
-    version: '0.7.0',
+    version: '0.7.1',
     payments: providers.paymentReady,
     paymentMode: providers.paymentReady ? providers.mode : null,
     sms: providers.smsReady,
@@ -223,8 +224,10 @@ export async function operations(db, {
   });
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
+  const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false});return {id:session.actor,role:'super-admin'};}});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await liveMap(req,url,send))return true;
     if(await adminAccess.route(req,res,url,send))return true;
     if(path==='/api/routes'&&req.method==='GET'){send(200,{routes:await catalog.list(true),requireRoutes:(await catalog.pricing()).requireRoutes});return true;}
     if(path==='/api/routes/quotes'&&req.method==='POST'){const input=await body(req);if(!Array.isArray(input.rows)||!input.rows.length||input.rows.length>100)fail('Quote between 1 and 100 shipments.');const quotes=[];for(const row of input.rows)quotes.push(await catalog.quote(row.routeId,row));send(200,{quotes});return true;}
@@ -640,6 +643,8 @@ export async function operations(db, {
         leg
       } = await job(jobs[1]);
       if (req.method === 'GET' && !jobs[2]) {
+        if(s.actors?.[leg]?.id&&s.actors[leg].id!==r.id)fail('This parcel is assigned to another handler.',403);
+        if(!s.actors?.[leg]?.id){send(200,{id:s.id,code:s.code,workflowVersion:3,jobLeg:leg,deliveryType:s.deliveryType,status:s.status,custodian:s.custodian,business:s.business,origin:s.origin,originState:s.originState,destination:s.destination,destinationState:s.destinationState,description:s.description,fees:{[leg]:s.fees[leg]},payment:{status:s.payment.status},actors:{},events:flowPublic(s).events,location:null,locationSharing:false,createdAt:s.createdAt});return true;}
         send(200, jobView(s, leg));
         return true;
       }
@@ -672,6 +677,7 @@ export async function operations(db, {
           }
           if (fresh.locationConsent?.actor !== r.id || fresh.locationConsent?.leg !== leg || fresh.locationConsent?.sessionHash !== r.sessionHash) fail('Start location sharing explicitly before uploading a position.', 403);
           if (typeof p.lat !== 'number' || typeof p.lng !== 'number' || !Number.isFinite(p.lat) || !Number.isFinite(p.lng) || p.lat < -90 || p.lat > 90 || p.lng < -180 || p.lng > 180 || !Number.isFinite(p.accuracy) || p.accuracy < 0 || p.accuracy > 5000) fail('Invalid GPS fix.');
+          if(p.observedAt!==undefined&&(!Number.isSafeInteger(p.observedAt)||p.observedAt>Date.now()||Date.now()-p.observedAt>30000))fail('A current GPS observation timestamp is required.');
           const next = {
             ...fresh,
             location: {
@@ -679,6 +685,8 @@ export async function operations(db, {
               lng: p.lng,
               accuracy: p.accuracy,
               at: new Date().toISOString(),
+              receivedAt: new Date().toISOString(),
+              observedAt: p.observedAt===undefined?null:new Date(p.observedAt).toISOString(),
               leg
             }
           };
@@ -701,6 +709,7 @@ export async function operations(db, {
           action: 'resend-otp'
         };
         if (s.status === 'Delivered' && input.action === 'complete') {
+          if(s.actors?.[leg]?.id!==r.id)fail('This parcel is assigned to another handler.',403);
           send(200, jobView(s, leg));
           return true;
         }

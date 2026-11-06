@@ -134,9 +134,10 @@ export async function createApp({
       }
       if (await advanced(req, res, url, send)) return;
       if (route === '/api/ready' && req.method === 'GET'){await db.prepare('SELECT 1 AS ready').get();return send(200,{ready:true,database:db.kind});}
+      if(route==='/api/version'&&req.method==='GET')return send(200,{service:'sendrack',version:'0.7.1',commit:/^[a-f0-9]{40}$/.test(env.RENDER_GIT_COMMIT||env.SOURCE_COMMIT||'')?(env.RENDER_GIT_COMMIT||env.SOURCE_COMMIT):null,branch:env.RENDER_GIT_BRANCH||null,features:{adminLiveOperationsMap:true,emailSignup:true}});
       if (route === '/api/health' && req.method === 'GET') return send(200, {
         service: 'trackship-ng',
-        version: '0.7.0'
+        version: '0.7.1'
       });
       if (route === '/api/workspaces' && req.method === 'POST') {
         if (!rate(req, 'register', 5)) return send(429, {
@@ -258,7 +259,7 @@ export async function createApp({
       if (!['GET', 'HEAD'].includes(req.method)) return send(405, {
         error: 'Method not allowed.'
       });
-      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css'};
+      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css'};
       if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
       const files = {
         '/welcome':'marketing.html',

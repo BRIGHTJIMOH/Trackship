@@ -57,7 +57,7 @@ public class TrackingService extends Service implements LocationListener {
         if(stopped||!location.hasAccuracy()||SystemClock.elapsedRealtimeNanos()-location.getElapsedRealtimeNanos()>30000000000L||!uploading.compareAndSet(false,true))return;
         worker.submit(()->{HttpsURLConnection connection=null;try{
             URL url=new URL(base+"/api/v3/jobs/"+job+"/location");connection=(HttpsURLConnection)url.openConnection();connection.setRequestMethod("POST");connection.setConnectTimeout(15000);connection.setReadTimeout(15000);connection.setDoOutput(true);connection.setInstanceFollowRedirects(false);connection.setRequestProperty("Content-Type","application/json");connection.setRequestProperty("Authorization","Bearer "+session);
-            JSONObject payload=new JSONObject();payload.put("lat",location.getLatitude());payload.put("lng",location.getLongitude());payload.put("accuracy",location.getAccuracy());
+            JSONObject payload=new JSONObject();payload.put("lat",location.getLatitude());payload.put("lng",location.getLongitude());payload.put("accuracy",location.getAccuracy());payload.put("observedAt",location.getTime());
             byte[] bytes=payload.toString().getBytes(StandardCharsets.UTF_8);try(OutputStream output=connection.getOutputStream()){output.write(bytes);}
             int response=connection.getResponseCode();if(response==401||response==403||response==409){stopSelf();return;}
             String message=response>=200&&response<300?"Live GPS sharing · "+code:"Waiting for service connection · "+code;if(!stopped)getSystemService(NotificationManager.class).notify(31,notification(message));

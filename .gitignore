@@ -10,3 +10,5 @@ artifacts/
 !.env.example
 *.sqlite
 *.sqlite-*
+
+*.p12

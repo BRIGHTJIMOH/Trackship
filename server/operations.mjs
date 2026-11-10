@@ -24,6 +24,7 @@ function equal(a, b) {
 export async function operations(db, {
   owner,
   body,
+  walletHolds,
   providers = providersFromEnv(),
   env = process.env
 } = {}) {
@@ -506,6 +507,14 @@ export async function operations(db, {
         }]
       };
       await transaction(async () => {
+        if(walletHolds){
+          if(!quoted)fail('Wallet-funded shipments require a configured server-priced route.',409);
+          const vendor=await db.prepare('SELECT id FROM vendor_accounts WHERE owner_key=?').get(merchant);
+          const wallet=vendor&&(await db.currentPostgresClient().query(`SELECT id FROM ${walletHolds.schema}.wallets WHERE owner_role='vendor' AND owner_id=$1`,[vendor.id])).rows[0];
+          if(!wallet)fail('Create and fund your approved vendor wallet first.',409);
+          const hold=await walletHolds.reserveInTransaction(db.currentPostgresClient(),{shipmentId:stored.id,vendorWalletId:wallet.id,deliveryType:stored.deliveryType,totalKobo:quoted.totalKobo,fees,platformKobo:quoted.platformKobo});
+          stored.payment={...stored.payment,status:'held',mode:'wallet_mock',holdId:hold.id};
+        }
         await db.prepare('INSERT INTO shipments(id,owner,public_hash,payload,rider_hash) VALUES (?,?,?,?,NULL)').run(s.id, merchant, digest(s.publicToken), JSON.stringify(stored));
         for (const [leg, raw] of Object.entries(tokens)) await db.prepare('INSERT INTO job_tokens VALUES (?,?,?)').run(digest(raw), s.id, leg);
       });
@@ -520,6 +529,7 @@ export async function operations(db, {
       const row = await db.prepare('SELECT payload FROM shipments WHERE id=? AND owner=?').get(paymentRoute[1], merchant);
       if (!row) fail('Shipment not found.', 404);
       const s = JSON.parse(row.payload);
+      if(s.payment?.mode==='wallet_mock')fail('This shipment is funded by its wallet hold; no separate checkout is needed.',409);
       if (s.workflowVersion !== 3) fail('Create a new delivery to use the funded workflow.');
       if (!providers.paymentReady) fail('Paystack is not configured on this service.', 503);
       if (paymentRoute[2] === 'verify-payment') {
@@ -702,7 +712,7 @@ export async function operations(db, {
       if (req.method === 'POST' && jobs[2] === 'actions') {
         const input = await body(req);
         if (r.identity_status === 'missing' || r.identity_status === 'rejected') fail('Complete your secure rider identity details before accepting a parcel.', 403);
-        if (s.payment.status !== 'paid') fail('The vendor must pay this delivery fee before dispatch.', 409);
+        if (!['paid','held'].includes(s.payment.status)) fail('The vendor must pay this delivery fee before dispatch.', 409);
         let spec = actionFor(s, leg);
         if (input.action === 'resend-otp' && s.status === 'Delivery OTP sent' && spec?.action === 'complete') spec = {
           ...spec,
@@ -745,11 +755,12 @@ export async function operations(db, {
             if (fresh.status !== 'Delivery OTP sent') fail('Delivery status changed. Refresh it.', 409);
             await db.prepare('UPDATE delivery_proofs SET used=1 WHERE shipment_id=? AND used=0').run(s.id);
             const next = append(fresh, 'Delivered', leg, r, 'Recipient confirmed possession with their private delivery code');
+            if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),fresh,next,{otpVerified:true});
             await putShipment(next);
-            await creditEarnings(next);
+            if(next.payment?.mode!=='wallet_mock')await creditEarnings(next);
             return next;
           });
-          await autoPayout(updated);
+          if(updated.payment?.mode!=='wallet_mock')await autoPayout(updated);
           send(200, jobView(updated, leg));
           return true;
         }
@@ -767,6 +778,7 @@ export async function operations(db, {
             }
           } : fresh;
           const next = append(assigned, spec.next, leg, r, String(input.note || '').slice(0, 240));
+          if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),fresh,next);
           await putShipment(next);
           return next;
         });

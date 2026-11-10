@@ -124,7 +124,7 @@ export async function marketplace(db, {
           s = await getShipment(match[1]);
           if (!s || s.status !== 'Created') fail('Another rider already accepted this delivery.', 409);
           if (!(await eligible(r, s))) fail('This delivery does not match your identity or pickup area.', 403);
-          if (s.payment.status !== 'paid') fail('The vendor must pay before this delivery can be accepted.', 409);
+          if (!['paid','held'].includes(s.payment.status)) fail('The vendor must pay before this delivery can be accepted.', 409);
           s = append({
             ...s,
             actors: {

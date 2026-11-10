@@ -1,0 +1,73 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID,randomBytes,createHash} from 'node:crypto';
+import {walletFixture} from './fixture.mjs';
+import {createApp} from '../../server/server.mjs';
+import {testDatabase} from '../database-fixture.mjs';
+const run=(name,fn)=>test(name,{skip:!process.env.WALLET_TEST_DATABASE_URL},async t=>fn(t,await walletFixture(t)));
+run('holds: concurrent reservations cannot overdraw and changed quote replay fails',async(t,f)=>{
+ const vendor=await f.wallet('vendor',1000);
+ const input={shipmentId:randomUUID(),vendorWalletId:vendor.id,deliveryType:'intrastate',totalKobo:800,fees:{pickup:800}};
+ const results=await Promise.allSettled([f.holds.reserve(input),f.holds.reserve({...input,shipmentId:randomUUID()})]);
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+ assert.equal((await f.ledger.read(vendor.id)).heldKobo,800);
+ const held=(await f.pool.query(`SELECT shipment_id FROM ${f.schema}.holds`)).rows[0];
+ await f.holds.reserve({...input,shipmentId:held.shipment_id});
+ await assert.rejects(f.holds.reserve({...input,shipmentId:held.shipment_id,totalKobo:900,fees:{pickup:900}}),/conflicts/);
+});
+run('releases: accepted stages queue, uncertain success retries once, final leg and fee require OTP',async(t,f)=>{
+ const vendor=await f.wallet('vendor',1100),riders=await Promise.all([0,1,2].map(()=>f.wallet('rider'))),shipmentId=randomUUID();
+ await f.holds.reserve({shipmentId,vendorWalletId:vendor.id,deliveryType:'interstate',totalKobo:1100,fees:{pickup:200,carrier:600,lastmile:200},platformKobo:100});
+ const shipment={id:shipmentId,deliveryType:'interstate',actors:{pickup:{id:riders[0].ownerId},carrier:{id:riders[1].ownerId},lastmile:{id:riders[2].ownerId}}};
+ const accept=(from,to,options)=>f.ledger.transaction(c=>f.holds.onTransitionInTransaction(c,{...shipment,status:from},{...shipment,status:to},options));
+ await accept('Carrier handoff requested','Carrier accepted');
+ assert.equal((await f.ledger.read(riders[0].id)).ledgerBalanceKobo,0);
+ f.provider.nextOutcomeForTest('unknown-after-success');await f.worker.runOnce();
+ assert.equal((await f.ledger.read(riders[0].id)).ledgerBalanceKobo,0);
+ f.advance(3000);await f.worker.runOnce();
+ assert.equal((await f.ledger.read(riders[0].id)).ledgerBalanceKobo,200);
+ await accept('Last-mile handoff requested','Last-mile rider accepted');await f.worker.runOnce();
+ await assert.rejects(accept('Delivery OTP sent','Delivered'),/OTP/);
+ assert.equal((await f.ledger.read(vendor.id)).heldKobo,300);
+ await accept('Delivery OTP sent','Delivered',{otpVerified:true});
+ while(await f.worker.runOnce()){}
+ assert.equal((await f.ledger.read(vendor.id)).heldKobo,0);
+ assert.equal((await f.ledger.read(riders[2].id)).ledgerBalanceKobo,200);
+ assert.equal((await f.pool.query(`SELECT balance_kobo FROM ${f.schema}.accounts WHERE kind='platform_fee'`)).rows[0].balance_kobo,100);
+ assert.equal((await f.pool.query(`SELECT state FROM ${f.schema}.holds`)).rows[0].state,'closed');
+});
+run('releases: intrastate OTP, bank pending and definitive failure never prematurely release funds',async(t,f)=>{
+ const vendor=await f.wallet('vendor',1000),rider=await f.wallet('rider'),id=randomUUID();
+ await f.holds.reserve({shipmentId:id,vendorWalletId:vendor.id,deliveryType:'intrastate',totalKobo:1000,fees:{pickup:1000}});
+ const before={id,deliveryType:'intrastate',status:'Delivery OTP sent',actors:{pickup:{id:rider.ownerId}}};
+ await f.ledger.transaction(c=>f.holds.onTransitionInTransaction(c,before,{...before,status:'Delivered'},{otpVerified:true}));
+ f.provider.nextOutcomeForTest('pending');await f.worker.runOnce();
+ assert.equal((await f.ledger.read(vendor.id)).heldKobo,1000);
+ const task=(await f.pool.query(`SELECT * FROM ${f.schema}.outbox`)).rows[0];f.provider.confirmForTest(task.idempotency_key,'failed');
+ f.advance(3000);await f.worker.runOnce();
+ assert.equal((await f.ledger.read(vendor.id)).heldKobo,1000);assert.equal((await f.ledger.read(rider.id)).ledgerBalanceKobo,0);
+ assert.equal((await f.pool.query(`SELECT status FROM ${f.schema}.outbox`)).rows[0].status,'failed');
+});
+run('custody HTTP: real Accept and release-pending outbox commit or roll back together',async(t,f)=>{
+ const db=await testDatabase();t.after(db.cleanup);if(!db.env.DATABASE_URL)throw new Error('Set SENDRACK_TEST_POSTGRES_URL as well.');
+ const vendor=await f.wallet('vendor',1000),pickup=await f.wallet('rider'),carrier=await f.wallet('rider'),id=randomUUID(),token=randomBytes(32).toString('hex'),dispatch=randomBytes(32).toString('hex');
+ await f.holds.reserve({shipmentId:id,vendorWalletId:vendor.id,deliveryType:'interstate',totalKobo:1000,fees:{pickup:200,carrier:600,lastmile:200}});
+ const server=await createApp({env:{...db.env,NODE_ENV:'test'},walletHolds:f.holds});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(async()=>{await new Promise(r=>server.close(r));await server.databaseClosed;});
+ const hash=s=>createHash('sha256').update(s).digest('hex');
+ const shipment={id,code:'TEST',deliveryType:'interstate',workflowVersion:3,status:'Carrier handoff requested',custodian:'pickup',actors:{pickup:{id:pickup.ownerId}},payment:{status:'held',mode:'wallet_mock'},events:[],jobTokens:{carrier:dispatch}};
+ await server.database.withRequest('POST',async()=>{
+  await server.database.prepare('INSERT INTO rider_profiles(id,phone,display_name,identity_status) VALUES (?,?,?,?)').run(carrier.ownerId,'08012345678','Synthetic Carrier','approved');
+  await server.database.prepare('INSERT INTO rider_sessions(token_hash,rider_id,expires) VALUES (?,?,?)').run(hash(token),carrier.ownerId,Date.now()+100000);
+  await server.database.prepare('INSERT INTO shipments(id,owner,public_hash,payload) VALUES (?,?,?,?)').run(id,'synthetic-owner',hash('public-'+id),JSON.stringify(shipment));
+  await server.database.prepare('INSERT INTO job_tokens VALUES (?,?,?)').run(hash(dispatch),id,'carrier');
+ });
+ await f.pool.query(`CREATE FUNCTION ${f.schema}.test_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test outbox failure'; END; $$; CREATE TRIGGER test_fail BEFORE INSERT ON ${f.schema}.outbox FOR EACH ROW EXECUTE FUNCTION ${f.schema}.test_fail()`);
+ const call=()=>fetch(`http://127.0.0.1:${server.address().port}/api/v3/jobs/${dispatch}/actions`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({action:'accept-carrier'})});
+ assert.equal((await call()).status,500);
+ const saved=await server.database.withRequest('GET',()=>server.database.prepare('SELECT payload FROM shipments WHERE id=?').get(id));
+ assert.equal(JSON.parse(saved.payload).status,'Carrier handoff requested');
+ await f.pool.query(`DROP TRIGGER test_fail ON ${f.schema}.outbox`);
+ assert.equal((await call()).status,200);
+ assert.equal(Number((await f.pool.query(`SELECT count(*) n FROM ${f.schema}.outbox`)).rows[0].n),1);
+});

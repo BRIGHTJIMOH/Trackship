@@ -252,7 +252,7 @@ test('funding migration upgrades Phase 1 without changing existing records or ch
   const before = (await pool.query(`SELECT * FROM ${schema}.accounts ORDER BY id`)).rows;
   await migrateWallet(pool, {schema}); await migrateWallet(pool, {schema});
   assert.deepEqual((await pool.query(`SELECT * FROM ${schema}.accounts ORDER BY id`)).rows, before);
-  assert.equal(Number((await pool.query(`SELECT count(*) n FROM ${schema}.schema_migrations`)).rows[0].n), 2);
+  assert.equal(Number((await pool.query(`SELECT count(*) n FROM ${schema}.schema_migrations`)).rows[0].n), 3);
   assert.equal((await ledger.read(wallet.id)).ledgerBalanceKobo, 300);
   // A changed migration is rejected rather than silently replaying DDL.
   await pool.query(`UPDATE ${schema}.schema_migrations SET checksum='changed' WHERE version='002'`);

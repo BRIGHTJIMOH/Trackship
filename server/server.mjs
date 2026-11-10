@@ -15,12 +15,15 @@ const publicToken = /^[a-f0-9]{64}$/;
 export async function createApp({
   providers,
   walletFunding,
+  walletHolds,
   env = process.env,
   dataDir = process.env.DATA_DIR || path.join(root, '.data'),
   origins = process.env.ALLOWED_ORIGINS || 'https://appassets.trackship.ng'
 } = {}) {
   const walletWebhook = walletFunding ? createFundingWebhookHandler({funding:walletFunding,env}) : null;
+  if(walletHolds&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock wallet custody cannot run in production.');
   const db = await openDatabase({env,dataDir});
+  if(walletHolds&&db.kind!=='postgres'){await db.close();throw new Error('Atomic wallet custody requires PostgreSQL.');}
   try {await db.withRequest('POST', async()=>{
   await db.exec('CREATE TABLE IF NOT EXISTS workspaces (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS shipments (id TEXT PRIMARY KEY, owner TEXT NOT NULL, public_hash TEXT UNIQUE NOT NULL, payload TEXT NOT NULL)');
   if (!(await db.prepare('PRAGMA table_info(shipments)').all()).some(c => c.name === 'rider_hash')) await db.exec('ALTER TABLE shipments ADD COLUMN rider_hash TEXT');
@@ -97,6 +100,7 @@ export async function createApp({
     owner,
     body,
     providers,
+    walletHolds,
     env
   }));}catch(e){await db.close();throw e;}
   const server = http.createServer((req,res)=>{

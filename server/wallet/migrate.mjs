@@ -8,7 +8,7 @@ export function namespace(schema = 'sendrack_wallet') {
 
 export async function migrateWallet(pool, {schema = 'sendrack_wallet'} = {}) {
   namespace(schema);
-  const migrations = await Promise.all(['001_core.sql', '002_funding.sql'].map(async file => {
+  const migrations = await Promise.all(['001_core.sql', '002_funding.sql', '003_holds.sql'].map(async file => {
     const source = await readFile(new URL('../../migrations/wallet/' + file, import.meta.url), 'utf8');
     return {version: file.slice(0, 3), source, checksum: createHash('sha256').update(source).digest('hex')};
   }));

@@ -13,7 +13,7 @@ export async function walletFixture(t) {
  await migrateWallet(pool,{schema});let clock=Date.now();
  const secret='isolated-mock-wallet-control-test-secret';
  const provider=new MockBankProvider({webhookSecret:secret,allowTestOperations:true,clock:()=>clock});
- const ledger=new WalletLedger({pool,schema,provider,clock:()=>clock,kycLookup:async()=>({status:'approved',reference:'synthetic-kyc-only'})});
+ const ledger=new WalletLedger({pool,schema,provider,clock:()=>clock,kycLookup:async()=>({status:'approved',reference:'synthetic-kyc-only',tier:'TEST_TIER'})});
  const funding=new WalletFunding({ledger});
  async function wallet(role,amount=0){const w=await ledger.createWallet({role,ownerId:randomUUID()});
   if(amount){const credit=provider.fundForTest(w.providerWalletId,amount,randomUUID());

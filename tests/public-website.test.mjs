@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {adminFixture,vendorProfile} from './admin-fixture.mjs';
 test('public website and app have distinct routes; legacy and callback URLs remain available',async()=>{
  const f=await adminFixture();try{
- const website=await(await f.api('/')).text();assert.match(website,/Good things/);assert.match(website,/href="\/app"/);assert.doesNotMatch(website,/id="app"/);
+ const website=await(await f.api('/')).text();assert.match(website,/Every delivery/);assert.match(website,/href="\/app"/);assert.doesNotMatch(website,/id="app"/);
  for(const path of ['/app','/app/','/index.html','/sendrack-entry.html','/t/'+'a'.repeat(64),'/r/'+'b'.repeat(64),'/payment-return?reference=preserve-me']){const r=await f.api(path);assert.equal(r.status,200,path);assert.match(await r.text(),/id="app"/,path);}
- assert.match(await(await f.api('/admin')).text(),/Owner console/);assert.match(await(await f.api('/welcome')).text(),/Good things/);
+ assert.match(await(await f.api('/admin')).text(),/Owner console/);assert.match(await(await f.api('/welcome')).text(),/Every delivery/);
  const v=await f.account('vendor',vendorProfile);assert.equal(v.profile.phone,vendorProfile.phone);assert.equal((await f.server.database.prepare('SELECT count(*) AS count FROM vendor_accounts').get()).count,1);
  }finally{await f.close();}
 });

@@ -38,13 +38,14 @@ export class WalletLedger {
    return walletId;
   });return this.read(id);
  }
- async post({idempotencyKey,kind,reference:ref,memo='',lines}) {
+ async post(input) {return this.transaction(client=>this.postInTransaction(client,input));}
+ // Shares an existing caller-owned transaction; never commits or calls the provider.
+ async postInTransaction(c,{idempotencyKey,kind,reference:ref,memo='',lines}) {
   reference(idempotencyKey);reference(ref);
   if(idempotencyKey.length<8||typeof kind!=='string'||kind.length<1||kind.length>40||typeof memo!=='string'||memo.length>300||!Array.isArray(lines)||lines.length<2||lines.length>100)throw new WalletError('Invalid journal.');
   const normalized=lines.map(l=>{if(!uuid(l.accountId))throw new WalletError('Invalid ledger account.');const debitKobo=kobo(l.debitKobo??0,{zero:true}),creditKobo=kobo(l.creditKobo??0,{zero:true});if((debitKobo>0)===(creditKobo>0))throw new WalletError('Each line must contain one debit or credit.');return {accountId:l.accountId,debitKobo,creditKobo};}).sort((a,b)=>a.accountId.localeCompare(b.accountId));
   if(new Set(normalized.map(l=>l.accountId)).size!==normalized.length||normalized.reduce((sum,l)=>sum+BigInt(l.debitKobo)-BigInt(l.creditKobo),0n)!==0n)throw new WalletError('Journal must balance across distinct accounts.');
   const hash=digest([kind,ref,memo,normalized]);
-  return this.transaction(async c=>{
    const id=randomUUID();
    const inserted=await c.query(`INSERT INTO ${this.schema}.transactions(id,idempotency_key,request_hash,kind,reference,memo) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id`,[id,idempotencyKey,hash,kind,ref,memo]);
    if(!inserted.rowCount){const prior=(await c.query(`SELECT id,request_hash FROM ${this.schema}.transactions WHERE idempotency_key=$1`,[idempotencyKey])).rows[0];if(prior.request_hash!==hash)throw new WalletError('Conflicting idempotency key.',409);return {id:prior.id,replayed:true};}
@@ -53,7 +54,6 @@ export class WalletLedger {
    for(const [index,line] of normalized.entries())await c.query(`INSERT INTO ${this.schema}.ledger_entries(transaction_id,line_number,account_id,debit_kobo,credit_kobo) VALUES($1,$2,$3,$4,$5)`,[id,index+1,line.accountId,line.debitKobo,line.creditKobo]);
    await c.query(`UPDATE ${this.schema}.transactions SET sealed=true WHERE id=$1`,[id]);
    return {id,replayed:false};
-  });
  }
  async read(id){
   const result=await this.pool.query(`SELECT w.*,a.balance_kobo,a.held_kobo,a.available_kobo FROM ${this.schema}.wallets w JOIN ${this.schema}.accounts a ON a.id=w.account_id WHERE w.id=$1`,[id]);
@@ -67,7 +67,8 @@ export class WalletLedger {
   try{bank=this.snapshot(await this.provider.getBalance({walletId:wallet.providerWalletId}),wallet.providerWalletId);}
   catch(error){await this.pool.query(`UPDATE ${this.schema}.wallets SET bank_status='unavailable' WHERE id=$1`,[id]);throw error;}
   await this.transaction(async c=>{
-   const row=(await c.query(`SELECT w.*,a.balance_kobo FROM ${this.schema}.wallets w JOIN ${this.schema}.accounts a ON a.id=w.account_id WHERE w.id=$1 FOR UPDATE OF w,a`,[id])).rows[0];
+   await c.query(`SELECT id FROM ${this.schema}.accounts WHERE id=$1 FOR UPDATE`,[wallet.accountId]);
+   const row=(await c.query(`SELECT w.*,a.balance_kobo FROM ${this.schema}.wallets w JOIN ${this.schema}.accounts a ON a.id=w.account_id WHERE w.id=$1 FOR UPDATE OF w`,[id])).rows[0];
    if(bank.revision<Number(row.bank_revision)||bank.observedAt<Number(row.bank_observed_at))return;
    await c.query(`UPDATE ${this.schema}.wallets SET bank_balance_kobo=$2,bank_observed_at=$3,bank_revision=$4,bank_status=$5 WHERE id=$1`,[id,bank.balanceKobo,bank.observedAt,bank.revision,bank.balanceKobo===Number(row.balance_kobo)?'matched':'mismatch']);
   });return this.read(id);

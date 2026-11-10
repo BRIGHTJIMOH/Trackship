@@ -1,5 +1,6 @@
 import http from 'node:http';
 import {openDatabase} from './database.mjs';
+import {createFundingWebhookHandler} from './wallet/funding-http.mjs';
 import { randomBytes, createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -13,10 +14,12 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const publicToken = /^[a-f0-9]{64}$/;
 export async function createApp({
   providers,
+  walletFunding,
   env = process.env,
   dataDir = process.env.DATA_DIR || path.join(root, '.data'),
   origins = process.env.ALLOWED_ORIGINS || 'https://appassets.trackship.ng'
 } = {}) {
+  const walletWebhook = walletFunding ? createFundingWebhookHandler({funding:walletFunding,env}) : null;
   const db = await openDatabase({env,dataDir});
   try {await db.withRequest('POST', async()=>{
   await db.exec('CREATE TABLE IF NOT EXISTS workspaces (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS shipments (id TEXT PRIMARY KEY, owner TEXT NOT NULL, public_hash TEXT UNIQUE NOT NULL, payload TEXT NOT NULL)');
@@ -96,7 +99,10 @@ export async function createApp({
     providers,
     env
   }));}catch(e){await db.close();throw e;}
-  const server = http.createServer((req,res)=>db.withRequest(req.method,async()=>{
+  const server = http.createServer((req,res)=>{
+    // Dedicated short wallet transactions; never run provider reads under the legacy global write lock.
+    if(walletWebhook?.matches(req)){void walletWebhook.handle(req,res);return;}
+    return db.withRequest(req.method,async()=>{
     const origin = req.headers.origin;
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -329,7 +335,7 @@ export async function createApp({
         error: e.status ? e.message : 'The tracking service could not complete this request.'
       });else res.end();
     }
-  }).catch(()=>{if(!res.headersSent){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Database unavailable. Please retry.'}));}else res.end();}));
+  }).catch(()=>{if(!res.headersSent){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Database unavailable. Please retry.'}));}else res.end();});});
   server.requestTimeout = 30000;
   server.headersTimeout = 15000;
   server.on('close',()=>{server.databaseClosed=db.close();});

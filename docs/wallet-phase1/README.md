@@ -1,5 +1,8 @@
 # SendRack money-control layer — Phase 1
 
+Phase 2 is now prepared separately; see [funding and webhook notes](PHASE-2.md).
+The descriptions below record the Phase 1 baseline and original phase boundaries.
+
 Internal foundation only. No wallet HTTP endpoints, bank integration, live funding,
 withdrawals, customer balance migration or production migration is enabled.
 The existing SendRack app, PostgreSQL tables and payment flows remain unchanged.

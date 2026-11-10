@@ -8,3 +8,20 @@
 @media(max-width:1000px){.hero-heading{align-items:center}.hero-intro{margin-right:0}.parcel-world{margin-top:-20px;height:460px}.tag-shop{left:7%;top:30%}.tag-door{right:5%;bottom:20%}.journey-layout{gap:4%}.workspace-panel{gap:6%}.visual-label{display:none}.waitlist{gap:7%}.hero-intro p{font-size:12px}.journey{padding-block:75px}.people{padding-top:75px}}
 @media(max-width:700px){.site-header{padding-block:20px;gap:12px}.brand{font-size:25px}.brand img{width:26px;height:26px}.site-header nav{display:none}.header-cta{font-size:10px;gap:18px;padding:11px 17px}.hero{padding-top:8px}.hero-topline{padding-top:20px}.hero-note{font-size:9px}.eyebrow{font-size:8px;letter-spacing:1.1px}.hero-heading{display:block;margin-top:30px}h1{font-size:clamp(62px,12.5vw,88px);letter-spacing:-.07em;line-height:.98}.hero-intro{margin-top:25px;display:flex;align-items:end;justify-content:space-between;gap:15px}.hero-intro p{font-size:11px}.hero-intro p br:first-child{display:none}.hero-intro .text-link{font-size:10px;gap:12px;margin-top:0;white-space:nowrap}.parcel-world{--size:clamp(140px,34vw,210px);height:380px;margin-top:8px;perspective:900px}.world-word{font-size:20vw;top:35%}.parcel-float{top:44%}.world-floor{width:100%;left:0;top:35%}.orbit-one{width:116%;left:-8%;top:18%;height:100%}.orbit-two{width:95%;left:2.5%;top:27%;height:80%}.world-tag{gap:8px;padding:10px 12px;border-radius:12px}.world-tag small{font-size:5px;letter-spacing:.7px}.world-tag b{font-size:12px}.tag-icon{font-size:18px}.tag-shop{left:0;top:12%}.tag-door{right:0;bottom:15%}.scene-footnote{font-size:6px;letter-spacing:.6px;bottom:19px}.motion-toggle{font-size:9px;padding:9px 12px;gap:8px;bottom:7px}.hero-bottom{padding-block:18px;font-size:6px;letter-spacing:.7px;gap:10px}.hero-bottom>span:last-child{display:none}.scroll-note{font-size:9px;gap:14px}.journey{padding-block:58px}.journey-header{display:block}.journey-header h2{margin-top:22px}h2{font-size:clamp(39px,8.8vw,60px)}.journey-header>p:last-child{margin-top:24px;font-size:12px}.journey-layout{grid-template-columns:1fr;margin-top:16px;gap:30px}.journey-stage{max-width:520px;width:100%;margin-inline:auto}.story-step{padding-block:23px;gap:22px}.story-step h3{font-size:24px}.story-step p{font-size:12px;max-width:100%}.route-label{font-size:7px}.route-disclaimer{font-size:6px}.people{padding-top:58px}.role-switch{margin-top:25px}.role-switch button{font-size:11px;padding:13px 20px}.workspace-panel{grid-template-columns:1fr;margin-top:32px;gap:0}.workspace-copy{padding-bottom:15px;max-width:400px;margin:auto;width:100%}.workspace-copy h3{font-size:34px}.workspace-copy p{font-size:12px;max-width:100%;margin-block:18px 22px}.workspace-kicker{font-size:7px}.workspace-copy .button{font-size:11px}.workspace-visual{padding-top:30px;padding-bottom:55px;max-width:390px;width:100%;margin:auto}.app-phone{width:210px;transform:rotate(6deg)}.visual-ring{width:105%;top:9%}.waitlist{padding-block:58px;grid-template-columns:1fr;gap:35px}.waitlist h2{font-size:49px}.waitlist-copy p{font-size:12px;margin-top:20px}.waitlist .text-link{margin-top:20px}.waitlist form{max-width:none}.form-row{gap:12px}footer{gap:20px;padding-block:28px}footer p{flex-basis:50%;font-size:9px}footer>span{margin-left:auto}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.parcel-float{animation:none}.parcel-rotation{transition:none;transform:rotateX(-18deg) rotateY(-32deg) rotateZ(-7deg)}.route-progress,.route-van{transition:none}}
+
+/* Alternate the story and signup sections with light, blended surfaces. */
+.journey,.waitlist{
+ --paper:#faf9f5;
+ --ink:#252b25;
+ --muted:#626e60;
+ --line:#d5ddce;
+ --forest:#a94300;
+ --sage:#e5ecd9;
+ --edge-wash:radial-gradient(ellipse at 100% 0%,#ffe2c359,transparent 55%),radial-gradient(ellipse at 0% 100%,#dbe7c98c,transparent 55%),linear-gradient(120deg,#faf9f5,#f3f6eb 65%,#faf5ed);
+ background:var(--edge-wash);
+ color:var(--ink);
+ color-scheme:light;
+}
+.journey .route-track{stroke:#d0dbc5}
+.waitlist input,.waitlist select{background:#ffffffd9;color:var(--ink);border-color:#84907d}
+.waitlist input::placeholder{color:var(--muted)}

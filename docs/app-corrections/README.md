@@ -77,3 +77,11 @@ The updated suite passes 68 app tests (including matching notification, wrong-cl
 private-link rejection and exact-weight handling) and 35 wallet/finance tests.
 Browser checks verify the four images load and Keke selection survives the normal
 package -> delivery -> review flow, alongside the account/wallet corrections above.
+
+Final minimal-home refinement: vendor home ends after the four vehicle cards.
+Search is an icon beside notifications and opens the Packages search. Empty-state
+shipment cards, inline search/filter bars, pickup shortcuts and extra sections are
+removed from Home; packages and tracking remain in their existing screens. The +
+button still creates a shipment. This layout and header search are browser-tested.
+The latest interactive 3D marketing website and its esbuild/three dependencies from
+the deployment branch were retained when resolving package manifest/lock conflicts.

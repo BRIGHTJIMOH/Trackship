@@ -9,13 +9,13 @@ try{
  const profile={...auth.profile,identityStatus:'submitted'},record={role:'rider',profile,pin,connection:{base:f.base,token:auth.token,verified:true},jobs:[]};
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(record=>{localStorage.setItem('trackship-v1',JSON.stringify({accounts:{vendor:null,rider:record.profile},deviceAccounts:{['rider:'+record.profile.phone]:record},roleLocks:{rider:record.pin},activeRole:null,lastRole:'rider',loggedOut:true,shipments:[],riderJobs:[],profile:{name:'',phone:''}}));window.TrackShip={configureDeliveryAlerts(base,token){window.notificationConfiguration={base,token};},clearDeliveryAlerts(){},stopTracking(){},setNightMode(){}};},record);
- await page.goto(f.base+'/app');await page.getByLabel('App PIN',{exact:true}).waitFor();
+ await page.goto(f.base+'/app');await page.getByLabel('Login PIN',{exact:true}).waitFor();
  await page.evaluate(()=>window.TrackShipOpenAlerts());
  assert.equal(await page.getByRole('heading',{name:'Shipment notifications',exact:true}).count(),0);
- await page.getByLabel('App PIN',{exact:true}).fill('836492');await page.getByRole('button',{name:'Log in',exact:true}).click();
+ await page.getByLabel('Login PIN',{exact:true}).fill('836492');await page.getByRole('button',{name:'Log in',exact:true}).click();
  await page.getByRole('heading',{name:'Shipment notifications',exact:true}).waitFor();await page.getByText('New delivery in Zaria',{exact:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>window.notificationConfiguration),{base:f.base,token:auth.token});
- await page.evaluate(()=>window.TrackShipLock());await page.getByLabel('App PIN',{exact:true}).waitFor();await page.evaluate(()=>window.TrackShipOpenAlerts());
- await page.getByLabel('App PIN',{exact:true}).fill('836492');await page.getByRole('button',{name:'Log in',exact:true}).click();await page.getByRole('heading',{name:'Shipment notifications',exact:true}).waitFor();assert.deepEqual(errors,[]);
+ await page.evaluate(()=>window.TrackShipLock());await page.getByLabel('Login PIN',{exact:true}).waitFor();await page.evaluate(()=>window.TrackShipOpenAlerts());
+ await page.getByLabel('Login PIN',{exact:true}).fill('836492');await page.getByRole('button',{name:'Log in',exact:true}).click();await page.getByRole('heading',{name:'Shipment notifications',exact:true}).waitFor();assert.deepEqual(errors,[]);
  console.log('Notification taps wait for rider PIN login, then open the authenticated inbox; repeated app locking preserves the destination.');
 }finally{await browser.close();await f.close();}

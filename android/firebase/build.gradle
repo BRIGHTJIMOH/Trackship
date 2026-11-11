@@ -9,8 +9,8 @@ android {
         applicationId 'ng.sendrack.test'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '0.7.3-test.1-fcm'
+        versionCode 7
+        versionName '0.7.7-fcm'
     }
     sourceSets {
         main {
@@ -37,6 +37,7 @@ def stageAssets = tasks.register('stageSendrackAssets', Sync) {
     doLast {
         def directory = layout.buildDirectory.dir('generated/sendrack-assets/web').get().asFile
         new File(directory, 'config.mjs').text = 'export const SERVICE_URL = "https://sendrack-api.onrender.com";\n'
+        ['index.html','app.js'].each { name -> def file = new File(directory,name); file.text = file.text.replace('0.7.0', android.defaultConfig.versionName) }
         ['index.html':'sendrack-entry.html','app.js':'sendrack-main.js','style.css':'sendrack-ui.css'].each { source, target -> new File(directory,target).bytes = new File(directory,source).bytes }
     }
 }

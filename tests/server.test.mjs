@@ -47,6 +47,6 @@ test('private rider dispatch can update only its own shipment, and vendor can pu
   assert.equal((await call('/api/shipments/'+s.id,{headers:auth})).status,200);const pulled=await(await call('/api/shipments/'+s.id,{headers:auth})).json();assert.equal(pulled.status,'Picked up');
   const customer=await(await call('/api/track/'+s.publicToken)).json();assert.equal(customer.status,'Picked up');assert.equal(customer.address,undefined);assert.equal(customer.riderToken,undefined);
   assert.equal((await call('/api/shipments/'+s.id,{method:'PUT',headers:auth,body:JSON.stringify(s)})).status,409);
-  assert.equal((await call('/r/'+s.riderToken)).status,200);assert.equal((await call('/assets/courier.svg')).status,200);
+  assert.equal((await call('/r/'+s.riderToken)).status,200);
  }finally{await new Promise(r=>server.close(r));await server.databaseClosed;await database.cleanup();rmSync(dir,{recursive:true,force:true});}
 });

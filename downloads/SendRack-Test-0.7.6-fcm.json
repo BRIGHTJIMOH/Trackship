@@ -1,0 +1,28 @@
+{
+  "name": "SendRack Test",
+  "version": "0.7.6-fcm",
+  "versionCode": 6,
+  "applicationId": "ng.sendrack.test",
+  "sourceBranch": "firebase-delivery-notifications",
+  "sourceCommit": "f7a6e290c56b7582747052db20fc1ca465fc5ac0",
+  "buildScript": "scripts/build-firebase-apk.sh",
+  "buildOverrides": {
+    "android.useAndroidX": true,
+    "versionCode": 6,
+    "versionName": "0.7.6-fcm"
+  },
+  "backend": "https://sendrack-api.onrender.com",
+  "bytes": 4254696,
+  "sha256": "f36fce409d62ba2b511fea839ad028e2cc7ee92f7c57a0f1931851a12dc274bf",
+  "signingCertificateSha256": "d34b55d2982e55a2623157423ba2ad634ce2844c482144b53f53d88f0b8ecfa5",
+  "firebaseClientConfigurationIncluded": true,
+  "verified": {
+    "releaseBuild": true,
+    "lintVital": true,
+    "apkAssetsAndFirebaseResources": true,
+    "signatureV2V3": true,
+    "physicalAndroid": false,
+    "livePush": false,
+    "liveRender": false
+  }
+}

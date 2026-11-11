@@ -1,0 +1,8 @@
+gradle.beforeProject { project ->
+    project.pluginManager.withPlugin('com.android.application') {
+        project.extensions.getByName('androidComponents').finalizeDsl { android ->
+            android.defaultConfig.versionCode = 6
+            android.defaultConfig.versionName = '0.7.6-fcm'
+        }
+    }
+}

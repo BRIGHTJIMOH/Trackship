@@ -22,3 +22,19 @@ function updateStory(){frame=null;const rect=document.querySelector('.story-step
 new IntersectionObserver(entries=>{storyVisible=entries[0].isIntersecting;if(storyVisible)updateStory();},{rootMargin:'150px'}).observe(document.querySelector('.journey-layout'));
 function scheduleStory(){if(storyVisible&&!frame)frame=requestAnimationFrame(updateStory);}
 addEventListener('scroll',scheduleStory,{passive:true});addEventListener('resize',scheduleStory);reducedMotion.addEventListener('change',updateStory);drawJourney(0);updateStory();
+
+// Enhance the existing accessible illustration only after a complete first render.
+// The poster and SVG journey remain usable when WebGL is unavailable or blocked.
+async function startRealisticScenes(){
+ if(navigator.connection?.saveData)return;
+ try{
+  const probe=document.createElement('canvas'),context=probe.getContext('webgl2',{failIfMajorPerformanceCaveat:false});
+  if(!context)return;
+  context.getExtension('WEBGL_lose_context')?.loseContext();
+  await document.fonts.ready;
+  const {mountParcelScene}=await import('/parcel-scene.js');
+  mountParcelScene(world);
+  new IntersectionObserver((entries,observer)=>{if(entries.some(entry=>entry.isIntersecting)){observer.disconnect();try{mountParcelScene(journey,{story:true});}catch{journey.dataset.scene='fallback';}}},{rootMargin:'300px'}).observe(journey);
+ }catch{world.dataset.scene='fallback';}
+}
+if('requestIdleCallback' in window)requestIdleCallback(startRealisticScenes,{timeout:1200});else setTimeout(startRealisticScenes,100);

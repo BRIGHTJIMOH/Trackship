@@ -266,6 +266,7 @@ export async function createApp({
         '/welcome/':'marketing.html',
         '/marketing.css':'marketing.css',
         '/marketing.js':'marketing.js',
+        '/parcel-scene.js':'parcel-scene.js',
         '/sendrack-entry.html': 'index.html',
         '/sendrack-main.js': 'app.js',
         '/sendrack-ui.css': 'style.css',

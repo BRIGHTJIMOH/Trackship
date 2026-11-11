@@ -12,13 +12,16 @@
     "db:check": "node scripts/check-database.mjs",
     "db:import": "node server/migrate-sqlite.mjs",
     "test:postgres": "node scripts/test-postgres.mjs",
-    "test:admin": "node tests/admin-ui.mjs"
+    "test:admin": "node tests/admin-ui.mjs",
+    "build:marketing3d": "node scripts/build-marketing3d.mjs"
   },
   "engines": {
     "node": ">=24"
   },
   "devDependencies": {
-    "playwright-core": "1.56.1"
+    "esbuild": "0.25.12",
+    "playwright-core": "1.56.1",
+    "three": "0.180.0"
   },
   "dependencies": {
     "leaflet": "1.9.4",

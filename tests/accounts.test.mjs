@@ -194,7 +194,7 @@ test('vendor and rider cloud accounts are independent; vendor logout does not st
     await f.close();
   }
 });
-test('bicycle riders need government ID; motor-vehicle riders need a driving licence, not registration', async () => {
+test('riders use one government ID for bicycle and motor vehicles without duplicate licence fields', async () => {
   const f = await fixture();
   try {
     const r = await auth(f, 'rider', riderProfile);
@@ -203,7 +203,7 @@ test('bicycle riders need government ID; motor-vehicle riders need a driving lic
     })).status, 400);
     assert.equal((await identify(f, r, {
       vehicle: 'Motorcycle'
-    })).status, 400);
+    })).status, 200);
     assert.equal((await identify(f, r, {
       vehicle: 'Motorcycle',
       drivingLicence: 'DRV-123456'
@@ -281,7 +281,7 @@ test('device account activation and backups do not mix vendor shipments with rid
   assert.equal(JSON.stringify(backup).includes('vendor-token'), false);
   assert.equal(Object.keys(backup.deviceAccounts).length, 1);
 });
-test('signup identity accepts vendor passports and requires rider NIN, licence and vehicle registration without leaking documents', async () => {
+test('signup accepts one government ID for vendors and riders without exposing stored evidence', async () => {
   const f = await fixture();
   try {
     const v = await auth(f, 'vendor', vendorProfile),
@@ -316,8 +316,10 @@ test('signup identity accepts vendor passports and requires rider NIN, licence a
     for (const field of ['nin', 'drivingLicence', 'vehicleRegistration']) assert.equal((await f.call('/api/accounts/identity', {
       ...driver,
       [field]: ''
-    }, r.token)).status, 400, field);
+    }, r.token)).status, 200, field);
     assert.equal((await f.call('/api/accounts/identity', driver, r.token)).status, 200);
+    assert.equal((await f.call('/api/accounts/identity',{...passport,vehicle:'Tricycle / Keke NAPEP',emergencyPhone:'08011112222'},r.token)).status,200);
+    assert.equal((await f.call('/api/accounts/identity',{...driver,idNumber:'12345'},r.token)).status,400);
     assert.equal((await f.call('/api/accounts/identity', {
       ...driver,
       vehicle: 'Bicycle',
@@ -364,4 +366,25 @@ test('background/restart lock clears the active dashboard and preserves account 
   assert.equal(locked.deviceAccounts['vendor:' + vendorProfile.phone].shipments[0].id, 'retained');
   assert.equal(locked.deviceAccounts['vendor:' + vendorProfile.phone].connection.token, 'private');
   assert.equal(activateAccount(locked, locked.deviceAccounts['vendor:' + vendorProfile.phone]).shipments[0].id, 'retained');
+});
+test('vehicle-selected offers and notifications enforce pickup class and declared load capacity on the server',async()=>{
+ const f=await fixture();try{
+  const vendor=await auth(f,'vendor',vendorProfile),people=[];
+  for(const [i,vehicle,capacity] of [[1,'Tricycle / Keke NAPEP','100'],[2,'Tricycle / Keke NAPEP','10'],[3,'Car','100'],[4,'Truck','100'],[5,'Motorcycle','100']]){
+   const who=await auth(f,'rider',{...riderProfile,fullName:'Sample Handler '+i,phone:'0802222000'+i,community:'',vehicle,maxLoadKg:capacity});
+   assert.equal((await identify(f,who,{vehicle})).status,200);people.push(who);
+  }
+  const local=newTransport({...fields,vehicleClass:'keke',weightKg:'40'},vendorProfile.businessName);
+  const created=await f.call('/api/v3/shipments',local,vendor.token);assert.equal(created.status,201);const shipment=await created.json();assert.equal(shipment.vehicleClass,'keke');assert.equal(shipment.weightKg,'40');
+  for(const [i,person]of people.entries()){
+   const notifications=await(await f.call('/api/v4/rider/notifications',undefined,person.token)).json();assert.equal(notifications.notifications.length,i===0?1:0);
+   const offers=await(await f.call('/api/v4/rider/offers',undefined,person.token)).json();assert.equal(offers.offers.length,i===0?1:0);
+  }
+  await f.call(`/api/v3/shipments/${shipment.id}/pay`,{email:'sample@example.invalid'},vendor.token);await f.call(`/api/v3/shipments/${shipment.id}/verify-payment`,{},vendor.token);
+  const privateAction=who=>f.call(`/api/v3/jobs/${shipment.jobTokens.pickup}/actions`,{action:'accept'},who.token);
+  assert.equal((await privateAction(people[2])).status,403);assert.equal((await privateAction(people[1])).status,403);
+  assert.equal((await f.call(`/api/v4/rider/offers/${shipment.id}/accept`,{},people[3].token)).status,403);
+  assert.equal((await privateAction(people[0])).status,200);
+  const invalid={...newTransport(fields,vendorProfile.businessName),vehicleClass:'unsupported-plane'};assert.equal((await f.call('/api/v3/shipments',invalid,vendor.token)).status,400);
+ }finally{await f.close();}
 });

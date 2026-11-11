@@ -43,7 +43,7 @@ export async function accounts(db, {
     const account=s&&s.expires>Date.now()?await db.prepare('SELECT * FROM vendor_accounts WHERE id=?').get(s.vendor_id):null;return account&&!account.suspended?account:null;
   }
   const publicProfile = (role, phone, input = {}) => {
-    const names = role === 'vendor' ? ['businessName', 'ownerName', 'city', 'state', 'community', 'pickupAddress', 'category'] : ['fullName', 'city', 'state', 'community', 'vehicle'];
+    const names = role === 'vendor' ? ['businessName', 'ownerName', 'city', 'state', 'community', 'pickupAddress', 'category'] : ['fullName', 'city', 'state', 'community', 'vehicle','maxLoadKg'];
     const p = {
       phone
     };

@@ -1,3 +1,4 @@
+import {VEHICLE_TYPES,kgToGrams} from './vehicles.mjs';
 export const STAGES = ['Created', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'];
 export const STATUSES = [...STAGES, 'Cancelled'];
 export function clean(value, max=160) { return String(value ?? '').trim().slice(0,max); }
@@ -69,7 +70,8 @@ export function validateOnboarding(role,p) {
  if(!['vendor','rider'].includes(role))return ['Choose Vendor or Rider.'];
  for(const [k,label]of required)if(typeof p[k]!=='string'||!p[k].trim()||p[k].length>(k==='pickupAddress'?240:80))errors.push(`${label} is required.`);
  if(!/^0[789]\d{9}$/.test(normalizePhone(p.phone)))errors.push('Enter a valid Nigerian mobile number (e.g. 08012345678).');
- if(role==='rider'&&p.vehicle&&!['Motorcycle','Bicycle','Car','Van'].includes(p.vehicle))errors.push('Choose a supported vehicle type.');
+ if(role==='rider'&&p.vehicle&&!VEHICLE_TYPES.includes(p.vehicle))errors.push('Choose a supported vehicle type.');
+ if(role==='rider'){try{kgToGrams(p.maxLoadKg);}catch(e){errors.push(e.message);}}
 
  return errors;
 }

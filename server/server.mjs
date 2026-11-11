@@ -1,5 +1,7 @@
 import http from 'node:http';
 import {openDatabase} from './database.mjs';
+import {createFundingWebhookHandler} from './wallet/funding-http.mjs';
+import {createWalletHttp} from './wallet/http.mjs';
 import { randomBytes, createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -13,11 +15,18 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const publicToken = /^[a-f0-9]{64}$/;
 export async function createApp({
   providers,
+  walletFunding,
+  walletHolds,
+  walletControl,
   env = process.env,
   dataDir = process.env.DATA_DIR || path.join(root, '.data'),
   origins = process.env.ALLOWED_ORIGINS || 'https://appassets.trackship.ng'
 } = {}) {
+  if(walletControl&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock finance APIs cannot run in production.');
+  const walletWebhook = walletFunding ? createFundingWebhookHandler({funding:walletFunding,env}) : null;
+  if(walletHolds&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock wallet custody cannot run in production.');
   const db = await openDatabase({env,dataDir});
+  if(walletHolds&&db.kind!=='postgres'){await db.close();throw new Error('Atomic wallet custody requires PostgreSQL.');}
   try {await db.withRequest('POST', async()=>{
   await db.exec('CREATE TABLE IF NOT EXISTS workspaces (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS shipments (id TEXT PRIMARY KEY, owner TEXT NOT NULL, public_hash TEXT UNIQUE NOT NULL, payload TEXT NOT NULL)');
   if (!(await db.prepare('PRAGMA table_info(shipments)').all()).some(c => c.name === 'rider_hash')) await db.exec('ALTER TABLE shipments ADD COLUMN rider_hash TEXT');
@@ -94,9 +103,20 @@ export async function createApp({
     owner,
     body,
     providers,
+    walletHolds,
+    walletControlEnabled:Boolean(walletControl),
     env
   }));}catch(e){await db.close();throw e;}
-  const server = http.createServer((req,res)=>db.withRequest(req.method,async()=>{
+  const financeHttp=walletControl?createWalletHttp({...walletControl,env,
+    resolveOwner:req=>db.withRequest('GET',()=>advanced.financeAuthorize(req)),
+    resolveUser:req=>db.withRequest('GET',()=>advanced.walletPrincipal(req)),
+    custodyTimeline:id=>db.withRequest('GET',async()=>{const row=await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);if(!row)return [];return (JSON.parse(row.payload).events||[]).map(({status,at,leg,actorName})=>({status,at,leg,actorName}));})
+  }):null;
+  const server = http.createServer((req,res)=>{
+    if(financeHttp?.matches(req)){void financeHttp.handle(req,res);return;}
+    // Dedicated short wallet transactions; never run provider reads under the legacy global write lock.
+    if(walletWebhook?.matches(req)){void walletWebhook.handle(req,res);return;}
+    return db.withRequest(req.method,async()=>{
     const origin = req.headers.origin;
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -259,7 +279,8 @@ export async function createApp({
       if (!['GET', 'HEAD'].includes(req.method)) return send(405, {
         error: 'Method not allowed.'
       });
-      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css'};
+      if(route==='/app/wallet'){res.writeHead(302,{Location:'/app#wallet'});res.end();return;}
+      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js'};
       if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
       const files = {
         '/welcome':'marketing.html',
@@ -283,10 +304,16 @@ export async function createApp({
         '/config.mjs': 'config.mjs',
         '/accounts.mjs': 'accounts.mjs',
         '/identity.mjs': 'identity.mjs',
+        '/vehicles.mjs':'vehicles.mjs',
+        '/customer-wallet.mjs':'customer-wallet.mjs',
         '/assets/leaflet.js': 'assets/leaflet.js',
         '/assets/leaflet.css': 'assets/leaflet.css',
         '/style.css': 'style.css',
         '/assets/sendrack-studio-scooter.webp':'assets/sendrack-studio-scooter.webp',
+        '/assets/vehicle-keke.webp':'assets/vehicle-keke.webp',
+        '/assets/vehicle-car.webp':'assets/vehicle-car.webp',
+        '/assets/vehicle-dispatch.webp':'assets/vehicle-dispatch.webp',
+        '/assets/vehicle-truck.webp':'assets/vehicle-truck.webp',
         '/assets/sendrack-mark.svg': 'assets/sendrack-mark.svg',
         '/assets/Inter.ttf': 'assets/Inter.ttf',
         '/assets/Poppins-Regular.ttf': 'assets/Poppins-Regular.ttf',
@@ -317,7 +344,7 @@ export async function createApp({
         error: e.status ? e.message : 'The tracking service could not complete this request.'
       });else res.end();
     }
-  }).catch(()=>{if(!res.headersSent){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Database unavailable. Please retry.'}));}else res.end();}));
+  }).catch(()=>{if(!res.headersSent){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Database unavailable. Please retry.'}));}else res.end();});});
   server.requestTimeout = 30000;
   server.headersTimeout = 15000;
   server.on('close',()=>{server.databaseClosed=db.close();});

@@ -24,6 +24,8 @@ function equal(a, b) {
 export async function operations(db, {
   owner,
   body,
+  walletHolds,
+  walletControlEnabled=false,
   providers = providersFromEnv(),
   env = process.env
 } = {}) {
@@ -121,6 +123,7 @@ export async function operations(db, {
     };
   }
   const capabilities = () => ({
+    walletControl:{enabled:Boolean(walletControlEnabled),mode:walletControlEnabled?'mock':null},
     maps:publicMapConfig(env),
     service: 'trackship-ng',
     version: '0.7.1',
@@ -214,6 +217,7 @@ export async function operations(db, {
   }
   const market = await marketplace(db, {
     body,
+    walletHolds,
     rider,
     getShipment,
     putShipment,
@@ -374,11 +378,8 @@ export async function operations(db, {
       const p = await body(req, modern ? 3000000 : 65536);
       let identity;
       if (modern) {
-        if (!['National ID card', "Voter's card", 'Driving licence'].includes(p.idType) || typeof p.idNumber !== 'string' || !/^[A-Za-z0-9 /-]{5,40}$/.test(p.idNumber)) fail('Choose a government ID and enter its number.');
-        if (p.idType === 'National ID card' && !/^\d{11}$/.test(p.idNumber)) fail('The national ID/NIN must contain 11 digits.');
-        if (!['Bicycle', 'Motorcycle', 'Car', 'Van'].includes(p.vehicle)) fail('Choose a vehicle type.');
-        const licence = p.idType === 'Driving licence' ? p.idNumber : p.drivingLicence;
-        if (p.vehicle !== 'Bicycle' && (typeof licence !== 'string' || !/^[A-Za-z0-9 -]{5,30}$/.test(licence))) fail('A driving licence is required for motor vehicles, not vehicle registration.');
+        const errors=validateIdentity('rider',p);if(errors.length)fail(errors[0]);
+        const licence=p.idType==='Driving licence'?p.idNumber:p.drivingLicence;
         const image = typeof p.idPhoto === 'string' ? p.idPhoto.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)$/) : null;
         if (!image) fail('Upload a JPG or PNG photograph of the ID.');
         const bytes = Buffer.from(image[2], 'base64');
@@ -506,6 +507,14 @@ export async function operations(db, {
         }]
       };
       await transaction(async () => {
+        if(walletHolds){
+          if(!quoted)fail('Wallet-funded shipments require a configured server-priced route.',409);
+          const vendor=await db.prepare('SELECT id FROM vendor_accounts WHERE owner_key=?').get(merchant);
+          const wallet=vendor&&(await db.currentPostgresClient().query(`SELECT id FROM ${walletHolds.schema}.wallets WHERE owner_role='vendor' AND owner_id=$1`,[vendor.id])).rows[0];
+          if(!wallet)fail('Create and fund your approved vendor wallet first.',409);
+          const hold=await walletHolds.reserveInTransaction(db.currentPostgresClient(),{shipmentId:stored.id,vendorWalletId:wallet.id,deliveryType:stored.deliveryType,totalKobo:quoted.totalKobo,fees,platformKobo:quoted.platformKobo});
+          stored.payment={...stored.payment,status:'held',mode:'wallet_mock',holdId:hold.id};
+        }
         await db.prepare('INSERT INTO shipments(id,owner,public_hash,payload,rider_hash) VALUES (?,?,?,?,NULL)').run(s.id, merchant, digest(s.publicToken), JSON.stringify(stored));
         for (const [leg, raw] of Object.entries(tokens)) await db.prepare('INSERT INTO job_tokens VALUES (?,?,?)').run(digest(raw), s.id, leg);
       });
@@ -520,6 +529,7 @@ export async function operations(db, {
       const row = await db.prepare('SELECT payload FROM shipments WHERE id=? AND owner=?').get(paymentRoute[1], merchant);
       if (!row) fail('Shipment not found.', 404);
       const s = JSON.parse(row.payload);
+      if(s.payment?.mode==='wallet_mock')fail('This shipment is funded by its wallet hold; no separate checkout is needed.',409);
       if (s.workflowVersion !== 3) fail('Create a new delivery to use the funded workflow.');
       if (!providers.paymentReady) fail('Paystack is not configured on this service.', 503);
       if (paymentRoute[2] === 'verify-payment') {
@@ -702,7 +712,7 @@ export async function operations(db, {
       if (req.method === 'POST' && jobs[2] === 'actions') {
         const input = await body(req);
         if (r.identity_status === 'missing' || r.identity_status === 'rejected') fail('Complete your secure rider identity details before accepting a parcel.', 403);
-        if (s.payment.status !== 'paid') fail('The vendor must pay this delivery fee before dispatch.', 409);
+        if (!['paid','held'].includes(s.payment.status)) fail('The vendor must pay this delivery fee before dispatch.', 409);
         let spec = actionFor(s, leg);
         if (input.action === 'resend-otp' && s.status === 'Delivery OTP sent' && spec?.action === 'complete') spec = {
           ...spec,
@@ -715,6 +725,7 @@ export async function operations(db, {
         }
         if (!spec || spec.action !== input.action) fail('This action does not match the parcel’s latest checkpoint.', 409);
         const isAccept = ['accept', 'accept-carrier', 'accept-lastmile'].includes(input.action);
+        if(isAccept&&leg==='pickup'&&!market.matchesVehicle(r,s))fail('This delivery requires a different vehicle or load capacity.',403);
         if (!isAccept && s.actors?.[leg]?.id !== r.id) fail('This parcel is assigned to another handler.', 403);
         if (['request-otp', 'resend-otp'].includes(input.action)) {
           const previous = await db.prepare('SELECT expires FROM delivery_proofs WHERE shipment_id=?').get(s.id);
@@ -745,11 +756,12 @@ export async function operations(db, {
             if (fresh.status !== 'Delivery OTP sent') fail('Delivery status changed. Refresh it.', 409);
             await db.prepare('UPDATE delivery_proofs SET used=1 WHERE shipment_id=? AND used=0').run(s.id);
             const next = append(fresh, 'Delivered', leg, r, 'Recipient confirmed possession with their private delivery code');
+            if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),fresh,next,{otpVerified:true});
             await putShipment(next);
-            await creditEarnings(next);
+            if(next.payment?.mode!=='wallet_mock')await creditEarnings(next);
             return next;
           });
-          await autoPayout(updated);
+          if(updated.payment?.mode!=='wallet_mock')await autoPayout(updated);
           send(200, jobView(updated, leg));
           return true;
         }
@@ -767,6 +779,7 @@ export async function operations(db, {
             }
           } : fresh;
           const next = append(assigned, spec.next, leg, r, String(input.note || '').slice(0, 240));
+          if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),fresh,next);
           await putShipment(next);
           return next;
         });
@@ -825,5 +838,7 @@ export async function operations(db, {
   };
   router.legacyCreationAllowed=async()=>!(await catalog.pricing()).requireRoutes;
   router.ownerSession = accountAccess.owner;
+  router.financeAuthorize = req=>adminAccess.authorize(req,{operator:false});
+  router.walletPrincipal = async req=>{const v=await accountAccess.vendor(req);if(v){const p=JSON.parse(v.profile||'{}');return {role:'vendor',ownerId:v.id,displayName:p.ownerName||p.businessName||'Your account'};}try{const r=await rider(req);return {role:'rider',ownerId:r.id,displayName:r.display_name||'Your account'};}catch(e){if(e.status===401)return null;throw e;}};
   return router;
 }

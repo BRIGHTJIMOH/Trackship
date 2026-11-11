@@ -1,3 +1,4 @@
+import {vehicleMatches,VEHICLE_TYPES,kgToGrams} from '../web/vehicles.mjs';
 import { randomUUID } from 'node:crypto';
 const normalize = s => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 const fail = (message, status = 400) => {
@@ -7,6 +8,7 @@ const fail = (message, status = 400) => {
 };
 export async function marketplace(db, {
   body,
+  walletHolds,
   rider,
   getShipment,
   putShipment,
@@ -20,6 +22,7 @@ export async function marketplace(db, {
   const open = async () => (await db.prepare('SELECT payload FROM shipments').all()).map(r => JSON.parse(r.payload)).filter(s => s.workflowVersion === 3 && s.status === 'Created' && Date.now() - Date.parse(s.createdAt) < 7 * 86400000);
   async function eligible(r, s) {
     if(r.suspended)return false;
+    try{if(!vehicleMatches(JSON.parse(r.public_profile||'{}'),s))return false;}catch{return false;}
     if (!['submitted', 'approved'].includes(r.identity_status) || r.identity_format < 4) return false;
     let p;
     try {
@@ -45,6 +48,8 @@ export async function marketplace(db, {
     destinationState: s.destinationState,
     deliveryType: s.deliveryType,
     pickupFeeKobo: s.fees.pickup,
+    vehicleClass:s.vehicleClass||null,
+    weightKg:s.weightKg||null,
     paymentStatus: s.payment.status,
     match: 'service-area',
     createdAt: s.createdAt
@@ -69,6 +74,7 @@ export async function marketplace(db, {
   async function matchingOffers(r){const matched=[];for(const s of await open())if(await eligible(r,s))matched.push(preview(s));return matched;}
   return {
     notify,
+    matchesVehicle:(r,s)=>{try{return vehicleMatches(JSON.parse(r.public_profile||'{}'),s);}catch{return false;}},
     eligible,
     async route(req, path, send) {
       if (path === '/api/v4/rider/offers' && req.method === 'GET') {
@@ -84,13 +90,16 @@ export async function marketplace(db, {
         const r = await rider(req);
         const p = await body(req);
         if (typeof p.city !== 'string' || !p.city.trim() || p.city.length > 80 || typeof p.state !== 'string' || !p.state.trim() || p.state.length > 80 || typeof p.community !== 'string' || p.community.length > 80) fail('Enter a delivery city, state and community.');
+        if(p.vehicle&&!VEHICLE_TYPES.includes(p.vehicle))fail('Choose a supported vehicle.');
+        try{kgToGrams(p.maxLoadKg);}catch(e){fail(e.message);}
         const current = JSON.parse(r.public_profile || '{}');
         await db.prepare('UPDATE rider_profiles SET public_profile=? WHERE id=?').run(JSON.stringify({
           ...current,
           city: p.city.trim(),
           state: p.state.trim(),
           community: p.community.trim(),
-          vehicle: p.vehicle || current.vehicle
+          vehicle: p.vehicle || current.vehicle,
+          ...(p.maxLoadKg!==undefined?{maxLoadKg:p.maxLoadKg}:{})
         }), r.id);
         send(200, {
           saved: true
@@ -124,7 +133,8 @@ export async function marketplace(db, {
           s = await getShipment(match[1]);
           if (!s || s.status !== 'Created') fail('Another rider already accepted this delivery.', 409);
           if (!(await eligible(r, s))) fail('This delivery does not match your identity or pickup area.', 403);
-          if (s.payment.status !== 'paid') fail('The vendor must pay before this delivery can be accepted.', 409);
+          if (!['paid','held'].includes(s.payment.status)) fail('The vendor must pay before this delivery can be accepted.', 409);
+          const previous=s;
           s = append({
             ...s,
             actors: {
@@ -135,6 +145,7 @@ export async function marketplace(db, {
               }
             }
           }, 'Rider accepted', 'pickup', r, 'Accepted from the nearby delivery board');
+          if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),previous,s);
           await putShipment(s);
           await db.exec('COMMIT');
         } catch (e) {

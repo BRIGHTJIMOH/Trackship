@@ -1,0 +1,32 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {setTimeout as delay} from 'node:timers/promises';
+import {Queue} from 'bullmq';
+import {controlFixture} from './control-fixture.mjs';
+import {startWalletQueue} from '../../server/wallet/bullmq.mjs';
+import {WalletReconciliation} from '../../server/wallet/reconciliation.mjs';
+const skip=!process.env.WALLET_TEST_DATABASE_URL||!process.env.WALLET_TEST_REDIS_PORT;
+test('BullMQ: real Redis dispatch, durable outbox recovery after worker restart and daily schedule',{skip},async t=>{
+ const cleanup=[];let queue,observer;
+ t.after(async()=>{await queue?.close();if(observer){await observer.obliterate({force:true});await observer.close();}for(const fn of cleanup.reverse())await fn();});
+ const f=await controlFixture({after:fn=>cleanup.push(fn)}),connection={host:'127.0.0.1',port:Number(process.env.WALLET_TEST_REDIS_PORT),maxRetriesPerRequest:null},prefix='wallet-test-'+randomUUID();
+ const vendor=await f.wallet('vendor',1000),rider=await f.wallet('rider'),id=randomUUID();
+ await f.holds.reserve({shipmentId:id,vendorWalletId:vendor.id,deliveryType:'intrastate',totalKobo:500,fees:{pickup:500}});
+ const shipment={id,deliveryType:'intrastate',actors:{pickup:{id:rider.ownerId}},status:'Delivery OTP sent'};
+ await f.ledger.transaction(c=>f.holds.onTransitionInTransaction(c,shipment,{...shipment,status:'Delivered'},{otpVerified:true}));
+ queue=await startWalletQueue({worker:f.worker,connection,prefix,env:{NODE_ENV:'test'}});
+ observer=new Queue('outbox',{connection,prefix});
+ async function until(fn){for(let i=0;i<200;i++){if(await fn())return;await delay(30);}throw Error('Redis worker did not complete expected work.');}
+ await until(async()=>(await f.ledger.read(rider.id)).ledgerBalanceKobo===500);
+ await queue.close();queue=null;
+ const second=await f.holds.reserve({shipmentId:randomUUID(),vendorWalletId:vendor.id,deliveryType:'intrastate',totalKobo:500,fees:{pickup:500}});
+ const another={...shipment,id:second.shipment_id};
+ await f.ledger.transaction(c=>f.holds.onTransitionInTransaction(c,another,{...another,status:'Delivered'},{otpVerified:true}));
+ const reconciliation=new WalletReconciliation({admin:f.admin,platformProviderWalletId:f.holds.platformProviderWalletId});
+ queue=await startWalletQueue({worker:f.worker,reconciliation,connection,prefix,env:{NODE_ENV:'test'}});
+ await until(async()=>(await f.ledger.read(rider.id)).ledgerBalanceKobo===1000);
+ await until(async()=>Number((await f.pool.query(`SELECT count(*) n FROM ${f.schema}.reconciliation_runs`)).rows[0].n)>0);
+ const schedules=await observer.getJobSchedulers();assert.ok(schedules.some(s=>s.name==='daily-reconciliation'));
+ assert.equal(Number((await f.pool.query(`SELECT count(*) n FROM ${f.schema}.outbox WHERE status='done'`)).rows[0].n),2);
+});

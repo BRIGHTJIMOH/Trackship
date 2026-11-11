@@ -35,6 +35,7 @@ export async function openDatabase({env=process.env,dataDir='.data'}={}){
  };
  try{await pool.query('SELECT 1');}catch{await Promise.allSettled([pool.end(),writes.end()]);throw new Error('PostgreSQL connection failed. Check DATABASE_URL, DATABASE_SSL and network access.');}
  return {kind:'postgres',prepare:sql=>({get:async(...args)=>(await execute(sql,args)).rows[0],all:async(...args)=>(await execute(sql,args)).rows,run:async(...args)=>({changes:(await execute(sql,args)).rowCount})}),exec:async sql=>execute(sql),close:async()=>{await Promise.all([pool.end(),writes.end()]);},
+ currentPostgresClient(){const client=scope.getStore()?.client;if(!client)throw new Error('A request-scoped PostgreSQL client is required.');return client;},
  async withRequest(method,fn){
   if(scope.getStore())return fn();const mutation=!['GET','HEAD','OPTIONS'].includes(method);const client=await(mutation?writes:pool).connect();let broken=false;
   try{

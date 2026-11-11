@@ -6,13 +6,14 @@
   "scripts": {
     "start": "node server/server.mjs",
     "test": "node --test --test-isolation=none tests/*.test.mjs",
-    "test:ui": "node tests/ui.mjs",
+    "test:ui": "node tests/app-corrections-ui.mjs && node tests/wallet/finance-ui.mjs",
     "build:apk": "bash scripts/build-apk.sh",
     "test:apk": "node tests/apk-ui.mjs",
     "db:check": "node scripts/check-database.mjs",
     "db:import": "node server/migrate-sqlite.mjs",
     "test:postgres": "node scripts/test-postgres.mjs",
-    "test:admin": "node tests/admin-ui.mjs"
+    "test:admin": "node tests/admin-ui.mjs",
+    "test:wallet": "node --test tests/wallet/*.test.mjs"
   },
   "engines": {
     "node": ">=24"
@@ -22,6 +23,8 @@
   },
   "dependencies": {
     "leaflet": "1.9.4",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "bullmq": "^6.7.3",
+    "ioredis": "^6.0.0"
   }
 }

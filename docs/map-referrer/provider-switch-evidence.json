@@ -12,7 +12,7 @@
       "passed": true
     },
     {
-      "case": "controlled MapTiler 403 with successful API and no automatic provider bypass",
+      "case": "controlled MapTiler 403 with independent API success and visible OSM fallback",
       "views": [
         "vendor",
         "rider",
@@ -44,991 +44,1123 @@
   ],
   "requests": [
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "initial-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "initial-test-key",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "initial-test-key",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "initial-test-key",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "initial-test-key",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
-      "status": 403
+      "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
-      "status": 403
+      "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
-      "status": 403
+      "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
-      "status": 403
+      "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
-      "provider": "maptiler",
-      "keyCase": "rotated-test-key",
-      "status": 403
-    },
-    {
-      "page": "http://127.0.0.1:44991/app",
-      "provider": "maptiler",
-      "keyCase": "rotated-test-key",
-      "status": 403
-    },
-    {
-      "page": "http://127.0.0.1:44991/app",
-      "provider": "maptiler",
-      "keyCase": "rotated-test-key",
-      "status": 403
-    },
-    {
-      "page": "http://127.0.0.1:44991/app",
-      "provider": "maptiler",
-      "keyCase": "rotated-test-key",
-      "status": 403
-    },
-    {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
-      "provider": "maptiler",
-      "keyCase": "rotated-test-key",
-      "status": 403
-    },
-    {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/app",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/app",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/app",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/app",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/app",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/app",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/app",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/app",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/t/[redacted]",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/t/[redacted]",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/t/[redacted]",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 200
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "maptiler",
       "keyCase": "rotated-test-key",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "maptiler",
+      "keyCase": "rotated-test-key",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 200
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/admin",
-      "provider": "openstreetmap-pilot",
-      "keyCase": "absent",
-      "status": 200
-    },
-    {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/app",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/app",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/t/[redacted]",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/t/[redacted]",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403
     },
     {
-      "page": "http://127.0.0.1:44991/admin",
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
+      "provider": "openstreetmap-pilot",
+      "keyCase": "absent",
+      "status": 403
+    },
+    {
+      "page": "http://127.0.0.1:33887/admin",
       "provider": "openstreetmap-pilot",
       "keyCase": "absent",
       "status": 403

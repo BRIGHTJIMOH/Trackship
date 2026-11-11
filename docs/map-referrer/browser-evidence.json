@@ -7,7 +7,7 @@
       "status": 403
     },
     {
-      "referer": "http://127.0.0.1:44473/",
+      "referer": "http://127.0.0.1:39699/",
       "origin": null,
       "status": 200
     }
@@ -15,23 +15,24 @@
   "layers": [
     {
       "layer": "customer/app",
-      "tileRequests": 6,
+      "tileRequests": 7,
       "headers": {
-        "referer": "http://127.0.0.1:46715/",
-        "origin": null,
+        "referer": "http://127.0.0.1:40907/",
+        "origin": "http://127.0.0.1:40907",
         "status": 200
       }
     },
     {
       "layer": "admin operations",
-      "failedTilesRemainVisibleAcrossFeedRefresh": true
+      "authorizationFailureSeparateFromConnectedFeed": true,
+      "basicMapFallback": true
     },
     {
       "layer": "admin operations",
-      "recoveredOnNewView": true,
+      "recoveredOnExplicitRetry": true,
       "headers": {
-        "referer": "http://127.0.0.1:46715/",
-        "origin": null,
+        "referer": "http://127.0.0.1:40907/",
+        "origin": "http://127.0.0.1:40907",
         "status": 200
       }
     }

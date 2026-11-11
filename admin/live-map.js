@@ -441,7 +441,7 @@ export function liveOperationsMap({
   }
   element.querySelector("[data-map-refresh]").onclick = async () => {
     await refresh(true);
-    if (tiles && element.querySelector(".map-tiles-status").dataset.state === "error") tiles.redraw();
+    if (tiles && (element.querySelector(".map-tiles-status").dataset.state === "error" || element.querySelector(".map-tiles-status").dataset.degraded === "true")) tiles.retryProvider ? tiles.retryProvider() : tiles.redraw();
   };
   element.querySelector(".map-filters").addEventListener("input", (e) => {
     const name = e.target.name;

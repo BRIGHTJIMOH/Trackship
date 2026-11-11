@@ -279,7 +279,8 @@ export async function createApp({
       if (!['GET', 'HEAD'].includes(req.method)) return send(405, {
         error: 'Method not allowed.'
       });
-      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js','/app/wallet':'user-wallet.html','/user-wallet.js':'user-wallet.js'};
+      if(route==='/app/wallet'){res.writeHead(302,{Location:'/app#wallet'});res.end();return;}
+      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js'};
       if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
       const files = {
         '/welcome':'marketing.html',
@@ -303,11 +304,18 @@ export async function createApp({
         '/config.mjs': 'config.mjs',
         '/accounts.mjs': 'accounts.mjs',
         '/identity.mjs': 'identity.mjs',
+        '/vehicles.mjs':'vehicles.mjs',
+        '/customer-wallet.mjs':'customer-wallet.mjs',
         '/assets/leaflet.js': 'assets/leaflet.js',
         '/assets/leaflet.css': 'assets/leaflet.css',
         '/style.css': 'style.css',
         '/assets/demo-vendor-dashboard.jpg':'assets/demo-vendor-dashboard.jpg',
         '/assets/sendrack-parcel.webp':'assets/sendrack-parcel.webp',
+        '/assets/vehicle-keke.webp':'assets/vehicle-keke.webp',
+        '/assets/vehicle-car.webp':'assets/vehicle-car.webp',
+        '/assets/vehicle-dispatch.webp':'assets/vehicle-dispatch.webp',
+        '/assets/vehicle-truck.webp':'assets/vehicle-truck.webp',
+
         '/assets/demo-vendor-create.jpg':'assets/demo-vendor-create.jpg',
         '/assets/demo-vendor-details.jpg':'assets/demo-vendor-details.jpg',
         '/assets/demo-vendor-tracking.jpg':'assets/demo-vendor-tracking.jpg',

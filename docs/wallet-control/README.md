@@ -16,7 +16,8 @@ identity and existing Paystack paths have not been changed or deployed.
   finance roles/auth/API, reconciliation and optional BullMQ dispatcher.
 - migrations/wallet/001–006: additive, versioned wallet schema, constraints/triggers.
 - admin/wallet.html/css/js: owner/finance dashboard at /admin/wallet.
-- admin/user-wallet.html and user-wallet.js: vendor/rider screen at /app/wallet.
+- web/customer-wallet.mjs: wallet, withdrawal and Profile security views inside /app.
+  The former /app/wallet bookmark redirects into /app; no separate wallet app exists.
 - web/features.mjs: signed-in, capability-gated wallet entry. Existing /app stays.
 - tests/wallet: PostgreSQL/Redis and browser checks; fixtures are explicitly synthetic.
 

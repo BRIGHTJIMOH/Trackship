@@ -36,3 +36,11 @@ test('history reconciliation distinguishes rider updates, queued vendor updates 
  const {historyRelation}=await import('../web/core.mjs');const s=newShipment(fields,'Bright');const next=addEvent(s,'Picked up');
  assert.equal(historyRelation(s,next),'remote');assert.equal(historyRelation(next,s),'local');assert.equal(historyRelation(s,s),'equal');assert.equal(historyRelation(next,addEvent(s,'Picked up','Different checkpoint')),'conflict');
 });
+test('vehicle loads use exact integer grams and never invent default capacity',async()=>{
+ const {kgToGrams,vehicleMatches}=await import('../web/vehicles.mjs');
+ assert.equal(kgToGrams('12.345'),12345);assert.equal(kgToGrams(''),null);assert.throws(()=>kgToGrams('-1'));assert.throws(()=>kgToGrams('0.0001'));
+ assert.equal(vehicleMatches({vehicle:'Car',maxLoadKg:'100'},{vehicleClass:'keke',weightKg:'40'}),false);
+ assert.equal(vehicleMatches({vehicle:'Tricycle / Keke NAPEP'},{vehicleClass:'keke',weightKg:'40'}),false);
+ assert.equal(vehicleMatches({vehicle:'Tricycle / Keke NAPEP',maxLoadKg:'50'},{vehicleClass:'keke',weightKg:'40'}),true);
+ assert.equal(vehicleMatches({vehicle:'Bicycle'},{}),true);
+});

@@ -378,11 +378,8 @@ export async function operations(db, {
       const p = await body(req, modern ? 3000000 : 65536);
       let identity;
       if (modern) {
-        if (!['National ID card', "Voter's card", 'Driving licence'].includes(p.idType) || typeof p.idNumber !== 'string' || !/^[A-Za-z0-9 /-]{5,40}$/.test(p.idNumber)) fail('Choose a government ID and enter its number.');
-        if (p.idType === 'National ID card' && !/^\d{11}$/.test(p.idNumber)) fail('The national ID/NIN must contain 11 digits.');
-        if (!['Bicycle', 'Motorcycle', 'Car', 'Van'].includes(p.vehicle)) fail('Choose a vehicle type.');
-        const licence = p.idType === 'Driving licence' ? p.idNumber : p.drivingLicence;
-        if (p.vehicle !== 'Bicycle' && (typeof licence !== 'string' || !/^[A-Za-z0-9 -]{5,30}$/.test(licence))) fail('A driving licence is required for motor vehicles, not vehicle registration.');
+        const errors=validateIdentity('rider',p);if(errors.length)fail(errors[0]);
+        const licence=p.idType==='Driving licence'?p.idNumber:p.drivingLicence;
         const image = typeof p.idPhoto === 'string' ? p.idPhoto.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)$/) : null;
         if (!image) fail('Upload a JPG or PNG photograph of the ID.');
         const bytes = Buffer.from(image[2], 'base64');
@@ -728,6 +725,7 @@ export async function operations(db, {
         }
         if (!spec || spec.action !== input.action) fail('This action does not match the parcel’s latest checkpoint.', 409);
         const isAccept = ['accept', 'accept-carrier', 'accept-lastmile'].includes(input.action);
+        if(isAccept&&leg==='pickup'&&!market.matchesVehicle(r,s))fail('This delivery requires a different vehicle or load capacity.',403);
         if (!isAccept && s.actors?.[leg]?.id !== r.id) fail('This parcel is assigned to another handler.', 403);
         if (['request-otp', 'resend-otp'].includes(input.action)) {
           const previous = await db.prepare('SELECT expires FROM delivery_proofs WHERE shipment_id=?').get(s.id);
@@ -841,6 +839,6 @@ export async function operations(db, {
   router.legacyCreationAllowed=async()=>!(await catalog.pricing()).requireRoutes;
   router.ownerSession = accountAccess.owner;
   router.financeAuthorize = req=>adminAccess.authorize(req,{operator:false});
-  router.walletPrincipal = async req=>{const v=await accountAccess.vendor(req);if(v)return {role:'vendor',ownerId:v.id};try{const r=await rider(req);return {role:'rider',ownerId:r.id};}catch(e){if(e.status===401)return null;throw e;}};
+  router.walletPrincipal = async req=>{const v=await accountAccess.vendor(req);if(v){const p=JSON.parse(v.profile||'{}');return {role:'vendor',ownerId:v.id,displayName:p.ownerName||p.businessName||'Your account'};}try{const r=await rider(req);return {role:'rider',ownerId:r.id,displayName:r.display_name||'Your account'};}catch(e){if(e.status===401)return null;throw e;}};
   return router;
 }

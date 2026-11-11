@@ -77,7 +77,9 @@ run('wallet user HTTP: authenticated role ownership overrides supplied wallet ID
  });
  const base='http://127.0.0.1:'+server.address().port,headers={Authorization:'Bearer '+token};
  assert.equal((await fetch(base+'/api/wallet/me')).status,401);
- const me=await(await fetch(base+'/api/wallet/me?walletId='+b.id,{headers})).json();assert.equal(me.wallet.id,a.id);assert.equal(me.wallet.bankBalanceKobo,1000);assert.equal(me.wallet.providerWalletId,undefined);
+ const android=await fetch(base+'/api/wallet/me',{method:'OPTIONS',headers:{Origin:'https://appassets.trackship.ng'}});assert.equal(android.status,204);assert.equal(android.headers.get('access-control-allow-origin'),'https://appassets.trackship.ng');
+ assert.equal((await fetch(base+'/api/wallet/admin/session',{method:'OPTIONS',headers:{Origin:'https://appassets.trackship.ng'}})).status,403);
+ const me=await(await fetch(base+'/api/wallet/me?walletId='+b.id,{headers})).json();assert.equal(me.balanceKobo,1000);assert.equal(me.wallet,undefined);assert.equal(me.ledger,undefined);assert.equal(JSON.stringify(me).includes('heldKobo'),false);
  assert.equal((await fetch(base+'/api/wallet/admin/overview',{headers})).status,401);
- const r=await fetch(base+'/api/wallet/refresh',{method:'POST',headers:{...headers,'Content-Type':'application/json',Origin:base},body:JSON.stringify({walletId:b.id})});assert.equal((await r.json()).id,a.id);
+ const r=await fetch(base+'/api/wallet/refresh',{method:'POST',headers:{...headers,'Content-Type':'application/json',Origin:base},body:JSON.stringify({walletId:b.id})});assert.equal((await r.json()).updated,true);
 });

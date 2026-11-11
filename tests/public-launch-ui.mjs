@@ -16,6 +16,19 @@ try {
     await page.evaluate(()=>document.fonts.ready);
     await page.locator('.scooter-art').evaluate(image=>image.decode());
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width,'overflow at '+width);
+    const placement = await page.evaluate(() => {
+      const rect = selector => document.querySelector(selector).getBoundingClientRect();
+      const heading = document.querySelector('h1'), headingBounds = heading.getBoundingClientRect();
+      const range = document.createRange(); range.selectNodeContents(heading);
+      const contained = [...range.getClientRects()].every(r => !r.width || (r.left >= headingBounds.left - 1 && r.right <= headingBounds.right + 1));
+      const caption = rect('.stage-caption'), artwork = rect('.scooter-art');
+      return {contained, captionGap:caption.top-artwork.bottom, buttonGap:rect('.launch-location').top-rect('.join-button').bottom, visionAlignment:Math.abs(rect('.vision-section h2').left-rect('.vision-section .section-index').left), audienceAlignment:Math.abs(rect('.section-intro h2').left-rect('.section-intro .section-index').left)};
+    });
+    assert.equal(placement.contained,true,'Headline must stay inside its text column at '+width);
+    assert.ok(placement.captionGap>=8,'Caption must be below artwork at '+width+': '+JSON.stringify(placement));
+    assert.ok(placement.buttonGap>=16,'Location text must not crowd signup button at '+width);
+    assert.ok(placement.visionAlignment<1&&placement.audienceAlignment<1,'Section headings must share their label alignment at '+width);
+
     assert.equal(await page.locator('a[href="/app"]').count(),0);
     assert.equal(await page.locator('.parcel-world,.journey-stage,.app-phone,canvas').count(),0,'Previous website must not appear');
     assert.equal(await page.locator('.motion-control').isDisabled(),true);

@@ -184,3 +184,120 @@ input::placeholder { color: #7b8573; }
   .scooter-art { transform: none; transition: none; will-change: auto; }
   .audience-card { transition: none; }
 }
+
+/* A consistent reading grid and clear space around every text block. */
+.navigation{font-size:11px;letter-spacing:.25px;gap:22px}
+.navigation a{white-space:nowrap}
+.header-join{font-size:12px}
+.launch-hero{grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr);gap:30px;align-items:center;padding-top:24px;padding-bottom:24px}
+.hero-words{min-width:0;padding-bottom:0}
+.release-tag{font-size:10px;line-height:1.7;letter-spacing:.9px;white-space:normal}
+h1{font-size:clamp(62px,6.15vw,92px);font-weight:750;line-height:1.06;letter-spacing:-.01em;word-spacing:.06em;margin-top:25px}
+.hero-description{font-size:15px;line-height:1.75;margin-top:26px}
+.join-button{font-size:13px;margin-top:26px}
+.launch-location{position:static;font-size:11px;line-height:1.7;margin-top:25px;gap:10px}
+.product-stage{position:relative;grid-column:2;grid-row:1;right:auto;top:auto;bottom:auto;width:100%;height:640px;min-width:0}
+.scooter-art{width:114%;height:86%;right:-7%;top:-1%}
+.stage-plinth{top:19%;bottom:17%;left:-4%}
+.disc-large{width:100%;right:-27%;top:0}
+.disc-small{width:82%;right:-25%;top:21%}
+.stage-word{font-size:clamp(80px,10vw,150px);left:-3%}
+.stage-caption{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:end;gap:20px;z-index:4}
+.stage-detail{position:static;padding:0;border:0;background:transparent;backdrop-filter:none;border-radius:0;flex-shrink:0}
+.stage-detail>span{font-size:9px;letter-spacing:.8px;line-height:1.6}
+.stage-detail p{font-size:13px;line-height:1.6;margin-top:7px;letter-spacing:0}
+.stage-utilities{display:grid;justify-items:end;gap:4px;text-align:right}
+.motion-control{position:static;font-size:11px;min-height:40px;padding:6px 0}
+.art-note{position:static;display:block;font-size:9px;line-height:1.6;letter-spacing:0}
+.launch-strip{position:relative;z-index:5;font-size:9px;letter-spacing:.5px;line-height:1.7}
+.launch-strip a{font-size:12px;white-space:nowrap}
+.vision-section{grid-template-columns:minmax(0,1fr) auto;gap:25px 50px}
+.vision-section>.section-index{grid-column:1/-1}
+.vision-section>div{max-width:740px}
+h2{font-weight:600;line-height:1.15;letter-spacing:-.035em}
+.vision-section>div>p{max-width:600px;font-size:15px;line-height:1.8;margin-top:23px}
+.section-index{font-size:11px;letter-spacing:.7px;line-height:1.7}
+.section-intro{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px 35px;align-items:end;margin-bottom:35px}
+.section-intro>.section-index{grid-column:1/-1}
+.section-intro h2{margin:0}
+.small-label{font-size:10px;letter-spacing:.6px;line-height:1.8;max-width:190px;text-align:right}
+.audience-card{display:flex;flex-direction:column;min-width:0}
+.card-top>span{font-size:11px;letter-spacing:1px}
+h3{font-weight:600;line-height:1.18;letter-spacing:-.025em}
+.audience-card p{max-width:390px;font-size:14px;line-height:1.8;margin:20px 0 28px;flex:1}
+.audience-card>a{font-size:13px;margin-top:auto;padding-top:20px}
+.signup-section{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7%;align-items:start}
+.signup-intro h2{font-size:clamp(36px,3.6vw,52px);line-height:1.17;letter-spacing:-.035em}
+.signup-intro>p:not(.section-index){font-size:14px;line-height:1.8;max-width:360px}
+.signup-note{font-size:10px;letter-spacing:.1px;align-items:start;line-height:1.8}
+.signup-note i{margin-top:6px}
+label{font-size:12px;line-height:1.6}
+input,select{font-size:14px;min-height:49px}
+.signup-consent{font-size:12px;line-height:1.75;gap:10px}
+.submit-button{font-size:14px;min-height:52px}
+.signup-status{font-size:12px;line-height:1.7}
+.site-footer>p,.site-footer>a:not(.wordmark),.site-footer>span{font-size:12px;line-height:1.7}
+@media(min-width:1600px){h1{font-size:98px}.product-stage{height:720px}}
+@media(min-width:751px) and (max-width:1050px){
+ .navigation{gap:14px;padding-inline:16px;font-size:9px}
+ .header-join{font-size:10px;gap:12px}
+ .launch-hero{gap:20px;min-height:590px}
+ h1{font-size:clamp(48px,6.1vw,64px)}
+ .release-tag{font-size:9px}
+ .hero-description{font-size:14px}
+ .product-stage{height:560px}
+ .stage-caption{gap:12px}
+ .stage-detail>span{font-size:8px}
+ .stage-detail p{font-size:11px}
+ .stage-utilities .art-note{font-size:8px}
+ .motion-control{font-size:10px}
+ .launch-strip>span:nth-child(2){display:none}
+ .section-intro .small-label{display:none}
+}
+@media(max-width:750px){
+ .header-join{font-size:11px;gap:10px}
+ .release-tag{font-size:9px;letter-spacing:.5px}
+ .launch-hero{display:block;padding-top:20px;padding-bottom:12px}
+ h1{font-size:clamp(48px,13.5vw,78px);line-height:1.06;letter-spacing:-.01em;word-spacing:.06em}
+ .hero-description{font-size:14px;margin-top:24px}
+ .join-button{margin-top:22px;font-size:13px}
+ .launch-location{position:static;margin-top:22px;font-size:11px;gap:10px}
+ .product-stage{grid-column:auto;grid-row:auto;position:relative;width:calc(100% + var(--page-space)*2);height:calc(clamp(340px,100vw,560px) + 110px);margin:24px calc(var(--page-space)*-1) 0}
+ .scooter-art{width:103%;height:calc(100% - 110px);right:-1.5%;top:0}
+ .stage-plinth{left:8%;top:15%;bottom:110px}
+ .disc-large{width:83%;top:2%;right:-19%}
+ .disc-small{width:64%;top:23%;right:-17%}
+ .stage-word{font-size:23vw;top:30%;left:8%}
+ .stage-caption{left:var(--page-space);right:var(--page-space);bottom:10px;gap:12px}
+ .stage-detail p{font-size:12px;line-height:1.6}
+ .stage-detail>span{font-size:8px;letter-spacing:.5px}
+ .art-note{font-size:8px;max-width:115px}
+ .motion-control{font-size:10px}
+ .launch-strip{font-size:8px;gap:14px}
+ .launch-strip a{font-size:10px;white-space:normal;gap:10px}
+ .vision-section{display:block}
+ .vision-section h2{font-size:clamp(29px,7.5vw,42px);line-height:1.2;letter-spacing:-.03em;margin-top:22px}
+ .vision-section>div>p{font-size:14px;line-height:1.8}
+ .section-index{font-size:10px;letter-spacing:.6px}
+ .section-intro{display:block}
+ .section-intro h2{font-size:31px;line-height:1.2;margin-top:22px}
+ h3{font-size:31px;line-height:1.2;letter-spacing:-.025em}
+ .card-top>span{font-size:10px}
+ .audience-card p{font-size:14px}
+ .audience-card>a{font-size:13px}
+ .signup-section{grid-template-columns:minmax(0,1fr);gap:30px}
+ .signup-intro h2{font-size:35px;line-height:1.2}
+ .signup-intro>p:not(.section-index){font-size:14px}
+ .signup-note{font-size:10px}
+ .field-pair{grid-template-columns:minmax(0,1fr)}
+ input,select{font-size:16px}
+ .site-footer>p{flex-basis:100%}
+ .site-footer>a:not(.wordmark),.site-footer>span{font-size:11px}
+}
+@media(max-width:380px){
+ h1{font-size:46px}
+ .header-join{font-size:10px;gap:6px}
+ .stage-detail p{font-size:11px}
+ .stage-detail>span{font-size:7px}
+ .stage-utilities .art-note{max-width:92px}
+}

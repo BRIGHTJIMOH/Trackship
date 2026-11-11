@@ -57,6 +57,8 @@ export function createWalletHttp({admin,auth,withdrawals,reconciliation,resolveO
     fail('Finance route not found.',404);
    }
    const principal=await resolveUser(req);if(!principal)fail('Sign in to your vendor or rider account.',401);
+   if(path==='/banks'&&!mutation)return send(await ledger.provider.listBanks());
+   if(path==='/beneficiary'&&mutation){const p=await json(req),directory=await ledger.provider.listBanks();if(!directory.banks.some(b=>b.code===p.bankCode))fail('Choose an available bank.');const b=await ledger.provider.resolveAccountName({bankCode:p.bankCode,accountNumber:p.accountNumber});return send({accountName:b.accountName,maskedAccount:b.maskedAccount,bankName:directory.banks.find(x=>x.code===p.bankCode).name,mode:b.mode});}
    let wallet=(await admin.pool.query(`SELECT id FROM ${admin.schema}.wallets WHERE owner_role=$1 AND owner_id=$2`,[principal.role,principal.ownerId])).rows[0];
    if(path==='/create'&&mutation)return send(await ledger.createWallet(principal));
    if(!wallet)fail('Your approved bank wallet is not connected yet.',404);

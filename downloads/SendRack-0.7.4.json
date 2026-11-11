@@ -1,0 +1,18 @@
+{
+  "name": "SendRack",
+  "version": "0.7.4",
+  "versionCode": 4,
+  "applicationId": "ng.sendrack.test",
+  "sourceCommit": "f16376a204e61010eb9a951837c493512eb1c423",
+  "backend": "https://sendrack-api.onrender.com",
+  "sha256": "f81e3b1093e3418dd8ab7758b3dc483692e9e9a8a6cd86fd5f06cd6918ad24cf",
+  "bytes": 1244044,
+  "signingCertificateSha256": "d34b55d2982e55a2623157423ba2ad634ce2844c482144b53f53d88f0b8ecfa5",
+  "verification": {
+    "signature": true,
+    "packagedChromium": true,
+    "physicalAndroid": false,
+    "liveRender": false,
+    "liveBank": false
+  }
+}

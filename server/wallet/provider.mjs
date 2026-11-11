@@ -9,6 +9,7 @@ export class WalletProvider {
  async getBalance(){throw new WalletError('Wallet provider is not configured.',503);}
  async transfer(){throw new WalletError('Wallet provider is not configured.',503);}
  async startWithdrawal(){throw new WalletError('Wallet provider is not configured.',503);}
+ async listBanks(){throw new WalletError('Bank directory is not configured.',503);}
  async resolveAccountName(){throw new WalletError('Wallet provider is not configured.',503);}
  async verifyWebhook(){throw new WalletError('Wallet provider is not configured.',503);}
  async listTransactions(){throw new WalletError('Wallet provider is not configured.',503);}

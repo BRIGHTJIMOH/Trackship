@@ -4,7 +4,7 @@ import {createHash,createDecipheriv} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {createApp} from './server.mjs';
-const TABLES=['email_account_challenges','marketing_waitlist','workspaces','shipments','auth_challenges','rider_sessions','rider_profiles','job_tokens','delivery_proofs','payments','earnings','vendor_accounts','vendor_sessions','account_challenges','delivery_notifications','admin_sessions','admin_audit','admin_routes','admin_pricing'];
+const TABLES=['email_account_challenges','marketing_waitlist','workspaces','shipments','auth_challenges','rider_sessions','rider_profiles','job_tokens','delivery_proofs','payments','earnings','vendor_accounts','vendor_sessions','account_challenges','delivery_notifications','push_installations','push_deliveries','admin_sessions','admin_audit','admin_routes','admin_pricing'];
 const identifier=name=>{if(!/^[a-z_]+$/.test(name))throw new Error('Unexpected database identifier.');return '"'+name+'"';};
 const checksum=(rows,columns)=>createHash('sha256').update(JSON.stringify(rows.map(row=>columns.map(c=>row[c]??null)).map(JSON.stringify).sort())).digest('hex');
 export function sqliteSnapshot(filename){

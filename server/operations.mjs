@@ -1,3 +1,4 @@
+import {deliveryPush} from './push/delivery-push.mjs';
 import {liveOperations} from './live-operations.mjs';
 import {routeCatalog} from './route-catalog.mjs';
 import {adminConsole} from './admin.mjs';
@@ -226,11 +227,13 @@ export async function operations(db, {
     providers,
     env
   });
+  const push=await deliveryPush(db,{env,body,rider});
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false});return {id:session.actor,role:'super-admin'};}});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await push.route(req,path,send))return true;
     if(await liveMap(req,url,send))return true;
     if(await adminAccess.route(req,res,url,send))return true;
     if(path==='/api/routes'&&req.method==='GET'){send(200,{routes:await catalog.list(true),requireRoutes:(await catalog.pricing()).requireRoutes});return true;}
@@ -313,6 +316,7 @@ export async function operations(db, {
               locationConsent: null
             });
           }
+          await db.prepare('DELETE FROM push_installations WHERE session_hash=?').run(hash);
           await db.prepare('DELETE FROM rider_sessions WHERE token_hash=?').run(hash);
         });
       }
@@ -839,6 +843,7 @@ export async function operations(db, {
   router.legacyCreationAllowed=async()=>!(await catalog.pricing()).requireRoutes;
   router.ownerSession = accountAccess.owner;
   router.financeAuthorize = req=>adminAccess.authorize(req,{operator:false});
+  router.deliveryPush=push;
   router.walletPrincipal = async req=>{const v=await accountAccess.vendor(req);if(v){const p=JSON.parse(v.profile||'{}');return {role:'vendor',ownerId:v.id,displayName:p.ownerName||p.businessName||'Your account'};}try{const r=await rider(req);return {role:'rider',ownerId:r.id,displayName:r.display_name||'Your account'};}catch(e){if(e.status===401)return null;throw e;}};
   return router;
 }

@@ -12,3 +12,12 @@ artifacts/
 *.sqlite-*
 
 *.p12
+
+# Local Android Firebase project configuration.
+config/firebase/**/google-services.json
+
+# Firebase-enabled Android build inputs and generated Gradle state.
+android/firebase/google-services.json
+android/firebase/local.properties
+android/firebase/.gradle/
+android/firebase/build/

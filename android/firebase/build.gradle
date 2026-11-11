@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application' version '8.9.2'
+    id 'com.google.gms.google-services' version '4.5.0'
+}
+android {
+    namespace 'ng.trackship.app'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'ng.sendrack.test'
+        minSdk 26
+        targetSdk 35
+        versionCode 7
+        versionName '0.7.7-fcm'
+    }
+    sourceSets {
+        main {
+            manifest.srcFile 'src/main/AndroidManifest.xml'
+            java.srcDirs = ['../src', 'src/main/java']
+            res.srcDirs = ['../res']
+            assets.srcDirs = [layout.buildDirectory.dir('generated/sendrack-assets')]
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+    buildTypes {
+        debug { signingConfig null }
+        release { minifyEnabled false; signingConfig null }
+    }
+}
+// Builds are deliberately unsigned until the existing test signing identity is supplied.
+// The original manual APK build and its signing identity remain independent.
+def stageAssets = tasks.register('stageSendrackAssets', Sync) {
+    from('../../web') {
+        include 'index.html', '*.mjs', 'app.js', 'style.css', 'map-controls.css', 'assets/**'
+        exclude 'assets/sendrack-studio-scooter.webp'
+    }
+    into(layout.buildDirectory.dir('generated/sendrack-assets/web'))
+    doLast {
+        def directory = layout.buildDirectory.dir('generated/sendrack-assets/web').get().asFile
+        new File(directory, 'config.mjs').text = 'export const SERVICE_URL = "https://sendrack-api.onrender.com";\n'
+        ['index.html','app.js'].each { name -> def file = new File(directory,name); file.text = file.text.replace('0.7.0', android.defaultConfig.versionName) }
+        ['index.html':'sendrack-entry.html','app.js':'sendrack-main.js','style.css':'sendrack-ui.css'].each { source, target -> new File(directory,target).bytes = new File(directory,source).bytes }
+    }
+}
+tasks.named('preBuild').configure { dependsOn stageAssets }
+dependencies {
+    implementation platform('com.google.firebase:firebase-bom:35.1.0')
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'androidx.work:work-runtime:2.10.1'
+}

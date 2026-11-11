@@ -2,7 +2,7 @@ import {deliveryPush} from './push/delivery-push.mjs';
 import {liveOperations} from './live-operations.mjs';
 import {routeCatalog} from './route-catalog.mjs';
 import {adminConsole} from './admin.mjs';
-import {publicMapConfig} from './maps.mjs';
+import {publicMapConfig,pickupLocation} from './maps.mjs';
 import { validateIdentity } from '../web/identity.mjs';
 import { accounts } from './accounts.mjs';
 import { marketplace } from './market.mjs';
@@ -242,6 +242,9 @@ export async function operations(db, {
     if(routeQuote&&req.method==='POST'){send(200,await catalog.quote(routeQuote[1],await body(req)));return true;}
     if (await accountAccess.route(req, path, send)) return true;
     if (await market.route(req, path, send)) return true;
+    const pickupPin=path.match(/^\/api\/v3\/shipments\/([a-f0-9-]{36})\/pickup-location$/);
+    if(pickupPin&&req.method==='POST'){const merchant=await owner(req);if(!merchant)fail('Sign in to set the pickup.',401);const row=await db.prepare('SELECT payload FROM shipments WHERE id=? AND owner=?').get(pickupPin[1],merchant);if(!row)fail('Delivery not found.',404);const s=JSON.parse(row.payload);if(s.status!=='Created')fail('Pickup cannot change after a rider accepts.',409);const p=await body(req),pin=pickupLocation(p);await putShipment({...s,pickupLocation:pin});send(200,{pickupLocation:pin});return true;}
+
     if (path === '/api/accounts/identity' && req.method === 'POST') {
       const v = await accountAccess.vendor(req),
         r = v ? null : await rider(req),
@@ -491,7 +494,7 @@ export async function operations(db, {
         status: 'Created',
         custodian: 'vendor',
         createdAt: at,
-        actors: {},
+        actors: {},pickupLocation:pickupLocation(s.pickupLocation),
         fees,
         jobTokens: tokens,
         payment: {

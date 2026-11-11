@@ -27,3 +27,28 @@ in this conservative review build. Database deferred constraints ensure held cac
 matches outstanding shipment allocations and pending withdrawals, blocking manual
 unlock of reserved funds. Tests cover missing policy, single-use codes, PIN lockout,
 expiry and simultaneous hold/withdrawal. No bank transfer on request submission.
+
+Phase 5: a responsive /admin/wallet finance workspace, real owner-session fallback,
+separate named Admin/Finance/Support accounts, hashed passwords, CSRF/origin checks,
+session revocation, masked beneficiaries, paginated explorers/page CSV export,
+wallet detail, holds, disputes with redacted custody evidence, reasoned/audited
+maker-checker decisions, pending payout approval/rejection, and configurable bank
+tier/threshold forms. Existing percentage/flat route pricing remains authoritative.
+High-value actions require a different principal. Operator tokens do not grant
+finance access. Final-leg/platform release cannot bypass customer OTP. Ambiguous
+bank transfers cannot be cancelled or refunded; resume uses the original key.
+Definitively rejected stage transfers can be cancelled for subsequent refund/release.
+
+Vendor/rider /app/wallet is opened from the signed-in app only when the mock wallet
+capability is explicitly enabled. Its session is passed in memory from the app,
+never placed in query strings or newly persisted. It shows separate bank/ledger/
+held/earned/pending balances, ledger history, truthful unavailable virtual accounts,
+PIN enrollment and beneficiary-review/OTP withdrawal forms. No mock mint endpoint.
+Existing app login, records and Paystack flows remain unchanged by default.
+
+Chromium checks pass at 1366x768, 1920x1080 and 390px: no document overflow; unsaved
+policy values, focus and scroll survive refresh cycles and network failure; an open
+refund dialog keeps its draft. Screenshots in previews/ use synthetic data only.
+Finance domain and real HTTP tests cover roles, self-approval, pending/failed/uncertain
+bank outcomes, partial refunds, audit immutability, CSRF, staff session revocation,
+CSV and preserved public/app/admin URLs. Production mock controls remain blocked.

@@ -61,6 +61,14 @@ export class WalletHolds {
     const hold=(await client.query(`SELECT * FROM ${this.schema}.holds WHERE shipment_id=$1 FOR UPDATE`,[before.id])).rows[0];
     if(!hold)return; // Legacy parcels are never retroactively funded.
     if(after.id!==before.id||after.deliveryType!==hold.delivery_type)fail('Custody shipment mismatch.');
+    const assignedLeg={'Rider accepted':'pickup','Carrier accepted':'carrier','Last-mile rider accepted':'lastmile'}[after.status];
+    if(assignedLeg){
+      const owner=after.actors?.[assignedLeg]?.id;
+      const recipient=owner&&(await client.query(`SELECT id FROM ${this.schema}.wallets WHERE owner_role='rider' AND owner_id=$1`,[owner])).rows[0];
+      if(!recipient)fail('The handler needs an approved wallet before accepting custody.');
+      const assigned=await client.query(`UPDATE ${this.schema}.hold_stages SET recipient_wallet_id=$3 WHERE hold_id=$1 AND leg=$2 AND (recipient_wallet_id IS NULL OR recipient_wallet_id=$3)`,[hold.id,assignedLeg,recipient.id]);
+      if(!assigned.rowCount)fail('The custody stage already belongs to another handler.');
+    }
     const accepted={
       'Carrier handoff requested:Carrier accepted':'pickup',
       'Last-mile handoff requested:Last-mile rider accepted':'carrier'
@@ -69,6 +77,7 @@ export class WalletHolds {
     if(after.status==='Delivered'){
       if(before.status!=='Delivery OTP sent'||!otpVerified)fail('Final release requires the verified customer OTP.',403);
       leg=hold.delivery_type==='intrastate'?'pickup':'lastmile';
+      await client.query(`UPDATE ${this.schema}.holds SET final_otp_verified=true WHERE id=$1`,[hold.id]);
     }
     if(leg){
       const owner=before.actors?.[leg]?.id;

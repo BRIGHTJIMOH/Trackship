@@ -1,6 +1,7 @@
 import http from 'node:http';
 import {openDatabase} from './database.mjs';
 import {createFundingWebhookHandler} from './wallet/funding-http.mjs';
+import {createWalletHttp} from './wallet/http.mjs';
 import { randomBytes, createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -16,10 +17,12 @@ export async function createApp({
   providers,
   walletFunding,
   walletHolds,
+  walletControl,
   env = process.env,
   dataDir = process.env.DATA_DIR || path.join(root, '.data'),
   origins = process.env.ALLOWED_ORIGINS || 'https://appassets.trackship.ng'
 } = {}) {
+  if(walletControl&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock finance APIs cannot run in production.');
   const walletWebhook = walletFunding ? createFundingWebhookHandler({funding:walletFunding,env}) : null;
   if(walletHolds&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock wallet custody cannot run in production.');
   const db = await openDatabase({env,dataDir});
@@ -101,9 +104,16 @@ export async function createApp({
     body,
     providers,
     walletHolds,
+    walletControlEnabled:Boolean(walletControl),
     env
   }));}catch(e){await db.close();throw e;}
+  const financeHttp=walletControl?createWalletHttp({...walletControl,env,
+    resolveOwner:req=>db.withRequest('GET',()=>advanced.financeAuthorize(req)),
+    resolveUser:req=>db.withRequest('GET',()=>advanced.walletPrincipal(req)),
+    custodyTimeline:id=>db.withRequest('GET',async()=>{const row=await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);if(!row)return [];return (JSON.parse(row.payload).events||[]).map(({status,at,leg,actorName})=>({status,at,leg,actorName}));})
+  }):null;
   const server = http.createServer((req,res)=>{
+    if(financeHttp?.matches(req)){void financeHttp.handle(req,res);return;}
     // Dedicated short wallet transactions; never run provider reads under the legacy global write lock.
     if(walletWebhook?.matches(req)){void walletWebhook.handle(req,res);return;}
     return db.withRequest(req.method,async()=>{
@@ -269,7 +279,7 @@ export async function createApp({
       if (!['GET', 'HEAD'].includes(req.method)) return send(405, {
         error: 'Method not allowed.'
       });
-      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css'};
+      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js','/app/wallet':'user-wallet.html','/user-wallet.js':'user-wallet.js'};
       if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
       const files = {
         '/welcome':'marketing.html',

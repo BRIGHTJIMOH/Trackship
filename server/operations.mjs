@@ -25,6 +25,7 @@ export async function operations(db, {
   owner,
   body,
   walletHolds,
+  walletControlEnabled=false,
   providers = providersFromEnv(),
   env = process.env
 } = {}) {
@@ -122,6 +123,7 @@ export async function operations(db, {
     };
   }
   const capabilities = () => ({
+    walletControl:{enabled:Boolean(walletControlEnabled),mode:walletControlEnabled?'mock':null},
     maps:publicMapConfig(env),
     service: 'trackship-ng',
     version: '0.7.1',
@@ -215,6 +217,7 @@ export async function operations(db, {
   }
   const market = await marketplace(db, {
     body,
+    walletHolds,
     rider,
     getShipment,
     putShipment,
@@ -837,5 +840,7 @@ export async function operations(db, {
   };
   router.legacyCreationAllowed=async()=>!(await catalog.pricing()).requireRoutes;
   router.ownerSession = accountAccess.owner;
+  router.financeAuthorize = req=>adminAccess.authorize(req,{operator:false});
+  router.walletPrincipal = async req=>{const v=await accountAccess.vendor(req);if(v)return {role:'vendor',ownerId:v.id};try{const r=await rider(req);return {role:'rider',ownerId:r.id};}catch(e){if(e.status===401)return null;throw e;}};
   return router;
 }

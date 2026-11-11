@@ -7,6 +7,7 @@ const fail = (message, status = 400) => {
 };
 export async function marketplace(db, {
   body,
+  walletHolds,
   rider,
   getShipment,
   putShipment,
@@ -125,6 +126,7 @@ export async function marketplace(db, {
           if (!s || s.status !== 'Created') fail('Another rider already accepted this delivery.', 409);
           if (!(await eligible(r, s))) fail('This delivery does not match your identity or pickup area.', 403);
           if (!['paid','held'].includes(s.payment.status)) fail('The vendor must pay before this delivery can be accepted.', 409);
+          const previous=s;
           s = append({
             ...s,
             actors: {
@@ -135,6 +137,7 @@ export async function marketplace(db, {
               }
             }
           }, 'Rider accepted', 'pickup', r, 'Accepted from the nearby delivery board');
+          if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),previous,s);
           await putShipment(s);
           await db.exec('COMMIT');
         } catch (e) {

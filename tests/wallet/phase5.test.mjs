@@ -77,6 +77,12 @@ run('wallet user HTTP: authenticated role ownership overrides supplied wallet ID
  });
  const base='http://127.0.0.1:'+server.address().port,headers={Authorization:'Bearer '+token};
  assert.equal((await fetch(base+'/api/wallet/me')).status,401);
+ assert.equal((await fetch(base+'/api/wallet/banks')).status,401);
+ const banks=await(await fetch(base+'/api/wallet/banks',{headers})).json();assert.equal(banks.mode,'mock');assert.equal(banks.banks[0].name,'Sample Bank');
+ const lookup=body=>fetch(base+'/api/wallet/beneficiary',{method:'POST',headers:{...headers,'Content-Type':'application/json',Origin:base},body:JSON.stringify(body)});
+ assert.equal((await lookup({bankCode:'123',accountNumber:'0000000000'})).status,400);
+ assert.equal((await lookup({bankCode:'999',accountNumber:'123'})).status,400);
+ const resolved=await(await lookup({bankCode:'999',accountNumber:'0000000000'})).json();assert.equal(resolved.mode,'mock');assert.equal(resolved.bankName,'Sample Bank');assert.match(resolved.accountName,/NOT BANK VERIFIED/);assert.equal(resolved.beneficiaryId,undefined);assert.equal(resolved.maskedAccount,'******0000');
  const android=await fetch(base+'/api/wallet/me',{method:'OPTIONS',headers:{Origin:'https://appassets.trackship.ng'}});assert.equal(android.status,204);assert.equal(android.headers.get('access-control-allow-origin'),'https://appassets.trackship.ng');
  assert.equal((await fetch(base+'/api/wallet/admin/session',{method:'OPTIONS',headers:{Origin:'https://appassets.trackship.ng'}})).status,403);
  const me=await(await fetch(base+'/api/wallet/me?walletId='+b.id,{headers})).json();assert.equal(me.balanceKobo,1000);assert.equal(me.wallet,undefined);assert.equal(me.ledger,undefined);assert.equal(JSON.stringify(me).includes('heldKobo'),false);

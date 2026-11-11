@@ -1,7 +1,7 @@
 {
   "notice": "Controlled HTTP tile responses; Chromium virtual-origin test, not Android OS or live provider verification.",
   "capabilitiesBackend": "https://sendrack-api.onrender.com",
-  "capabilitiesRequests": 3,
+  "capabilitiesRequests": 4,
   "requests": [
     {
       "provider": "maptiler",
@@ -81,27 +81,72 @@
     {
       "provider": "maptiler",
       "referer": "https://appassets.trackship.ng/",
-      "status": 403
+      "status": 200
     },
     {
       "provider": "maptiler",
       "referer": "https://appassets.trackship.ng/",
-      "status": 403
+      "status": 200
     },
     {
-      "provider": "maptiler",
+      "provider": "osm",
       "referer": "https://appassets.trackship.ng/",
-      "status": 403
+      "status": 200
     },
     {
-      "provider": "maptiler",
+      "provider": "osm",
       "referer": "https://appassets.trackship.ng/",
-      "status": 403
+      "status": 200
     },
     {
-      "provider": "maptiler",
+      "provider": "osm",
       "referer": "https://appassets.trackship.ng/",
-      "status": 403
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
+    },
+    {
+      "provider": "osm",
+      "referer": "https://appassets.trackship.ng/",
+      "status": 200
     },
     {
       "provider": "maptiler",

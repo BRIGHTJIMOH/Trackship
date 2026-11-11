@@ -65,3 +65,19 @@ run('finance HTTP: separate staff sessions, owner CSRF, Support denial, CSV and 
  assert.equal((await fetch(base+'/api/wallet/admin/session',{headers:{Cookie:cookie}})).status,401);
  for(const path of ['/','/app','/admin','/admin/wallet','/admin/wallet.js','/admin/wallet.css','/app/wallet'])assert.equal((await fetch(base+path)).status,200,path);
 });
+run('wallet user HTTP: authenticated role ownership overrides supplied wallet IDs',async(t,f)=>{
+ const {randomBytes,createHash}=await import('node:crypto');
+ const database=await testDatabase();t.after(database.cleanup);if(!database.env.DATABASE_URL)throw new Error('Set SENDRACK_TEST_POSTGRES_URL too.');
+ const a=await f.wallet('vendor',1000),b=await f.wallet('vendor',2000),token=randomBytes(32).toString('hex');
+ const server=await createApp({env:{...database.env,NODE_ENV:'test'},walletControl:{admin:f.admin,auth:f.auth,withdrawals:f.withdrawals}});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(async()=>{await new Promise(r=>server.close(r));await server.databaseClosed;});
+ await server.database.withRequest('POST',async()=>{
+  await server.database.prepare('INSERT INTO vendor_accounts(id,phone,owner_key,profile) VALUES (?,?,?,?)').run(a.ownerId,'08012345678','synthetic-workspace',JSON.stringify({businessName:'Sample vendor'}));
+  await server.database.prepare('INSERT INTO vendor_sessions VALUES (?,?,?)').run(createHash('sha256').update(token).digest('hex'),a.ownerId,Date.now()+600000);
+ });
+ const base='http://127.0.0.1:'+server.address().port,headers={Authorization:'Bearer '+token};
+ assert.equal((await fetch(base+'/api/wallet/me')).status,401);
+ const me=await(await fetch(base+'/api/wallet/me?walletId='+b.id,{headers})).json();assert.equal(me.wallet.id,a.id);assert.equal(me.wallet.bankBalanceKobo,1000);assert.equal(me.wallet.providerWalletId,undefined);
+ assert.equal((await fetch(base+'/api/wallet/admin/overview',{headers})).status,401);
+ const r=await fetch(base+'/api/wallet/refresh',{method:'POST',headers:{...headers,'Content-Type':'application/json',Origin:base},body:JSON.stringify({walletId:b.id})});assert.equal((await r.json()).id,a.id);
+});

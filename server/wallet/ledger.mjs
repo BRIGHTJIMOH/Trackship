@@ -59,7 +59,7 @@ export class WalletLedger {
   const result=await this.pool.query(`SELECT w.*,a.balance_kobo,a.held_kobo,a.available_kobo FROM ${this.schema}.wallets w JOIN ${this.schema}.accounts a ON a.id=w.account_id WHERE w.id=$1`,[id]);
   if(!result.rowCount)throw new WalletError('Wallet not found.',404);
   const row=result.rows[0],bank=Number(row.bank_balance_kobo),ledger=Number(row.balance_kobo),observedAt=Number(row.bank_observed_at);
-  const state=row.bank_status==='unavailable'?'unavailable':bank!==ledger?'mismatch':row.bank_status==='unconfirmed'?'unconfirmed':this.clock()-observedAt>this.freshnessMs?'stale':'matched';
+  const state=row.reconciliation_blocked?'reconciliation_required':row.bank_status==='unavailable'?'unavailable':bank!==ledger?'mismatch':row.bank_status==='unconfirmed'?'unconfirmed':this.clock()-observedAt>this.freshnessMs?'stale':'matched';
   return {id:row.id,accountId:row.account_id,providerWalletId:row.provider_wallet_id,ownerId:row.owner_id,role:row.owner_role,mode:'mock',currency:'NGN',bankBalanceKobo:bank,ledgerBalanceKobo:ledger,heldKobo:Number(row.held_kobo),availableLedgerKobo:Number(row.available_kobo),bankObservedAt:observedAt,state,canSpend:state==='matched',spendableKobo:state==='matched'?Number(row.available_kobo):null};
  }
  async refreshBankBalance(id){

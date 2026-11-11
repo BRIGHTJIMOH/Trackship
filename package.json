@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "bullmq": "^6.7.3",
+    "ioredis": "^6.0.0",
     "leaflet": "1.9.4",
     "pg": "^8.16.3"
   }

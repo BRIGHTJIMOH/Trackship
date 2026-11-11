@@ -96,7 +96,7 @@ export class WalletWithdrawals {
     coalesce(sum(amount_kobo),0) monthly FROM ${this.schema}.payouts WHERE wallet_id=$1 AND state NOT IN ('failed','rejected') AND created_at>= (date_trunc('month',to_timestamp($2/1000.0) AT TIME ZONE 'Africa/Lagos') AT TIME ZONE 'Africa/Lagos')`,[walletId,this.ledger.clock()])).rows[0];
    const amount=Number(quote.amount_kobo);if(amount>limits.perTransactionKobo||BigInt(sums.daily)+BigInt(amount)>BigInt(limits.dailyKobo)||BigInt(sums.monthly)+BigInt(amount)>BigInt(limits.monthlyKobo))fail('Withdrawal exceeds the configured KYC limits.');
    const bank=(await c.query(`SELECT w.*,a.balance_kobo FROM ${this.schema}.wallets w JOIN ${this.schema}.accounts a ON a.id=w.account_id WHERE w.id=$1 FOR UPDATE OF w`,[walletId])).rows[0];
-   if(bank.bank_status!=='matched'||Number(bank.bank_balance_kobo)!==Number(bank.balance_kobo)||this.ledger.clock()-Number(bank.bank_observed_at)>this.ledger.freshnessMs)fail('Reconcile the bank balance before withdrawing.');
+   if(bank.reconciliation_blocked||bank.bank_status!=='matched'||Number(bank.bank_balance_kobo)!==Number(bank.balance_kobo)||this.ledger.clock()-Number(bank.bank_observed_at)>this.ledger.freshnessMs)fail('Reconcile the bank balance before withdrawing.');
    await c.query(`UPDATE ${this.schema}.accounts SET held_kobo=held_kobo+$2 WHERE id=$1`,[policy.wallet.accountId,amount]);
    await c.query(`UPDATE ${this.schema}.wallet_security SET pin_failures=0 WHERE wallet_id=$1`,[walletId]);
    return (await c.query(`INSERT INTO ${this.schema}.payouts(id,wallet_id,quote_id,idempotency_key,amount_kobo,tier) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[randomUUID(),walletId,quoteId,quote.idempotency_key,amount,policy.tier])).rows[0];

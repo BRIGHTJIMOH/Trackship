@@ -71,3 +71,16 @@ run('custody HTTP: real Accept and release-pending outbox commit or roll back to
  assert.equal((await call()).status,200);
  assert.equal(Number((await f.pool.query(`SELECT count(*) n FROM ${f.schema}.outbox`)).rows[0].n),1);
 });
+run('releases: bank success followed by DB failure recovers with the original provider key',async(t,f)=>{
+ const vendor=await f.wallet('vendor',1000),rider=await f.wallet('rider'),id=randomUUID();
+ await f.holds.reserve({shipmentId:id,vendorWalletId:vendor.id,deliveryType:'intrastate',totalKobo:1000,fees:{pickup:1000}});
+ const s={id,deliveryType:'intrastate',status:'Delivery OTP sent',actors:{pickup:{id:rider.ownerId}}};
+ await f.ledger.transaction(c=>f.holds.onTransitionInTransaction(c,s,{...s,status:'Delivered'},{otpVerified:true}));
+ await f.pool.query(`CREATE FUNCTION ${f.schema}.settle_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic settle failure'; END; $$; CREATE TRIGGER settle_fail BEFORE INSERT ON ${f.schema}.ledger_entries FOR EACH ROW EXECUTE FUNCTION ${f.schema}.settle_fail()`);
+ await assert.rejects(f.worker.runOnce(),/synthetic settle/);
+ assert.equal((await f.provider.getBalance({walletId:vendor.providerWalletId})).balanceKobo,0);
+ assert.equal((await f.ledger.read(vendor.id)).heldKobo,1000);
+ await f.pool.query(`DROP TRIGGER settle_fail ON ${f.schema}.ledger_entries`);f.advance(61000);await f.worker.runOnce();
+ assert.equal((await f.ledger.read(vendor.id)).heldKobo,0);assert.equal((await f.ledger.read(rider.id)).ledgerBalanceKobo,1000);
+ const history=await f.provider.listTransactions({walletId:vendor.providerWalletId});assert.equal(history.items.filter(i=>i.direction==='out').length,1);
+});

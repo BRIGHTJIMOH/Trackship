@@ -28,7 +28,7 @@ export class WalletHolds {
       return prior;
     }
     const row=(await client.query(`SELECT w.*,a.balance_kobo FROM ${this.schema}.wallets w JOIN ${this.schema}.accounts a ON a.id=w.account_id WHERE w.id=$1 FOR UPDATE OF w`,[vendorWalletId])).rows[0];
-    if(row.bank_status!=='matched'||Number(row.bank_balance_kobo)!==Number(row.balance_kobo)||this.ledger.clock()-Number(row.bank_observed_at)>this.ledger.freshnessMs)fail('Refresh and reconcile the bank balance before reserving funds.');
+    if(row.reconciliation_blocked||row.bank_status!=='matched'||Number(row.bank_balance_kobo)!==Number(row.balance_kobo)||this.ledger.clock()-Number(row.bank_observed_at)>this.ledger.freshnessMs)fail('Refresh and reconcile the bank balance before reserving funds.');
     const id=randomUUID();
     // The account CHECK, evaluated by PostgreSQL, prevents simultaneous reservations overdrawing availability.
     await client.query(`UPDATE ${this.schema}.accounts SET held_kobo=held_kobo+$2 WHERE id=$1`,[vendor.accountId,totalKobo]);
@@ -39,10 +39,10 @@ export class WalletHolds {
   async queueStage(client,{hold,leg,recipientOwnerId,amountKobo,idempotencyKey}) {
     const stage=(await client.query(`SELECT * FROM ${this.schema}.hold_stages WHERE hold_id=$1 AND leg=$2 FOR UPDATE`,[hold.id,leg])).rows[0];
     if(!stage)return;
-    if(hold.state!=='active')fail('This hold is disputed or closed.');
     const remaining=Number(stage.amount_kobo)-Number(stage.released_kobo)-Number(stage.refunded_kobo)-Number(stage.pending_kobo);
     const amount=amountKobo??remaining;
     if(amount===0)return;
+    if(hold.state!=='active')fail('This hold is disputed or closed.');
     kobo(amount);if(amount>remaining)fail('Stage amount is already pending, released or refunded.');
     let target;
     if(leg==='platform_fee'){

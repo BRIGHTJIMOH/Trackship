@@ -52,3 +52,13 @@ refund dialog keeps its draft. Screenshots in previews/ use synthetic data only.
 Finance domain and real HTTP tests cover roles, self-approval, pending/failed/uncertain
 bank outcomes, partial refunds, audit immutability, CSRF, staff session revocation,
 CSV and preserved public/app/admin URLs. Production mock controls remain blocked.
+
+Phase 6: durable reconciliation runs/items/observations, provider balance AND history
+comparison (including platform fee transfers), changed/incomplete observation flags,
+protected spending blocks, fresh-evidence resolution, aged-transfer/overdue-run
+monitoring, optional privacy-limited alert callback, midnight Lagos BullMQ schedule
+and startup catch-up. No automatic ledger repair. Local Redis 7.2.7 and BullMQ worker
+restart recovery verified; bank success followed by failed SQL settlement recovers
+with the original provider key. Full current verification: 35 wallet tests plus
+66 existing app tests, zero skipped when local PostgreSQL/Redis are configured.
+The user wallet browser flow also covers PIN setup and OTP-confirmed pending payout.

@@ -59,6 +59,7 @@ export function createWalletHttp({admin,auth,withdrawals,reconciliation,resolveO
    wallet=await ledger.read(wallet.id);
    if(path==='/me'&&!mutation){const detail=await admin.walletDetail({id:'internal-user-projection',role:'Support'},wallet.id);delete detail.wallet.providerWalletId;
     detail.summary=(await admin.pool.query(`SELECT coalesce(sum(released_kobo),0) earned,coalesce(sum(amount_kobo-released_kobo-refunded_kobo),0) pending FROM ${admin.schema}.hold_stages WHERE recipient_wallet_id=$1`,[wallet.id])).rows[0];
+    detail.payouts=(await admin.pool.query(`SELECT id,amount_kobo,state,created_at FROM ${admin.schema}.payouts WHERE wallet_id=$1 ORDER BY created_at DESC LIMIT 100`,[wallet.id])).rows;
     detail.virtualAccount=null;return send(detail);
    }
    if(path==='/refresh'&&mutation)return send(await ledger.refreshBankBalance(wallet.id));

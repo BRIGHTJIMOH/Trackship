@@ -1,3 +1,5 @@
+> Historical reference: the separate Android FCM build is now implemented in `android/firebase`. See [`config/firebase/README.md`](../firebase/README.md) for the active build and private Render setup. The Apple material below remains a future reference.
+
 # Future push configuration references — not activated
 
 The completed APK (`ng.sendrack.test`, 0.7.1-test.1) contains **no Firebase SDK** and there is **no native iPhone app**. Neither file here is consumed by the released manual ECJ/aapt2 build. Current alerts are the in-app REST inbox, foreground polling and Android JobScheduler/local notifications, not FCM/APNs. No Firebase/Apple file is needed to run that completed build.

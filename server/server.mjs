@@ -145,6 +145,7 @@ export async function createApp({
       if (!rate(req, 'all', 300)) return send(429, {
         error: 'Too many requests. Try again in a minute.'
       });
+      if(route.startsWith('/api/v4/rider/push/')&&!rate(req,'push-device',20))return send(429,{error:'Please try again in a minute.'});
       if(route==='/api/waitlist'&&req.method==='POST'){
         if(!rate(req,'waitlist',5))return send(429,{error:'Please try again in a minute.'});
         const p=await body(req,4096),email=typeof p.email==='string'?p.email.trim().toLowerCase():'';
@@ -347,7 +348,8 @@ export async function createApp({
   }).catch(()=>{if(!res.headersSent){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Database unavailable. Please retry.'}));}else res.end();});});
   server.requestTimeout = 30000;
   server.headersTimeout = 15000;
-  server.on('close',()=>{server.databaseClosed=db.close();});
+  server.on('listening',()=>advanced.deliveryPush?.start());
+  server.on('close',()=>{advanced.deliveryPush?.stop();server.databaseClosed=db.close();});
   server.databaseKind=db.kind;
   server.database=db;
   return server;

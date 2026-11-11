@@ -10,6 +10,7 @@ export function validatedMapConfig(value) {
 }
 export function createMapTiles(L, map, supplied, status) {
   const config=validatedMapConfig(supplied),name=config.provider==='maptiler'?'MapTiler':'OpenStreetMap pilot';
+  const originHint=globalThis.location?.origin==='https://appassets.trackship.ng'&&config.provider==='maptiler'?' The installed app uses https://appassets.trackship.ng; this origin must be allowed on the restricted MapTiler key.':'';
   let failed=0,active=true;if(status)status.dataset.phase='tiles';
   const report=(state,message)=>{if(active&&status?.isConnected&&status.dataset.phase!=='configuration-error'){status.dataset.state=state;status.textContent=message;}};
   const layer=L.tileLayer(config.tileUrl,{
@@ -18,10 +19,10 @@ export function createMapTiles(L, map, supplied, status) {
     referrerPolicy:'strict-origin-when-cross-origin',
   });
   layer.on('loading',()=>{failed=0;report('loading','Loading map tiles · '+name+'…');});
-  layer.on('tileerror',()=>{failed++;report('error','Map tiles unavailable · '+name+'. Check provider access, key restrictions and network. GPS/API connectivity is separate.');});
+  layer.on('tileerror',()=>{failed++;report('error','Map tiles unavailable · '+name+'. Check provider access, key restrictions and network. GPS/API connectivity is separate.'+originHint);});
   layer.on('load',()=>{
     const images=[...layer.getContainer().querySelectorAll('img.leaflet-tile')];
-    if(failed||images.some(i=>i.complete&&!i.naturalWidth))report('error','Map tiles unavailable · '+name+'. GPS/API connectivity is separate.');
+    if(failed||images.some(i=>i.complete&&!i.naturalWidth))report('error','Map tiles unavailable · '+name+'. GPS/API connectivity is separate.'+originHint);
     else if(images.length&&images.every(i=>i.complete&&i.naturalWidth))report('ready','Map tiles loaded · '+name+'.');
   });
   layer.on('remove',()=>{active=false;});

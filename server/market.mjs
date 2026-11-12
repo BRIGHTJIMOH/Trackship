@@ -21,7 +21,7 @@ export async function marketplace(db, {
   if (!(await db.prepare('PRAGMA table_info(rider_profiles)').all()).some(c => c.name === 'identity_format')) await db.exec('ALTER TABLE rider_profiles ADD COLUMN identity_format INTEGER DEFAULT 1');
   await db.exec('CREATE TABLE IF NOT EXISTS delivery_notifications(id TEXT PRIMARY KEY,rider_id TEXT,shipment_id TEXT,phase TEXT,title TEXT,body TEXT,seen INTEGER DEFAULT 0,created INTEGER,UNIQUE(rider_id,shipment_id,phase))');
   const open = async () => (await db.prepare('SELECT payload FROM shipments').all()).map(r => JSON.parse(r.payload)).filter(s => s.workflowVersion === 3 && s.status === 'Created' && Date.now() - Date.parse(s.createdAt) < 7 * 86400000);
-  const allShipments=async()=>(await db.prepare('SELECT payload FROM shipments').all()).map(row=>JSON.parse(row.payload));
+  const allShipments=async()=>(await db.prepare('SELECT payload FROM shipments').all()).map(row=>JSON.parse(row.payload)).filter(s=>!s.testRemoval);
   const activeFor=(r,all)=>all.filter(j=>!['Delivered','Cancelled'].includes(j.status)&&Object.entries(j.actors||{}).some(([leg,actor])=>actor.id===r.id&&(j.custodian===leg||j.status==='Rider accepted'))).length;
   async function eligible(r,s){return dispatchMatchReasons(r,s,{activeCount:activeFor(r,await allShipments()),capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}).length===0;}
   const preview = s => ({
@@ -39,6 +39,7 @@ export async function marketplace(db, {
     vehicleClass:s.vehicleClass||null,
     weightKg:s.weightKg||null,
     paymentStatus: s.payment.status,
+    testDispatch: s.payment.simulated===true,
     match: 'service-area',
     createdAt: s.createdAt
   });
@@ -59,6 +60,7 @@ export async function marketplace(db, {
     await Promise.allSettled(sends);
     return count;
   }
+  async function notificationsFor(r){const rows=await db.prepare('SELECT n.id,n.shipment_id AS "shipmentId",n.title,n.body,n.seen,n.created,s.payload AS shipment_payload FROM delivery_notifications n LEFT JOIN shipments s ON s.id=n.shipment_id WHERE n.rider_id=? ORDER BY n.created DESC LIMIT 100').all(r.id);return rows.filter(n=>!n.shipment_payload||!JSON.parse(n.shipment_payload).testRemoval).map(({shipment_payload,...n})=>n);}
   async function matchingOffers(r,{recover=false}={}){
    const all=await allShipments(),activeCount=activeFor(r,all),matched=[],known=recover?new Set((await db.prepare("SELECT shipment_id FROM delivery_notifications WHERE rider_id=? AND phase='created'").all(r.id)).map(n=>n.shipment_id)):null;
    for(const s of all){if(dispatchMatchReasons(r,s,{activeCount,capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}).length)continue;
@@ -81,7 +83,7 @@ export async function marketplace(db, {
     async route(req, path, send) {
       if(path==='/api/v4/rider/dispatch/sync'&&req.method==='POST'){
        const r=await rider(req);await body(req);const offers=await matchingOffers(r,{recover:true});
-       send(200,{offers,notifications:await db.prepare('SELECT id,shipment_id AS "shipmentId",title,body,seen,created FROM delivery_notifications WHERE rider_id=? ORDER BY created DESC LIMIT 100').all(r.id),identityRequired:r.identity_format<4||!['submitted','approved'].includes(r.identity_status)});return true;
+       send(200,{offers,notifications:await notificationsFor(r),identityRequired:r.identity_format<4||!['submitted','approved'].includes(r.identity_status)});return true;
       }
       if (path === '/api/v4/rider/offers' && req.method === 'GET') {
         const r = await rider(req);
@@ -115,7 +117,7 @@ export async function marketplace(db, {
       if (path === '/api/v4/rider/notifications' && req.method === 'GET') {
         const r = await rider(req);
         send(200, {
-          notifications: await db.prepare('SELECT id,shipment_id AS "shipmentId",title,body,seen,created FROM delivery_notifications WHERE rider_id=? ORDER BY created DESC LIMIT 100').all(r.id)
+          notifications: await notificationsFor(r)
         });
         return true;
       }

@@ -1,3 +1,4 @@
+import {testShipments} from './test-shipments.mjs';
 import {deliveryReadiness} from './delivery-readiness.mjs';
 import {deliveryContacts} from './delivery-contacts.mjs';
 import {deliveryPush} from './push/delivery-push.mjs';
@@ -234,8 +235,10 @@ export async function operations(db, {
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false});return {id:session.actor,role:'super-admin'};}});
   const contactAccess=deliveryContacts(db,{owner,rider,job});
+  const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await testRemovalAccess(req,url,send))return true;
     if(path==='/api/admin/dispatch-diagnostics'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,await market.diagnostics(url.searchParams.get('shipmentId'),url.searchParams.get('riderId')));return true;}
     if(path==='/api/admin/delivery-readiness'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,await deliveryReadiness(db,{env,push,providers,walletControlEnabled}));return true;}
     if(await contactAccess(req,path,send))return true;
@@ -493,6 +496,7 @@ export async function operations(db, {
       if (new Set(Object.values(tokens)).size !== Object.keys(tokens).length) fail('Each handler needs a distinct private dispatch token.');
       const stored = {
         ...s,
+        testRemoval:undefined,
         id: s.id,
         code: `TS-${s.id.slice(0, 8).toUpperCase()}`,
         business: String(s.business || s.sender).slice(0, 80),

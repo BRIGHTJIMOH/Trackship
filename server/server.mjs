@@ -246,6 +246,7 @@ export async function createApp({
         }
         const payload = JSON.stringify({
           ...s,
+          testRemoval:undefined,
           dirty: false,
           synced: true
         });
@@ -298,6 +299,7 @@ export async function createApp({
         '/app.js': 'app.js',
         '/core.mjs': 'core.mjs',
         '/lifecycle.mjs': 'lifecycle.mjs',
+        '/history.mjs': 'history.mjs',
         '/features.mjs': 'features.mjs',
         '/map-display.mjs': 'map-display.mjs',
         '/viewer-location.mjs': 'viewer-location.mjs',

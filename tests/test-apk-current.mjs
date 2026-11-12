@@ -1,4 +1,4 @@
-process.env.SENDRACK_TEST_APK ||= 'artifacts/SendRack-0.7.16-fcm.apk';
+process.env.SENDRACK_TEST_APK ||= 'artifacts/SendRack-0.7.17-fcm.apk';
 await import('./app-corrections-ui.mjs');
 await import('./viewer-apk-assets.mjs');
 await import('./mobile-map-origin-ui.mjs');

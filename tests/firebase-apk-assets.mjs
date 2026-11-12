@@ -1,12 +1,12 @@
 import {execFileSync} from 'node:child_process';
 import {existsSync} from 'node:fs';
 import assert from 'node:assert/strict';
-const apk=process.env.SENDRACK_FIREBASE_APK||'artifacts/SendRack-0.7.10-fcm-unsigned.apk';
+const apk=process.env.SENDRACK_FIREBASE_APK||'artifacts/SendRack-0.7.11-fcm-unsigned.apk';
 const aapt=process.env.SENDRACK_AAPT2||'/workspace/toolchains/build-tools/android-15/aapt2';
 assert.ok(existsSync(apk),'Build the Firebase APK first');
 const badging=execFileSync(aapt,['dump','badging',apk],{encoding:'utf8'});
 assert.match(badging,/application-label:'SendRack'/);
-assert.match(badging,/name='ng\.sendrack\.test' versionCode='10' versionName='0\.7\.10-fcm'/);
+assert.match(badging,/name='ng\.sendrack\.test' versionCode='11' versionName='0\.7\.11-fcm'/);
 const manifest=execFileSync(aapt,['dump','xmltree',apk,'--file','AndroidManifest.xml'],{encoding:'utf8'});
 for(const name of ['ng.trackship.app.SendrackMessagingService','com.google.firebase.provider.FirebaseInitProvider','com.google.firebase.MESSAGING_EVENT','android.permission.POST_NOTIFICATIONS'])assert.ok(manifest.includes(name),name);
 execFileSync('python3',['-c',`
@@ -14,7 +14,7 @@ import zipfile,sys
 with zipfile.ZipFile(sys.argv[1]) as z:
  names=z.namelist()
  dex=b''.join(z.read(n) for n in names if n.endswith('.dex'))
- for value in [b'FirebaseMessagingService',b'FirebaseDeliveryPush',b'PushRegistrationWorker',b'/api/v4/rider/push/register']:
+ for value in [b'FirebaseMessagingService',b'FirebaseDeliveryPush',b'PushRegistrationWorker',b'/api/v4/rider/push/register',b'getDeliveryPushStatus',b'retryDeliveryPush',b'registeredAt',b'token-request-failed']:
   assert value in dex,value
  main=z.read('assets/web/app.js');css=z.read('assets/web/style.css')
  assert b"input('Login PIN','loginPin'" in main, 'Modern login missing from Firebase APK'

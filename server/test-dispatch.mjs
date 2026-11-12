@@ -1,0 +1,5 @@
+import {randomUUID} from 'node:crypto';
+export async function initializeTestDispatch(db){await db.exec('CREATE TABLE IF NOT EXISTS dispatch_test_settings(id TEXT PRIMARY KEY,enabled INTEGER NOT NULL DEFAULT 0,updated INTEGER,actor TEXT)');}
+export async function testDispatchMode(db){const row=await db.prepare("SELECT enabled FROM dispatch_test_settings WHERE id='default'").get();return row?.enabled===1;}
+export async function canTestDispatch(db,s){if(s.status!=='Created'||s.testRemoval||s.payment?.holdId||s.payment?.status!=='unpaid'||s.payment?.mode||s.payment?.reference)return false;return !(await db.prepare('SELECT reference FROM payments WHERE shipment_id=? LIMIT 1').get(s.id))&&!(await db.prepare('SELECT id FROM earnings WHERE shipment_id=? LIMIT 1').get(s.id));}
+export function simulatedDelivery(s,actor){const at=new Date().toISOString();return {...s,payment:{status:'paid',mode:'test',simulated:true,amount:0,reference:'test-dispatch:'+s.id,paidAt:at},events:[...(s.events||[]),{id:randomUUID(),status:s.status,at,note:'Test delivery; no payment collected',actorName:actor}]};}

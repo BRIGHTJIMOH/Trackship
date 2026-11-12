@@ -1,3 +1,4 @@
+import {initializeTestDispatch,testDispatchMode} from './test-dispatch.mjs';
 import {testShipments} from './test-shipments.mjs';
 import {deliveryReadiness} from './delivery-readiness.mjs';
 import {deliveryContacts} from './delivery-contacts.mjs';
@@ -235,12 +236,13 @@ export async function operations(db, {
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false});return {id:session.actor,role:'super-admin'};}});
   const contactAccess=deliveryContacts(db,{owner,rider,job});
-  const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body});
+  await initializeTestDispatch(db);
+  const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body,testModeAllowed:!walletControlEnabled&&!(providers.paymentReady&&providers.mode==='live')});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
     if(await testRemovalAccess(req,url,send))return true;
     if(path==='/api/admin/dispatch-diagnostics'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,await market.diagnostics(url.searchParams.get('shipmentId'),url.searchParams.get('riderId')));return true;}
-    if(path==='/api/admin/delivery-readiness'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,await deliveryReadiness(db,{env,push,providers,walletControlEnabled}));return true;}
+    if(path==='/api/admin/delivery-readiness'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,{...await deliveryReadiness(db,{env,push,providers,walletControlEnabled}),testDispatchEnabled:await testDispatchMode(db)});return true;}
     if(await contactAccess(req,path,send))return true;
     if(await push.route(req,path,send))return true;
     if(await liveMap(req,url,send))return true;

@@ -1,3 +1,4 @@
+import {testDispatchMode,canTestDispatch,simulatedDelivery} from './test-dispatch.mjs';
 import {dispatchMatchReasons} from './dispatch-match.mjs';
 import {vehicleMatches,VEHICLE_TYPES,kgToGrams} from '../web/vehicles.mjs';
 import { randomUUID } from 'node:crypto';
@@ -44,6 +45,7 @@ export async function marketplace(db, {
     createdAt: s.createdAt
   });
   async function notify(s, phase = 'created') {
+    const testAvailable=!walletHolds&&!(providers.paymentReady&&providers.mode==='live')&&await testDispatchMode(db)&&await canTestDispatch(db,s);
     const rows = await db.prepare("SELECT * FROM rider_profiles WHERE identity_status IN ('submitted','approved') AND identity_format>=4").all();
     let count = 0;
     const sends = [];
@@ -51,7 +53,7 @@ export async function marketplace(db, {
       if (!(await eligible(r, s))) continue;
       const id = randomUUID();
       const title = phase === 'ready' ? 'Delivery ready for pickup' : 'New shipment in your pickup area';
-      const text = `${s.business} · ${s.pickupCommunity || s.origin}, ${s.originState}. ${phase === 'ready' ? 'Payment confirmed.' : 'Awaiting vendor payment.'} Open SendRack nearby deliveries.`;
+      const text = `${s.business} · ${s.pickupCommunity || s.origin}, ${s.originState}. ${testAvailable?'Test delivery — no payment required.':phase === 'ready' ? 'Payment confirmed.' : 'Awaiting vendor payment.'} Open SendRack nearby deliveries.`;
       const inserted = await db.prepare('INSERT OR IGNORE INTO delivery_notifications(id,rider_id,shipment_id,phase,title,body,created) VALUES (?,?,?,?,?,?,?)').run(id, r.id, s.id, phase, title, text, Date.now());
       if (!inserted.changes) continue;
       count++;
@@ -62,10 +64,11 @@ export async function marketplace(db, {
   }
   async function notificationsFor(r){const rows=await db.prepare('SELECT n.id,n.shipment_id AS "shipmentId",n.title,n.body,n.seen,n.created,s.payload AS shipment_payload FROM delivery_notifications n LEFT JOIN shipments s ON s.id=n.shipment_id WHERE n.rider_id=? ORDER BY n.created DESC LIMIT 100').all(r.id);return rows.filter(n=>!n.shipment_payload||!JSON.parse(n.shipment_payload).testRemoval).map(({shipment_payload,...n})=>n);}
   async function matchingOffers(r,{recover=false}={}){
+   const testMode=!walletHolds&&!(providers.paymentReady&&providers.mode==='live')&&await testDispatchMode(db);
    const all=await allShipments(),activeCount=activeFor(r,all),matched=[],known=recover?new Set((await db.prepare("SELECT shipment_id FROM delivery_notifications WHERE rider_id=? AND phase='created'").all(r.id)).map(n=>n.shipment_id)):null;
    for(const s of all){if(dispatchMatchReasons(r,s,{activeCount,capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}).length)continue;
-    matched.push(preview(s));
-    if(recover&&!known.has(s.id)){const ready=['paid','held'].includes(s.payment?.status);await db.prepare('INSERT OR IGNORE INTO delivery_notifications(id,rider_id,shipment_id,phase,title,body,created) VALUES (?,?,?,?,?,?,?)').run(randomUUID(),r.id,s.id,'created','New shipment in your pickup area',`${s.business} · ${s.origin}, ${s.originState}. ${ready?'Ready to accept.':'Awaiting vendor payment.'} Open SendRack delivery offers.`,Date.now());}
+    const testAvailable=testMode&&await canTestDispatch(db,s);matched.push({...preview(s),testDispatchAvailable:testAvailable});
+    if(recover&&!known.has(s.id)){const ready=['paid','held'].includes(s.payment?.status)||testAvailable;await db.prepare('INSERT OR IGNORE INTO delivery_notifications(id,rider_id,shipment_id,phase,title,body,created) VALUES (?,?,?,?,?,?,?)').run(randomUUID(),r.id,s.id,'created','New shipment in your pickup area',`${s.business} · ${s.origin}, ${s.originState}. ${ready?'Ready to accept.':'Awaiting vendor payment.'} Open SendRack delivery offers.`,Date.now());}
    }return matched;
   }
   async function diagnostics(shipmentId,riderId){
@@ -141,6 +144,9 @@ export async function marketplace(db, {
           s = await getShipment(match[1]);
           if (!s || s.status !== 'Created') fail('Another rider already accepted this delivery.', 409);
           if (!(await eligible(r, s))) fail('This delivery does not match your identity or pickup area.', 403);
+          if(!['paid','held'].includes(s.payment.status)&&!walletHolds&&!(providers.paymentReady&&providers.mode==='live')&&await testDispatchMode(db)&&await canTestDispatch(db,s)){
+           s=simulatedDelivery(s,'SendRack test mode');await db.prepare('INSERT INTO admin_audit(id,actor,action,entity,entity_id,summary,created) VALUES (?,?,?,?,?,?,?)').run(randomUUID(),'rider:'+r.id,'shipment.test_dispatch_enabled','shipment',s.id,'Owner-enabled test mode; no payment collected',Date.now());
+          }
           if (!['paid','held'].includes(s.payment.status)) fail('The vendor must pay before this delivery can be accepted.', 409);
           const previous=s;
           s = append({

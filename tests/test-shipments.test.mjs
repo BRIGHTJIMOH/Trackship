@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {adminFixture,vendorProfile} from './admin-fixture.mjs';
+import {adminFixture,vendorProfile,riderProfile} from './admin-fixture.mjs';
 import {newTransport} from '../web/lifecycle.mjs';
 import {isHistoryShipment,isEarlierUpdate,HISTORY_AGE_MS} from '../web/history.mjs';
 const fields={sender:'Sample shop',recipient:'Sample recipient',phone:'08011112222',description:'Test cleanup parcel',origin:'Zaria',originState:'Kaduna',destination:'Zaria',destinationState:'Kaduna',address:'Sample destination',deliveryType:'intrastate',deliveryFee:'1000'};
@@ -24,4 +24,17 @@ test('wallet-linked shipments cannot be removed and unpaid test cleanup does not
 });
 test('history contains terminal deliveries; aging alone never hides pending work',()=>{
  const now=Date.now(),old=new Date(now-3*HISTORY_AGE_MS).toISOString();for(const status of ['Created','Rider accepted','Picked up','In transit','Out for delivery','Delivery OTP sent'])assert.equal(isHistoryShipment({status,createdAt:old}),false);for(const status of ['Delivered','Cancelled'])assert.equal(isHistoryShipment({status}),true);assert.equal(isEarlierUpdate({created:now-HISTORY_AGE_MS-1},[],now),true);assert.equal(isEarlierUpdate({created:now,shipmentId:'done'},[{id:'done',status:'Delivered'}],now),true);assert.equal(isEarlierUpdate({created:now,shipmentId:'active'},[{id:'active',status:'Picked up'}],now),false);
+});
+
+test('owner can enable unpaid test dispatch without cash; normal unpaid and live records remain protected',async()=>{
+ const f=await adminFixture();try{
+  const owner=await f.login(),vendor=await f.account('vendor',vendorProfile),rider=await f.account('rider',riderProfile);await f.identity('rider',rider);
+  const s=await create(f,vendor),url='/api/admin/test-shipments/enable-dispatch',input={ids:[s.id],confirmTestData:true,reason:'Test pickup and delivery'};
+  assert.equal((await f.api('/api/v4/rider/offers/'+s.id+'/accept',{}, {token:rider.token})).status,409);
+  assert.equal((await f.api(url,input,{token:vendor.token})).status,401);assert.equal((await f.api(url,input,{cookie:owner.cookie})).status,403);assert.equal((await f.api(url,{...input,confirmTestData:false},owner)).status,400);
+  assert.equal((await f.api(url,input,owner)).status,200);assert.equal((await f.api(url,input,owner)).status,200);
+  const stored=JSON.parse((await f.server.database.prepare('SELECT payload FROM shipments WHERE id=?').get(s.id)).payload);assert.equal(stored.payment.simulated,true);assert.equal(stored.payment.mode,'test');assert.equal(stored.payment.amount,0);assert.equal((await f.server.database.prepare("SELECT COUNT(*) AS total FROM admin_audit WHERE action='shipment.test_dispatch_enabled'").get()).total,1);
+  const accepted=await f.api('/api/v4/rider/offers/'+s.id+'/accept',{}, {token:rider.token});assert.equal(accepted.status,200);assert.equal((await accepted.json()).status,'Rider accepted');
+  const other=await create(f,vendor);await f.server.database.prepare('INSERT INTO payments(reference,shipment_id,amount,mode,status,created) VALUES (?,?,?,?,?,?)').run('protected-live-test',other.id,100000,'live','initialized',Date.now());assert.equal((await f.api(url,{...input,ids:[other.id]},owner)).status,409);
+ }finally{await f.close();}
 });

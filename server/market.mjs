@@ -39,6 +39,7 @@ export async function marketplace(db, {
     vehicleClass:s.vehicleClass||null,
     weightKg:s.weightKg||null,
     paymentStatus: s.payment.status,
+    testDispatch: s.payment.simulated===true,
     match: 'service-area',
     createdAt: s.createdAt
   });

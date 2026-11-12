@@ -1,3 +1,5 @@
+import {deliveryReadiness} from './delivery-readiness.mjs';
+import {deliveryContacts} from './delivery-contacts.mjs';
 import {deliveryPush} from './push/delivery-push.mjs';
 import {liveOperations} from './live-operations.mjs';
 import {routeCatalog} from './route-catalog.mjs';
@@ -231,8 +233,11 @@ export async function operations(db, {
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false});return {id:session.actor,role:'super-admin'};}});
+  const contactAccess=deliveryContacts(db,{owner,rider,job});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(path==='/api/admin/delivery-readiness'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,await deliveryReadiness(db,{env,push,providers,walletControlEnabled}));return true;}
+    if(await contactAccess(req,path,send))return true;
     if(await push.route(req,path,send))return true;
     if(await liveMap(req,url,send))return true;
     if(await adminAccess.route(req,res,url,send))return true;

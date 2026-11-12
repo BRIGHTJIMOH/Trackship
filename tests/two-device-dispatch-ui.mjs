@@ -1,0 +1,47 @@
+// Two independent Chromium sessions, not two physical phones. Payment uses an
+// isolated provider fixture; this does not establish live funding or FCM receipt.
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+import {pbkdf2Sync} from 'node:crypto';
+import {readFile,mkdir,mkdtemp,rm,writeFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+import path from 'node:path';
+import {tmpdir} from 'node:os';
+import {adminFixture,vendorProfile,riderProfile} from './admin-fixture.mjs';
+const f=await adminFixture(),browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']}),contexts=[],errors=[];
+const apk=process.env.SENDRACK_TEST_APK,assetDir=apk?await mkdtemp(path.join(tmpdir(),'sendrack-two-device-')):null,out='artifacts/two-device-dispatch';await mkdir(out,{recursive:true});
+if(apk)execFileSync('python3',['-c',`import sys,zipfile,pathlib
+with zipfile.ZipFile(sys.argv[1]) as z:
+ for n in z.namelist():
+  if n.startswith('assets/web/') and not n.endswith('/'):
+   r=pathlib.PurePosixPath(n).relative_to('assets/web');assert '..' not in r.parts
+   p=pathlib.Path(sys.argv[2])/r;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(z.read(n))`,apk,assetDir]);
+try{
+ const owner=await f.login(),vendor=await f.account('vendor',vendorProfile),rider=await f.account('rider',riderProfile);await f.identity('rider',rider);
+ const reviewPath='/api/admin/riders/'+rider.profile.id+'/identity',review=await(await f.api(reviewPath,undefined,owner)).json();assert.equal((await f.api(reviewPath,{status:'approved',version:review.version},owner)).status,200);
+ const routeResponse=await f.api('/api/admin/routes',{name:'Sample Zaria local',origin:'Zaria',originState:'Kaduna',destination:'Zaria',destinationState:'Kaduna',deliveryType:'intrastate',pickupFee:'1000',platformPercent:'0',platformFlatFee:'0',active:true},owner);assert.equal(routeResponse.status,201);const route=await routeResponse.json();
+ async function phone(role,auth,profile){
+  const context=await browser.newContext({viewport:{width:390,height:844}});contexts.push(context);
+  if(assetDir)await context.route(f.base+'/**',async route=>{const pathname=new URL(route.request().url()).pathname;if(pathname.startsWith('/api/'))return route.fallback();const target=path.resolve(assetDir,pathname==='/app'?'sendrack-entry.html':pathname.slice(1));if(!target.startsWith(assetDir+path.sep))return route.abort();try{const body=await readFile(target),ext=path.extname(target);return route.fulfill({contentType:{'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf'}[ext]||'application/octet-stream',body});}catch{return route.fallback();}});
+  await context.route('**/config.mjs',r=>r.fulfill({contentType:'text/javascript',body:'export const SERVICE_URL='+JSON.stringify(f.base)+';'}));
+  const salt='two-device-fixture',pin={salt,hash:pbkdf2Sync('724918',salt,210000,32,'sha256').toString('hex'),attempts:0,lockedUntil:0};
+  await context.addInitScript(({role,profile,base,token,pin})=>{localStorage.setItem('trackship-v1',JSON.stringify({accounts:{vendor:role==='vendor'?profile:null,rider:role==='rider'?profile:null},lastRole:role,deviceAccounts:{[role+':'+profile.phone]:{role,profile,pin,connection:{base,token,verified:true},shipments:[],jobs:[]}}}));window.TrackShip={openUrl:url=>{window.testDialled=url;},configureDeliveryAlerts:()=>{},setNightMode:()=>{}};},{role,profile,base:f.base,token:auth.token,pin});
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(f.base+'/app');await page.locator('#loginPin').fill('724918');await page.locator('#local-login button').click();await page.locator('.customer-balance').waitFor();return page;
+ }
+ const v=await phone('vendor',vendor,vendorProfile),r=await phone('rider',rider,{...riderProfile,identityStatus:'approved'});
+ await v.locator('[data-nav=create]').first().click();
+ await v.locator('#description').fill('Sample two-device parcel');await v.locator('#shipment-form button[type=submit]').click();await v.locator('#deliveryRoute').selectOption(route.id+':forward');await v.locator('#address').fill('Sample recipient address, Zaria');await v.locator('#recipient').fill('Sample recipient');await v.locator('#phone').fill('08011112222');await v.locator('#shipment-form button[type=submit]').click();await v.getByRole('heading',{name:'Order summary',exact:true}).waitFor();await v.locator('#shipment-form input[type=checkbox]').check();await v.locator('#shipment-form button[type=submit]').click();await v.locator('#modal-track').click();
+ let shipment;
+ for(let i=0;i<30;i++){const row=await f.server.database.prepare('SELECT payload FROM shipments ORDER BY id LIMIT 1').get();if(row){shipment=JSON.parse(row.payload);break;}await v.waitForTimeout(100);}assert.ok(shipment,'Vendor UI synced its shipment');assert.equal(shipment.payment.status,'unpaid');
+ await r.locator('[data-nav=notifications]').first().click();await r.locator('#open-offers').click();await r.locator('[data-accept-offer="'+shipment.id+'"]').waitFor();assert.equal(await r.locator('[data-accept-offer="'+shipment.id+'"]').isDisabled(),true);
+ // Confirm funding with the isolated provider fixture, never set paid by editing data.
+ await f.api('/api/v3/shipments/'+shipment.id+'/pay',{email:'sample@example.invalid'},{token:vendor.token});assert.equal((await f.api('/api/v3/shipments/'+shipment.id+'/verify-payment',{}, {token:vendor.token})).status,200);
+ await r.locator('#refresh-offers').click();await r.locator('[data-accept-offer="'+shipment.id+'"]').click();await r.getByRole('link',{name:'Call vendor',exact:true}).waitFor();await r.getByRole('link',{name:'Call vendor',exact:true}).click();await r.waitForFunction(()=>window.testDialled?.startsWith('tel:'));assert.equal(await r.evaluate(()=>testDialled),'tel:'+vendorProfile.phone);
+ await v.locator('[data-nav=shipments]').first().click();await v.locator('[data-open="'+shipment.id+'"]').click();await v.getByRole('link',{name:'Call pickup rider',exact:true}).waitFor();await v.getByRole('link',{name:'Call pickup rider',exact:true}).click();await v.waitForFunction(()=>window.testDialled?.startsWith('tel:'));assert.equal(await v.evaluate(()=>testDialled),'tel:'+riderProfile.phone);
+ await v.locator('.orange-summary .badge').filter({hasText:'Rider accepted'}).waitFor();await r.locator('#toast').evaluate(e=>e.classList.remove('show'));await v.locator('#toast').evaluate(e=>e.classList.remove('show'));await r.screenshot({path:out+'/rider-call-vendor.png',fullPage:true});await v.screenshot({path:out+'/vendor-call-rider.png',fullPage:true});
+ const publicView=await(await f.api('/api/track/'+shipment.publicToken)).json();assert.equal(publicView.status,'Rider accepted');assert.equal(publicView.custodian,'vendor');
+ await r.getByRole('button',{name:'Confirm parcel collected',exact:true}).click();await r.getByRole('button',{name:'Start delivery',exact:true}).waitFor();assert.equal((await(await f.api('/api/track/'+shipment.publicToken)).json()).status,'Picked up');
+ // Readiness diagnostics are rendered only in an authenticated owner session.
+ const admin=await browser.newContext({viewport:{width:1366,height:768}});contexts.push(admin);await admin.addCookies([{name:'sendrack_owner',value:owner.cookie.split('=')[1],url:f.base}]);const a=await admin.newPage();a.on('pageerror',e=>errors.push(e.message));await a.goto(f.base+'/admin');await a.locator('[data-view=delivery-readiness]').click();await a.getByRole('heading',{name:'Delivery setup',exact:true}).first().waitFor();await a.getByText('Not connected',{exact:true}).waitFor();await a.screenshot({path:out+'/owner-delivery-setup.png',fullPage:true});
+ assert.deepEqual(errors,[]);await writeFile(out+'/evidence.json',JSON.stringify({scope:'Two independent Chromium sessions; extracted APK assets when supplied. No physical device, live FCM or real payment verification.',apk:apk?path.basename(apk):null,checks:['vendor creates and syncs from UI','unpaid offer cannot be accepted','isolated provider confirms test funding','rider accepts in second session','vendor custody retained until collection','authenticated vendor and rider calls route to dialler bridge','rider confirms physical collection','owner-only readiness view']},null,2)+'\n');console.log('PASS: two-session vendor-create → funding gate → test-provider confirmation → rider accept → both call buttons → collection. Owner readiness rendered. Not physical phones/live payment/FCM.');
+}finally{for(const context of contexts)await context.close();await browser.close();await f.close();if(assetDir)await rm(assetDir,{recursive:true,force:true});}

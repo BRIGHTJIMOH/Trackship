@@ -1,12 +1,12 @@
 import {execFileSync} from 'node:child_process';
 import {existsSync} from 'node:fs';
 import assert from 'node:assert/strict';
-const apk=process.env.SENDRACK_FIREBASE_APK||'artifacts/SendRack-0.7.9-fcm-unsigned.apk';
+const apk=process.env.SENDRACK_FIREBASE_APK||'artifacts/SendRack-0.7.10-fcm-unsigned.apk';
 const aapt=process.env.SENDRACK_AAPT2||'/workspace/toolchains/build-tools/android-15/aapt2';
 assert.ok(existsSync(apk),'Build the Firebase APK first');
 const badging=execFileSync(aapt,['dump','badging',apk],{encoding:'utf8'});
 assert.match(badging,/application-label:'SendRack'/);
-assert.match(badging,/name='ng\.sendrack\.test' versionCode='9' versionName='0\.7\.9-fcm'/);
+assert.match(badging,/name='ng\.sendrack\.test' versionCode='10' versionName='0\.7\.10-fcm'/);
 const manifest=execFileSync(aapt,['dump','xmltree',apk,'--file','AndroidManifest.xml'],{encoding:'utf8'});
 for(const name of ['ng.trackship.app.SendrackMessagingService','com.google.firebase.provider.FirebaseInitProvider','com.google.firebase.MESSAGING_EVENT','android.permission.POST_NOTIFICATIONS'])assert.ok(manifest.includes(name),name);
 execFileSync('python3',['-c',`
@@ -23,6 +23,8 @@ with zipfile.ZipFile(sys.argv[1]) as z:
  assert b'appearance-card' in main and b'padding:22px 24px' in css, 'Appearance correction missing'
  assert b'.account-overview .customer-balance h2{font-size:18px' in css, 'Compact profile balance missing'
  assert b'verifyMapProvider' in z.read('assets/web/map-display.mjs') and b'useFallback' in z.read('assets/web/map-display.mjs'), 'Map authorization/fallback correction missing'
+ assert b'features.contactsView(s,rider())' in main, 'Delivery call controls missing'
+ assert b'/contacts' in z.read('assets/web/features.mjs'), 'Authenticated contact lookup missing'
  assert b'pendingDeliveryAlert' in z.read('assets/web/app.js')
  assert b'pendingDeliveryAlert' in z.read('assets/web/sendrack-main.js')
  assert b'sendrack-fcbe5' in z.read('resources.arsc')

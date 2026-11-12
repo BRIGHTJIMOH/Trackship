@@ -1,0 +1,14 @@
+{
+  "scope": "Two independent Chromium sessions; extracted APK assets when supplied. No physical device, live FCM or real payment verification.",
+  "apk": "SendRack-0.7.10-fcm.apk",
+  "checks": [
+    "vendor creates and syncs from UI",
+    "unpaid offer cannot be accepted",
+    "isolated provider confirms test funding",
+    "rider accepts in second session",
+    "vendor custody retained until collection",
+    "authenticated vendor and rider calls route to dialler bridge",
+    "rider confirms physical collection",
+    "owner-only readiness view"
+  ]
+}

@@ -52,3 +52,5 @@
 .rider-empty{padding:28px 4px}.rider-empty h2{font-size:18px;margin-bottom:8px}.rider-empty p{max-width:30ch}.rider-deliveries .service-heading{font-size:18px}
 
 .delivery-contacts{padding:20px;margin:18px 0}.delivery-contacts h2{font-size:17px;margin-bottom:12px}.delivery-call{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;color:var(--ink);text-decoration:none;padding:12px 0;border-bottom:1px solid var(--line)}.delivery-call:last-child{border:0}.delivery-call strong,.delivery-call small{display:block}.delivery-call strong{font-size:14px}.delivery-call small{font-size:12px;color:var(--muted);margin-top:4px}.delivery-call>span:last-child{display:flex;align-items:center;gap:6px;color:var(--orange);font-size:14px}.delivery-call[data-busy]{opacity:.6}
+
+.rider-inbox [hidden]{display:none!important}.rider-inbox .dispatch-status:empty{display:none}.rider-inbox .offer-earning{font-size:14px;margin:14px 0}.rider-inbox .service-heading{font-size:18px;margin-bottom:14px}.rider-inbox .card.info{margin:12px 0;padding:18px}.notification-connection:has(>p[hidden]):not(:has(>button:not([hidden]))){display:none}

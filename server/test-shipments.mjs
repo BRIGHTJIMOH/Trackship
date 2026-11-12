@@ -1,7 +1,8 @@
+import {testDispatchMode} from './test-dispatch.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
-export function testShipments(db,{authorize,body}){
+export function testShipments(db,{authorize,body,testModeAllowed=true}){
  async function inspect(id){
   const row=await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);if(!row)fail('Shipment not found.',404);const s=JSON.parse(row.payload);
   const live=await db.prepare("SELECT reference FROM payments WHERE shipment_id=? AND mode='live' LIMIT 1").get(id),earning=await db.prepare("SELECT id FROM earnings WHERE shipment_id=? AND mode='live' LIMIT 1").get(id);
@@ -11,6 +12,12 @@ export function testShipments(db,{authorize,body}){
  const idsFrom=input=>{if(!Array.isArray(input.ids)||!input.ids.length||input.ids.length>50||input.ids.some(id=>typeof id!=='string'||!/^[a-f0-9-]{36}$/.test(id)))fail('Select 1–50 valid shipments.');return [...new Set(input.ids)];};
  return async function route(req,url,send){
   const path=url.pathname;
+  if(path==='/api/admin/test-dispatch-mode'&&['GET','POST'].includes(req.method)){
+   const admin=await authorize(req,{operator:false});if(req.method==='GET'){send(200,{enabled:await testDispatchMode(db),allowed:testModeAllowed});return true;}
+   const input=await body(req);if(typeof input.enabled!=='boolean'||typeof input.reason!=='string'||input.reason.trim().length<3||input.reason.length>300)fail('Choose test mode and enter a reason.');if(input.enabled&&(input.confirmTestData!==true||!testModeAllowed))fail('Test mode requires confirmation and disabled live funding.',409);
+   await db.exec('BEGIN IMMEDIATE');try{await db.prepare("INSERT INTO dispatch_test_settings(id,enabled,updated,actor) VALUES ('default',?,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled,updated=excluded.updated,actor=excluded.actor").run(input.enabled?1:0,Date.now(),admin.actor);await db.prepare('INSERT INTO admin_audit(id,actor,action,entity,entity_id,summary,created) VALUES (?,?,?,?,?,?,?)').run(randomUUID(),admin.actor,'dispatch.test_mode_updated','dispatch','default',(input.enabled?'Enabled: ':'Disabled: ')+input.reason.trim(),Date.now());await db.exec('COMMIT');}catch(e){await db.exec('ROLLBACK');throw e;}send(200,{enabled:input.enabled});return true;
+  }
+
   if(path==='/api/admin/test-shipments/enable-dispatch'&&req.method==='POST'){
    const admin=await authorize(req,{operator:false}),input=await body(req),ids=idsFrom(input),reason=String(input.reason||'').trim();
    if(input.confirmTestData!==true||reason.length<3||reason.length>300)fail('Confirm test data and enter a reason.');

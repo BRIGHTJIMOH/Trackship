@@ -1,12 +1,12 @@
 import {execFileSync} from 'node:child_process';
 import {existsSync} from 'node:fs';
 import assert from 'node:assert/strict';
-const apk=process.env.SENDRACK_FIREBASE_APK||'artifacts/SendRack-0.7.8-fcm-unsigned.apk';
+const apk=process.env.SENDRACK_FIREBASE_APK||'artifacts/SendRack-0.7.9-fcm-unsigned.apk';
 const aapt=process.env.SENDRACK_AAPT2||'/workspace/toolchains/build-tools/android-15/aapt2';
 assert.ok(existsSync(apk),'Build the Firebase APK first');
 const badging=execFileSync(aapt,['dump','badging',apk],{encoding:'utf8'});
 assert.match(badging,/application-label:'SendRack'/);
-assert.match(badging,/name='ng\.sendrack\.test' versionCode='8' versionName='0\.7\.8-fcm'/);
+assert.match(badging,/name='ng\.sendrack\.test' versionCode='9' versionName='0\.7\.9-fcm'/);
 const manifest=execFileSync(aapt,['dump','xmltree',apk,'--file','AndroidManifest.xml'],{encoding:'utf8'});
 for(const name of ['ng.trackship.app.SendrackMessagingService','com.google.firebase.provider.FirebaseInitProvider','com.google.firebase.MESSAGING_EVENT','android.permission.POST_NOTIFICATIONS'])assert.ok(manifest.includes(name),name);
 execFileSync('python3',['-c',`

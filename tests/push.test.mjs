@@ -62,7 +62,7 @@ test('eligible riders each receive a shipment alert; wrong-area riders do not; f
   const vendor=await f.account('vendor',vendorProfile),a=await f.account('rider',riderProfile),b=await f.account('rider',{...riderProfile,phone:'08098765433',fullName:'Second Rider'}),other=await f.account('rider',{...riderProfile,phone:'08098765434',city:'Abuja',state:'FCT Abuja'});
   for(const r of [a,b,other])await f.identity('rider',r);
   const devices=[installation(),installation(),installation()];for(const [i,r] of [a,b,other].entries())await f.api('/api/v4/rider/push/register',devices[i],{token:r.token});
-  const routeId=await configuredRoute(f,{origin:'Zaria',originState:'Kaduna',destination:'Kaduna',destinationState:'Kaduna',deliveryType:'intrastate',deliveryFee:'1000'},[a,b,other]);
+  const routeId=await configuredRoute(f,{origin:'Zaria',originState:'Kaduna',destination:'Kaduna',destinationState:'Kaduna',deliveryType:'intrastate',deliveryFee:'1000'},[a,b]);
   const local=newTransport({routeId,sender:vendorProfile.businessName,recipient:'Sample Customer',phone:'08011112222',description:'Two-rider offer',origin:'Zaria',originState:'Kaduna',destination:'Kaduna',destinationState:'Kaduna',address:'Sample address',deliveryType:'intrastate',deliveryFee:'1000'},vendorProfile.businessName);
   const created=await f.api('/api/v3/shipments',local,{token:vendor.token});assert.equal(created.status,201);const s=await created.json();
   const notifications=await f.server.database.prepare('SELECT * FROM delivery_notifications WHERE shipment_id=?').all(s.id);assert.deepEqual(new Set(notifications.map(n=>n.rider_id)),new Set([a.profile.id,b.profile.id]));

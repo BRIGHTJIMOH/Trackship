@@ -18,7 +18,7 @@ export async function openDatabase({env=process.env,dataDir='.data'}={}){
  if(!env.DATABASE_URL){
   if(env.NODE_ENV==='production')throw new Error('DATABASE_URL is required in production. SQLite is available for local development.');
   mkdirSync(dataDir,{recursive:true,mode:0o700});const sqlite=new DatabaseSync(path.join(dataDir,'trackship.sqlite'));sqlite.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000');
-  return {kind:'sqlite',prepare:sql=>{const s=sqlite.prepare(sql);return {get:async(...args)=>s.get(...args),all:async(...args)=>s.all(...args),run:async(...args)=>s.run(...args)};},exec:async sql=>sqlite.exec(sql),close:async()=>sqlite.close(),withRequest:async(method,fn)=>scope.getStore()?fn():exclusive(()=>scope.run({sqlite:true},fn))};
+  return {kind:'sqlite',outsideRequest:fn=>scope.exit(fn),prepare:sql=>{const s=sqlite.prepare(sql);return {get:async(...args)=>s.get(...args),all:async(...args)=>s.all(...args),run:async(...args)=>s.run(...args)};},exec:async sql=>sqlite.exec(sql),close:async()=>sqlite.close(),withRequest:async(method,fn)=>scope.getStore()?fn():exclusive(()=>scope.run({sqlite:true},fn))};
  }
  let url;try{url=new URL(env.DATABASE_URL);}catch{throw new Error('DATABASE_URL must be a valid PostgreSQL connection URL.');}if(!['postgres:','postgresql:'].includes(url.protocol))throw new Error('DATABASE_URL must be a PostgreSQL connection URL.');
  const local=['localhost','127.0.0.1','::1','[::1]'].includes(url.hostname);const sslmode=env.DATABASE_SSL||(local?'disable':'require');if(!['disable','require'].includes(sslmode))throw new Error('DATABASE_SSL must be require or disable.');
@@ -34,7 +34,7 @@ export async function openDatabase({env=process.env,dataDir='.data'}={}){
   return client.query(postgresSql(sql),args);
  };
  try{await pool.query('SELECT 1');}catch{await Promise.allSettled([pool.end(),writes.end()]);throw new Error('PostgreSQL connection failed. Check DATABASE_URL, DATABASE_SSL and network access.');}
- return {kind:'postgres',prepare:sql=>({get:async(...args)=>(await execute(sql,args)).rows[0],all:async(...args)=>(await execute(sql,args)).rows,run:async(...args)=>({changes:(await execute(sql,args)).rowCount})}),exec:async sql=>execute(sql),close:async()=>{await Promise.all([pool.end(),writes.end()]);},
+ return {kind:'postgres',outsideRequest:fn=>scope.exit(fn),prepare:sql=>({get:async(...args)=>(await execute(sql,args)).rows[0],all:async(...args)=>(await execute(sql,args)).rows,run:async(...args)=>({changes:(await execute(sql,args)).rowCount})}),exec:async sql=>execute(sql),close:async()=>{await Promise.all([pool.end(),writes.end()]);},
  currentPostgresClient(){const client=scope.getStore()?.client;if(!client)throw new Error('A request-scoped PostgreSQL client is required.');return client;},
  async withRequest(method,fn){
   if(scope.getStore())return fn();const mutation=!['GET','HEAD','OPTIONS'].includes(method);const client=await(mutation?writes:pool).connect();let broken=false;

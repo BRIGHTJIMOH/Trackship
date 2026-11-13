@@ -1,3 +1,4 @@
+import {configuredRoute} from './rider-route-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateKeyPairSync,createHash,randomUUID,randomBytes,verify} from 'node:crypto';
@@ -52,5 +53,31 @@ test('an unregistered token is disabled, and a refreshed token can retry its uns
   const push=await deliveryPush(f.server.database,{env:{},sender:{ready:true,async send(){attempts++;return attempts===1?{status:'invalid-token',code:'UNREGISTERED'}:{status:'sent',reference:'sent-after-refresh'};}}});
   await push.drain();assert.equal((await f.server.database.prepare('SELECT enabled FROM push_installations WHERE installation_id=?').get(device.installationId)).enabled,0);
   await f.api('/api/v4/rider/push/register',{...device,token:device.token+'-refreshed'},{token:rider.token});await push.drain();assert.equal(attempts,2);assert.equal((await f.server.database.prepare('SELECT state FROM push_deliveries').get()).state,'sent');
+ }finally{await f.close();}
+});
+
+test('eligible riders each receive a shipment alert; wrong-area riders do not; first acceptance claims it once',async()=>{
+ const {newTransport}=await import('../web/lifecycle.mjs');const f=await adminFixture();let push;
+ try{
+  const vendor=await f.account('vendor',vendorProfile),a=await f.account('rider',riderProfile),b=await f.account('rider',{...riderProfile,phone:'08098765433',fullName:'Second Rider'}),other=await f.account('rider',{...riderProfile,phone:'08098765434',city:'Abuja',state:'FCT Abuja'});
+  for(const r of [a,b,other])await f.identity('rider',r);
+  const devices=[installation(),installation(),installation()];for(const [i,r] of [a,b,other].entries())await f.api('/api/v4/rider/push/register',devices[i],{token:r.token});
+  const routeId=await configuredRoute(f,{origin:'Zaria',originState:'Kaduna',destination:'Kaduna',destinationState:'Kaduna',deliveryType:'intrastate',deliveryFee:'1000'},[a,b]);
+  const local=newTransport({routeId,sender:vendorProfile.businessName,recipient:'Sample Customer',phone:'08011112222',description:'Two-rider offer',origin:'Zaria',originState:'Kaduna',destination:'Kaduna',destinationState:'Kaduna',address:'Sample address',deliveryType:'intrastate',deliveryFee:'1000'},vendorProfile.businessName);
+  const created=await f.api('/api/v3/shipments',local,{token:vendor.token});assert.equal(created.status,201);const s=await created.json();
+  const notifications=await f.server.database.prepare('SELECT * FROM delivery_notifications WHERE shipment_id=?').all(s.id);assert.deepEqual(new Set(notifications.map(n=>n.rider_id)),new Set([a.profile.id,b.profile.id]));
+  const sent=[];push=await deliveryPush(f.server.database,{sender:{ready:true,async send(payload){sent.push(payload);return {status:'sent',reference:'test-sent-'+sent.length};}}});
+  // A notification wake must not inherit the soon-to-be-released request database scope.
+  await f.server.database.withRequest('POST',async()=>{push.kick();});
+  for(let i=0;i<100&&sent.length<2;i++)await new Promise(r=>setTimeout(r,10));assert.equal(sent.length,2);assert.deepEqual(new Set(sent.map(p=>p.token)),new Set(devices.slice(0,2).map(d=>d.token)));
+  await f.api(`/api/v3/shipments/${s.id}/pay`,{email:'sample@example.test'},{token:vendor.token});await f.api(`/api/v3/shipments/${s.id}/verify-payment`,{},{token:vendor.token});
+  const responses=await Promise.all([a,b].map(r=>f.api(`/api/v4/rider/offers/${s.id}/accept`,{},{token:r.token})));assert.deepEqual(responses.map(r=>r.status).sort(),[200,409]);
+  const rejected=responses[0].status===409?a:b;const offers=await(await f.api('/api/v4/rider/offers',undefined,{token:rejected.token})).json();assert.equal(offers.offers.some(o=>o.id===s.id),false);
+ }finally{push?.stop();await f.close();}
+});
+
+test('push delivery rechecks route eligibility immediately before sending and suppresses obsolete offers',async()=>{
+ const f=await adminFixture();try{const rider=await f.account('rider',riderProfile),device=installation();await f.api('/api/v4/rider/push/register',device,{token:rider.token});const id=await event(f.server.database,rider.profile.id);let sends=0;
+ const push=await deliveryPush(f.server.database,{sender:{ready:true,async send(){sends++;return {status:'sent'};}},canDeliver:async job=>{assert.equal(job.rider_id,rider.profile.id);assert.ok(job.shipment_id);return false;}});await push.drain();assert.equal(sends,0);assert.equal((await f.server.database.prepare('SELECT state FROM push_deliveries WHERE notification_id=?').get(id)).state,'obsolete');await push.drain();assert.equal(sends,0);
  }finally{await f.close();}
 });

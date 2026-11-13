@@ -292,3 +292,9 @@
 .operations-layout{align-items:start}
 
 .map-empty{margin-top:12px;padding:16px;border:1px solid #f2d7be;background:#fff8f0;border-radius:10px}.map-empty h3{font-size:14px;margin-bottom:6px}.map-empty p{font-size:12px;color:#745e4c;line-height:1.6}.map-empty[hidden]{display:none}
+
+/* Overview leads with a full-width operational map; details stay below it. */
+.operations-layout{grid-template-columns:minmax(0,1fr)}
+.operations-map{width:100%;height:clamp(480px,65dvh,820px);min-height:480px;border-radius:16px}
+.map-detail{max-height:360px}
+@media(max-width:700px){.operations-map{height:clamp(360px,58dvh,560px);min-height:360px}.live-operations .panel-head{flex-wrap:wrap;gap:12px}}

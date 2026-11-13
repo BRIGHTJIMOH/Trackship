@@ -1,3 +1,4 @@
+import {configuredRoute} from './rider-route-fixture.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {adminFixture,vendorProfile,riderProfile} from './admin-fixture.mjs';
@@ -5,7 +6,8 @@ import {newTransport} from '../web/lifecycle.mjs';
 async function setup(){
  const f=await adminFixture(),vendor=await f.account('vendor',vendorProfile),otherVendor=await f.account('vendor',{...vendorProfile,phone:'08022223333'}),rider=await f.account('rider',riderProfile),other=await f.account('rider',{...riderProfile,phone:'08077778888'});
  await f.identity('rider',rider);
- const local=newTransport({sender:'Sample vendor',recipient:'Sample customer',phone:'08011112222',description:'Call test parcel',origin:'Zaria',originState:'Kaduna',destination:'Zaria',destinationState:'Kaduna',address:'Sample destination',deliveryType:'intrastate',deliveryFee:'1000'},vendorProfile.businessName);
+ const routeId=await configuredRoute(f,{origin:'Zaria',originState:'Kaduna',destination:'Zaria',destinationState:'Kaduna',deliveryType:'intrastate',deliveryFee:'1000'},[rider]);
+ const local=newTransport({routeId,sender:'Sample vendor',recipient:'Sample customer',phone:'08011112222',description:'Call test parcel',origin:'Zaria',originState:'Kaduna',destination:'Zaria',destinationState:'Kaduna',address:'Sample destination',deliveryType:'intrastate',deliveryFee:'1000'},vendorProfile.businessName);
  const created=await f.api('/api/v3/shipments',local,{token:vendor.token});assert.equal(created.status,201);const shipment=await created.json();
  return {...f,vendor,otherVendor,rider,other,shipment};
 }

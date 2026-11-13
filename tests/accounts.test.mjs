@@ -1,3 +1,4 @@
+import {configuredRoute,selectRoute} from './rider-route-fixture.mjs';
 import { testDatabase } from './database-fixture.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -153,7 +154,8 @@ test('vendor and rider cloud accounts are independent; vendor logout does not st
     assert.equal((await f.call('/api/v3/rider/me', undefined, v.token)).status, 401);
     assert.equal((await f.call('/api/accounts/vendor/shipments', undefined, r.token)).status, 401);
     assert.equal((await identify(f, r)).status, 200);
-    const local = newTransport(fields, vendorProfile.businessName);
+    const routeId=await configuredRoute(f,fields,[r]);
+    const local = newTransport({...fields,routeId}, vendorProfile.businessName);
     const created = await f.call('/api/v3/shipments', local, v.token);
     assert.equal(created.status, 201, await created.clone().text());
     const s = await created.json();
@@ -167,6 +169,7 @@ test('vendor and rider cloud accounts are independent; vendor logout does not st
       fullName: 'Other Rider'
     });
     assert.equal((await identify(f, other)).status, 200);
+    await selectRoute(f,other,routeId);
     assert.equal((await f.call(`/api/v3/shipments/${s.id}/pay`, {
       email: 'vendor@example.com'
     }, v.token)).status, 200);
@@ -175,7 +178,7 @@ test('vendor and rider cloud accounts are independent; vendor logout does not st
     assert.equal((await f.call('/api/accounts/vendor/shipments', undefined, v.token)).status, 401);
     const offers = await (await f.call('/api/v4/rider/offers', undefined, r.token)).json();
     assert.equal(offers.offers.length, 1);
-    assert.equal(offers.offers[0].match, 'service-area');
+    assert.equal(offers.offers[0].match, 'route-direction');
     for (const key of ['address', 'phone', 'jobTokens']) assert.equal(offers.offers[0][key], undefined);
     const results = await Promise.all([f.call(`/api/v4/rider/offers/${s.id}/accept`, {}, r.token), f.call(`/api/v4/rider/offers/${s.id}/accept`, {}, other.token)]);
     assert.deepEqual(results.map(x => x.status).sort(), [200, 409]);
@@ -230,7 +233,8 @@ test('riders in another pickup area are not notified and cannot claim the offer'
         community: 'Garki'
       });
     assert.equal((await identify(f, r)).status, 200);
-    const s = newTransport(fields, 'Independent Stores');
+    const routeId=await configuredRoute(f,fields,[r]);
+    const s = newTransport({...fields,routeId}, 'Independent Stores');
     assert.equal((await f.call('/api/v3/shipments', s, v.token)).status, 201);
     assert.equal((await (await f.call('/api/v4/rider/notifications', undefined, r.token)).json()).notifications.length, 0);
     assert.equal((await (await f.call('/api/v4/rider/offers', undefined, r.token)).json()).offers.length, 0);
@@ -374,7 +378,8 @@ test('vehicle-selected offers and notifications enforce pickup class and declare
    const who=await auth(f,'rider',{...riderProfile,fullName:'Sample Handler '+i,phone:'0802222000'+i,community:'',vehicle,maxLoadKg:capacity});
    assert.equal((await identify(f,who,{vehicle})).status,200);people.push(who);
   }
-  const local=newTransport({...fields,vehicleClass:'keke',weightKg:'40'},vendorProfile.businessName);
+  const routeId=await configuredRoute(f,fields,people);
+  const local=newTransport({...fields,routeId,vehicleClass:'keke',weightKg:'40'},vendorProfile.businessName);
   const created=await f.call('/api/v3/shipments',local,vendor.token);assert.equal(created.status,201);const shipment=await created.json();assert.equal(shipment.vehicleClass,'keke');assert.equal(shipment.weightKg,'40');
   for(const [i,person]of people.entries()){
    const notifications=await(await f.call('/api/v4/rider/notifications',undefined,person.token)).json();assert.equal(notifications.notifications.length,i===0?1:0);

@@ -433,6 +433,10 @@ export function liveOperationsMap({
     flight = work;
     return work;
   }
+  const resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
+    if(map && element.isConnected) map.invalidateSize({pan:false});
+  }) : null;
+  resizeObserver?.observe(element.querySelector('.operations-map'));
   function attach(host) {
     if (disposed) return;
     if (host !== element) host.replaceWith(element);
@@ -479,6 +483,7 @@ export function liveOperationsMap({
     controller?.abort();
     clearInterval(poll);
     clearInterval(freshTimer);
+    resizeObserver?.disconnect();
     viewerControls?.destroy();
     map?.remove();
     map = null;

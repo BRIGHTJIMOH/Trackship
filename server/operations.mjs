@@ -12,7 +12,7 @@ import { accounts } from './accounts.mjs';
 import { marketplace } from './market.mjs';
 import { randomBytes, randomUUID, randomInt, createHash, createHmac, timingSafeEqual, createCipheriv, createDecipheriv } from 'node:crypto';
 import { normalizePhone } from '../web/core.mjs';
-import { validateTransport, feeKobo, actionFor, custodyAfter, flowPublic } from '../web/lifecycle.mjs';
+import { validateTransport, feeKobo, actionFor, custodyAfter, flowPublic, trackingLeg } from '../web/lifecycle.mjs';
 import { providersFromEnv, ProviderError } from './providers.mjs';
 const digest = s => createHash('sha256').update(s).digest('hex');
 const token = () => randomBytes(32).toString('hex');
@@ -231,7 +231,7 @@ export async function operations(db, {
     providers,
     env
   });
-  const push=await deliveryPush(db,{env,body,rider});
+  const push=await deliveryPush(db,{env,body,rider,canDeliver:job=>market.canNotify({riderId:job.rider_id,shipmentId:job.shipment_id})});
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false});return {id:session.actor,role:'super-admin'};}});
@@ -476,7 +476,7 @@ export async function operations(db, {
     if (path === '/api/v3/shipments' && req.method === 'POST') {
       const merchant = await owner(req);if(!merchant)fail('Business access is required.',401);
       let s=await body(req);if(!uuid.test(s.id||'')||!tokenPattern.test(s.publicToken||'')||!s.jobTokens||!tokenPattern.test(s.jobTokens.pickup||''))fail('Invalid shipment references.');
-      const existing=await db.prepare('SELECT owner,payload FROM shipments WHERE id=?').get(s.id);if(existing){if(existing.owner!==merchant)fail('Shipment not found.',404);const saved=JSON.parse(existing.payload);if(saved.status==='Created'&&!saved.testRemoval)await market.notify(saved,'created');send(200,saved);return true;}
+      const existing=await db.prepare('SELECT owner,payload FROM shipments WHERE id=?').get(s.id);if(existing){if(existing.owner!==merchant)fail('Shipment not found.',404);const saved=JSON.parse(existing.payload);if(saved.status==='Created'&&!saved.testRemoval){await market.notify(saved,'created');push.kick();}send(200,saved);return true;}
       let quoted=null;if(s.routeId){quoted=await catalog.quote(s.routeId,s);if(s.pricingBreakdown&&(s.pricingBreakdown.routeRevision!==quoted.routeRevision||s.pricingBreakdown.pricingRevision!==quoted.pricingRevision))fail('Route pricing changed. Refresh the quote and review before creating this shipment.',409);s={...s,deliveryFee:(quoted.totalKobo/100).toFixed(2),pickupFee:(quoted.fees.pickup/100).toFixed(2),carrierFee:(quoted.fees.carrier/100).toFixed(2),lastMileFee:(quoted.fees.lastmile/100).toFixed(2),pricingBreakdown:quoted};}else{if((await catalog.pricing()).requireRoutes)fail('Choose a configured delivery route.');delete s.pricingBreakdown;}
       const errors=validateTransport(s);if(errors.length)fail(errors[0]);
       if(s.deliveryType==='interstate'&&(!tokenPattern.test(s.jobTokens.carrier||'')||!tokenPattern.test(s.jobTokens.lastmile||'')))fail('Invalid shipment references.');
@@ -531,13 +531,13 @@ export async function operations(db, {
           const vendor=await db.prepare('SELECT id FROM vendor_accounts WHERE owner_key=?').get(merchant);
           const wallet=vendor&&(await db.currentPostgresClient().query(`SELECT id FROM ${walletHolds.schema}.wallets WHERE owner_role='vendor' AND owner_id=$1`,[vendor.id])).rows[0];
           if(!wallet)fail('Create and fund your approved vendor wallet first.',409);
-          const hold=await walletHolds.reserveInTransaction(db.currentPostgresClient(),{shipmentId:stored.id,vendorWalletId:wallet.id,deliveryType:stored.deliveryType,totalKobo:quoted.totalKobo,fees,platformKobo:quoted.platformKobo});
+          const hold=await walletHolds.reserveInTransaction(db.currentPostgresClient(),{shipmentId:stored.id,vendorWalletId:wallet.id,deliveryType:stored.deliveryType,totalKobo:quoted.totalKobo,fees:Object.fromEntries(Object.entries(fees).filter(([,amount])=>amount>0)),platformKobo:quoted.platformKobo});
           stored.payment={...stored.payment,status:'held',mode:'wallet_mock',holdId:hold.id};
         }
         await db.prepare('INSERT INTO shipments(id,owner,public_hash,payload,rider_hash) VALUES (?,?,?,?,NULL)').run(s.id, merchant, digest(s.publicToken), JSON.stringify(stored));
         for (const [leg, raw] of Object.entries(tokens)) await db.prepare('INSERT INTO job_tokens VALUES (?,?,?)').run(digest(raw), s.id, leg);
       });
-      await market.notify(stored, 'created');
+      await market.notify(stored, 'created');push.kick();
       send(201, stored);
       return true;
     }
@@ -556,7 +556,7 @@ export async function operations(db, {
         if (!ref) fail('No payment has been started.', 404);
         const result = await providers.verify(ref);
         const updated = await verifyFunding(ref, result);
-        await market.notify(updated, 'ready');
+        await market.notify(updated, 'ready');push.kick();
         send(200, {
           payment: updated.payment
         });
@@ -648,7 +648,7 @@ export async function operations(db, {
         }
         const result = await providers.verify(ref);
         const paid = await verifyFunding(ref, result);
-        await market.notify(paid, 'ready');
+        await market.notify(paid, 'ready');push.kick();
       }
       if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(event.event)) {
         const ref = event.data?.reference;
@@ -663,6 +663,27 @@ export async function operations(db, {
         received: true
       });
       return true;
+    }
+    // One genuine rider fix updates only the active legs assigned to this authenticated rider.
+    if(path==='/api/v3/rider/location'&&req.method==='POST'){
+      const r=await rider(req),p=await body(req),now=Date.now();
+      if(p.start!==true&&p.stop!==true){
+        if(typeof p.lat!=='number'||typeof p.lng!=='number'||!Number.isFinite(p.lat)||!Number.isFinite(p.lng)||Math.abs(p.lat)>90||Math.abs(p.lng)>180||!Number.isFinite(p.accuracy)||p.accuracy<0||p.accuracy>5000||!Number.isSafeInteger(p.observedAt)||p.observedAt>now||now-p.observedAt>30000)fail('A valid current GPS fix is required.',400);
+      }
+      const tracked=await transaction(async()=>{
+        let count=0;
+        for(const row of await db.prepare('SELECT payload FROM shipments').all()){
+          const s=JSON.parse(row.payload),leg=trackingLeg(s);
+          if(s.workflowVersion!==3||!['pickup','carrier','lastmile'].includes(leg)||s.actors?.[leg]?.id!==r.id||['Delivered','Cancelled'].includes(s.status))continue;
+          if(p.stop===true){if(s.locationConsent?.sessionHash===r.sessionHash)await putShipment({...s,location:null,locationConsent:null});continue;}
+          const consent={actor:r.id,sessionHash:r.sessionHash,leg,at:new Date(now).toISOString()};
+          const next={...s,locationConsent:consent};
+          if(p.start!==true)next.location={lat:p.lat,lng:p.lng,accuracy:p.accuracy,at:new Date(now).toISOString(),receivedAt:new Date(now).toISOString(),observedAt:new Date(p.observedAt).toISOString(),leg};
+          await putShipment(next);count++;
+        }
+        return count;
+      });
+      send(200,{tracked,shared:tracked>0&&p.stop!==true});return true;
     }
     const jobs = path.match(/^\/api\/v3\/jobs\/([a-f0-9]{64})(?:\/(actions|location))?$/);
     if (jobs) {
@@ -681,7 +702,7 @@ export async function operations(db, {
         const p = await body(req);
         const updated = await transaction(async () => {
           const fresh = await getShipment(s.id);
-          if (fresh.actors?.[leg]?.id !== r.id || fresh.custodian !== leg || ['Delivered', 'Cancelled'].includes(fresh.status)) fail('Location sharing is allowed only for the rider currently carrying this parcel.', 403);
+          if (fresh.actors?.[leg]?.id !== r.id || trackingLeg(fresh) !== leg || ['Delivered', 'Cancelled'].includes(fresh.status)) fail('Location sharing is allowed only for the rider currently carrying this parcel.', 403);
           if (p.stop === true) {
             const next = {
               ...fresh,
@@ -797,8 +818,12 @@ export async function operations(db, {
               }
             }
           } : fresh;
-          const next = append(assigned, spec.next, leg, r, String(input.note || '').slice(0, 240));
+          let next = append(assigned, spec.next, leg, r, String(input.note || '').slice(0, 240));
           if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),fresh,next);
+          if(input.autoStart===true&&((next.status==='Picked up'&&next.deliveryType==='intrastate')||['Carrier accepted','Last-mile rider accepted'].includes(next.status))){
+            const collected=next;next=append(collected,next.status==='Carrier accepted'?'In transit':'Out for delivery',leg,r,'Journey started automatically after confirmed collection');
+            if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),collected,next);
+          }
           await putShipment(next);
           return next;
         });

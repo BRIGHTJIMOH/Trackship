@@ -1,10 +1,11 @@
+import {configuredRoute} from './rider-route-fixture.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {adminFixture,vendorProfile,riderProfile} from './admin-fixture.mjs';
 import {newTransport} from '../web/lifecycle.mjs';
 import {isHistoryShipment,isEarlierUpdate,HISTORY_AGE_MS} from '../web/history.mjs';
 const fields={sender:'Sample shop',recipient:'Sample recipient',phone:'08011112222',description:'Test cleanup parcel',origin:'Zaria',originState:'Kaduna',destination:'Zaria',destinationState:'Kaduna',address:'Sample destination',deliveryType:'intrastate',deliveryFee:'1000'};
-async function create(f,vendor,extra={}){const local={...newTransport(fields,'Sample shop'),...extra},response=await f.api('/api/v3/shipments',local,{token:vendor.token});assert.equal(response.status,201);return response.json();}
+async function create(f,vendor,extra={}){const local={...newTransport({...fields,...(f.testRouteId?{routeId:f.testRouteId}:{})},'Sample shop'),...extra},response=await f.api('/api/v3/shipments',local,{token:vendor.token});assert.equal(response.status,201);return response.json();}
 test('test cleanup is owner/CSRF protected, atomic with live-record protection, audited and reversible to cancelled history',async()=>{
  const f=await adminFixture();try{
  const owner=await f.login(),vendor=await f.account('vendor',vendorProfile),a=await create(f,vendor,{testRemoval:{actor:'forged'}}),protectedShipment=await create(f,vendor);assert.equal(a.testRemoval,undefined);
@@ -28,7 +29,7 @@ test('history contains terminal deliveries; aging alone never hides pending work
 
 test('owner can enable unpaid test dispatch without cash; normal unpaid and live records remain protected',async()=>{
  const f=await adminFixture();try{
-  const owner=await f.login(),vendor=await f.account('vendor',vendorProfile),rider=await f.account('rider',riderProfile);await f.identity('rider',rider);
+  const owner=await f.login(),vendor=await f.account('vendor',vendorProfile),rider=await f.account('rider',riderProfile);await f.identity('rider',rider);f.testRouteId=await configuredRoute(f,fields,[rider]);
   const s=await create(f,vendor),url='/api/admin/test-shipments/enable-dispatch',input={ids:[s.id],confirmTestData:true,reason:'Test pickup and delivery'};
   assert.equal((await f.api('/api/v4/rider/offers/'+s.id+'/accept',{}, {token:rider.token})).status,409);
   assert.equal((await f.api(url,input,{token:vendor.token})).status,401);assert.equal((await f.api(url,input,{cookie:owner.cookie})).status,403);assert.equal((await f.api(url,{...input,confirmTestData:false},owner)).status,400);
@@ -40,7 +41,7 @@ test('owner can enable unpaid test dispatch without cash; normal unpaid and live
 });
 
 test('owner test mode allows unpaid accept then explicit collect, while off/live-checkout records remain gated',async()=>{
- const f=await adminFixture();try{const owner=await f.login(),vendor=await f.account('vendor',vendorProfile),rider=await f.account('rider',riderProfile);await f.identity('rider',rider);const s=await create(f,vendor),mode='/api/admin/test-dispatch-mode';assert.equal((await f.api(mode,{enabled:true,confirmTestData:true,reason:'Test delivery'}, {token:rider.token})).status,401);assert.equal((await f.api(mode,{enabled:true,confirmTestData:true,reason:'Test delivery'}, {cookie:owner.cookie})).status,403);assert.equal((await f.api(mode,{enabled:true,confirmTestData:true,reason:'Test delivery'},owner)).status,200);
+ const f=await adminFixture();try{const owner=await f.login(),vendor=await f.account('vendor',vendorProfile),rider=await f.account('rider',riderProfile);await f.identity('rider',rider);f.testRouteId=await configuredRoute(f,fields,[rider]);const s=await create(f,vendor),mode='/api/admin/test-dispatch-mode';assert.equal((await f.api(mode,{enabled:true,confirmTestData:true,reason:'Test delivery'}, {token:rider.token})).status,401);assert.equal((await f.api(mode,{enabled:true,confirmTestData:true,reason:'Test delivery'}, {cookie:owner.cookie})).status,403);assert.equal((await f.api(mode,{enabled:true,confirmTestData:true,reason:'Test delivery'},owner)).status,200);
  const offers=await(await f.api('/api/v4/rider/dispatch/sync',{}, {token:rider.token})).json();assert.equal(offers.offers.find(o=>o.id===s.id).testDispatchAvailable,true);const accept=await f.api('/api/v4/rider/offers/'+s.id+'/accept',{}, {token:rider.token});assert.equal(accept.status,200);const accepted=await accept.json();assert.equal(accepted.custodian,'vendor');assert.equal(accepted.payment.mode,'test');assert.equal(accepted.payment.amount,0);const collect=await f.api('/api/v3/jobs/'+s.jobTokens.pickup+'/actions',{action:'pickup'}, {token:rider.token});assert.equal(collect.status,200);assert.equal((await collect.json()).custodian,'pickup');
  const protectedJob=await create(f,vendor);await f.server.database.prepare('INSERT INTO payments(reference,shipment_id,amount,mode,status,created) VALUES (?,?,?,?,?,?)').run('existing-checkout-test',protectedJob.id,100000,'live','initialized',Date.now());assert.equal((await f.api('/api/v4/rider/offers/'+protectedJob.id+'/accept',{}, {token:rider.token})).status,409);
  assert.equal((await f.api(mode,{enabled:false,reason:'Testing finished'},owner)).status,200);const unpaid=await create(f,vendor);assert.equal((await f.api('/api/v4/rider/offers/'+unpaid.id+'/accept',{}, {token:rider.token})).status,409);

@@ -1,3 +1,4 @@
+import {trackingLeg} from '../web/lifecycle.mjs';
 import { createHash } from "node:crypto";
 import { publicMapConfig } from "./maps.mjs";
 const digest = (value) => createHash("sha256").update(value).digest("hex");
@@ -19,7 +20,7 @@ export function operationsRecord(
   } = {},
 ) {
   if (!s?.id || terminal.has(s.status)) return null;
-  const assigned = s.actors?.[s.custodian],
+  const assigned = s.actors?.[trackingLeg(s)],
     location = s.location,
     consent = s.locationConsent;
   const receivedAt =
@@ -43,13 +44,13 @@ export function operationsRecord(
     !s.incidentOpen &&
     !!assigned?.id &&
     consent?.actor === assigned.id &&
-    consent?.leg === s.custodian &&
+    consent?.leg === trackingLeg(s) &&
     session?.rider_id === assigned.id &&
     session.expires > now &&
     !suspended.has(assigned.id);
   const valid =
     consented &&
-    location?.leg === s.custodian &&
+    location?.leg === trackingLeg(s) &&
     Number.isFinite(location.lat) &&
     Math.abs(location.lat) <= 90 &&
     Number.isFinite(location.lng) &&

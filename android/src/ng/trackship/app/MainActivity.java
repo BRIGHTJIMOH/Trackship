@@ -38,14 +38,32 @@ public class MainActivity extends Activity {
         viewerLocation = new ViewerLocation(this,(id,result)->{
             if(web!=null&&!isFinishing())web.evaluateJavascript("window.SendRackViewerLocationResult?.("+org.json.JSONObject.quote(id)+","+result.toString()+")",null);
         });
-        setContentView(web);
-        if (android.os.Build.VERSION.SDK_INT >= 35) {
-            web.setOnApplyWindowInsetsListener((v,insets) -> {
-                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-                v.setPadding(bars.left,bars.top,bars.right,bars.bottom);
-                return insets;
-            });
+        // Resize the WebView's container, not the WebView's internal padding: fixed web
+        // navigation must share the same safe viewport as the page content.
+        android.widget.FrameLayout frame=new android.widget.FrameLayout(this);
+        frame.setBackgroundColor(0xfff1f0ee);
+        frame.addView(web,new android.widget.FrameLayout.LayoutParams(-1,-1));
+        setContentView(frame);
+        getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN|android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+        if(android.os.Build.VERSION.SDK_INT>=30){
+            getWindow().setDecorFitsSystemWindows(false);
+            getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
         }
+        frame.setOnApplyWindowInsetsListener((v,insets)->{
+            int left,top,right,bottom;
+            if(android.os.Build.VERSION.SDK_INT>=30){
+                android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()|WindowInsets.Type.ime());
+                left=safe.left;top=safe.top;right=safe.right;bottom=safe.bottom;
+            }else{
+                left=insets.getSystemWindowInsetLeft();top=insets.getSystemWindowInsetTop();right=insets.getSystemWindowInsetRight();bottom=Math.min(insets.getSystemWindowInsetBottom(),insets.getStableInsetBottom());
+                if(android.os.Build.VERSION.SDK_INT>=28&&insets.getDisplayCutout()!=null){android.view.DisplayCutout cutout=insets.getDisplayCutout();left=Math.max(left,cutout.getSafeInsetLeft());top=Math.max(top,cutout.getSafeInsetTop());right=Math.max(right,cutout.getSafeInsetRight());bottom=Math.max(bottom,cutout.getSafeInsetBottom());}
+            }
+            v.setPadding(left,top,right,bottom);
+            if(android.os.Build.VERSION.SDK_INT>=30)return WindowInsets.CONSUMED;
+            WindowInsets consumed=insets.consumeSystemWindowInsets();
+            return android.os.Build.VERSION.SDK_INT>=28?consumed.consumeDisplayCutout():consumed;
+        });
+        frame.requestApplyInsets();
         web.setBackgroundColor(0xfff1f0ee);
         // Refresh packaged screens on upgrade without touching DOM storage or identity keys.
         String appVersion="unknown";
@@ -53,6 +71,7 @@ public class MainActivity extends Activity {
         android.content.SharedPreferences assets=getSharedPreferences("sendrack-asset-version",MODE_PRIVATE);
         if(!appVersion.equals(assets.getString("version",null))){web.clearCache(true);assets.edit().putString("version",appVersion).apply();}
         web.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
+        web.getSettings().setTextZoom(Math.round(getResources().getConfiguration().fontScale*100));
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setDomStorageEnabled(true);
         web.getSettings().setAllowFileAccess(false);
@@ -61,7 +80,7 @@ public class MainActivity extends Activity {
         web.getSettings().setSupportMultipleWindows(false);
         web.addJavascriptInterface(new Bridge(), "TrackShip");
         web.setWebViewClient(new WebViewClient() {
-            @Override public void onPageFinished(WebView view,String url){if(getIntent().getBooleanExtra("open-rider-alerts",false)){getIntent().removeExtra("open-rider-alerts");view.evaluateJavascript("window.TrackShipOpenAlerts?.()",null);}}
+            @Override public void onPageFinished(WebView view,String url){view.evaluateJavascript("document.documentElement.dataset.nativeInsets='true'",null);if(getIntent().getBooleanExtra("open-rider-alerts",false)){getIntent().removeExtra("open-rider-alerts");view.evaluateJavascript("window.TrackShipOpenAlerts?.()",null);}}
 
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
                 Uri uri=req.getUrl();
@@ -110,7 +129,7 @@ public class MainActivity extends Activity {
             runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,text);startActivity(Intent.createChooser(i,"Share delivery update"));});
         }
         @JavascriptInterface public void openUrl(String url){runOnUiThread(()->openExternal(url));}
-        @JavascriptInterface public void setNightMode(boolean dark){runOnUiThread(()->{web.setBackgroundColor(dark?0xff181819:0xfff1f0ee);getWindow().setStatusBarColor(dark?0xff181819:0xfff1f0ee);getWindow().setNavigationBarColor(dark?0xff181819:0xffffffff);web.setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);});}
+        @JavascriptInterface public void setNightMode(boolean dark){runOnUiThread(()->{web.setBackgroundColor(dark?0xff181819:0xfff1f0ee);if(web.getParent() instanceof View)((View)web.getParent()).setBackgroundColor(dark?0xff181819:0xfff1f0ee);getWindow().setStatusBarColor(dark?0xff181819:0xfff1f0ee);getWindow().setNavigationBarColor(dark?0xff181819:0xffffffff);web.setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);});}
         @JavascriptInterface public void startTracking(String base,String job,String session,String code){
             if(base==null||job==null||session==null||!job.matches("[a-f0-9]{64}")||!session.matches("[a-f0-9]{64}"))return;
             Uri u=Uri.parse(base);if(!"https".equals(u.getScheme())||u.getUserInfo()!=null||u.getHost()==null||u.getQuery()!=null||u.getFragment()!=null||!(u.getPath()==null||u.getPath().isEmpty()||u.getPath().equals("/")))return;
@@ -120,7 +139,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void requestViewerLocation(String id){runOnUiThread(()->viewerLocation.request(id));}
         @JavascriptInterface public void cancelViewerLocation(String id){runOnUiThread(()->viewerLocation.cancel(id));}
         @JavascriptInterface public void stopTracking(){runOnUiThread(()->stopService(new Intent(MainActivity.this,TrackingService.class)));}
-        @JavascriptInterface public boolean isTracking(){return getSharedPreferences("trackship-gps",MODE_PRIVATE).getBoolean("active",false);}
+        @JavascriptInterface public boolean isTracking(){android.app.ActivityManager manager=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);if(manager!=null)for(android.app.ActivityManager.RunningServiceInfo service:manager.getRunningServices(Integer.MAX_VALUE))if(TrackingService.class.getName().equals(service.service.getClassName()))return true;return false;}
         private boolean validIdentityAccount(String role,String phone){return role!=null&&role.matches("vendor|rider")&&phone!=null&&phone.matches("0[789][0-9]{9}");}
         @JavascriptInterface public boolean saveAccountIdentity(String role,String phone,String json){return validIdentityAccount(role,phone)&&new IdentityVault(MainActivity.this).save(role+":"+phone,json);}
         @JavascriptInterface public String loadAccountIdentity(String role,String phone){if(!validIdentityAccount(role,phone))return null;IdentityVault vault=new IdentityVault(MainActivity.this);String value=vault.load(role+":"+phone);return value==null&&role.equals("rider")?vault.load(phone):value;}
@@ -141,7 +160,7 @@ public class MainActivity extends Activity {
             runOnUiThread(()->{pendingBackup=json;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"SendRack-backup.json");try{startActivityForResult(i,SAVE_BACKUP);}catch(Exception e){pendingBackup=null;Toast.makeText(MainActivity.this,"No file manager is available.",Toast.LENGTH_LONG).show();}});
         }
     }
-    private void beginTracking(){if(pendingTracking==null)return;if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){pendingTracking=null;Toast.makeText(this,"Allow notifications so GPS sharing has a visible stop control.",Toast.LENGTH_LONG).show();return;}try{startForegroundService(pendingTracking);Toast.makeText(this,"Delivery GPS started. Use the notification to stop sharing.",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"GPS could not start. Check location permission and try again.",Toast.LENGTH_LONG).show();}pendingTracking=null;}
+    private void beginTracking(){if(pendingTracking==null)return;if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){pendingTracking=null;Toast.makeText(this,"Allow notifications to show active delivery location updates.",Toast.LENGTH_LONG).show();return;}try{startForegroundService(pendingTracking);Toast.makeText(this,"Delivery location updates started automatically.",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"GPS could not start. Check location permission and try again.",Toast.LENGTH_LONG).show();}pendingTracking=null;}
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==ALERT_PERMISSION){if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)FirebaseBridge.call(this,"configure");return;}if(request==ViewerLocation.PERMISSION_REQUEST){viewerLocation.permissionResult();return;}if(request==GPS_PERMISSION){if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED)beginTracking();else{pendingTracking=null;Toast.makeText(this,"Location permission is needed to share your delivery position.",Toast.LENGTH_LONG).show();}}}
     @Override protected void onActivityResult(int request,int result,Intent intent) {
         super.onActivityResult(request,result,intent);

@@ -64,7 +64,7 @@
 
 .shipment-send-state{padding:0 20px 16px}.shipment-send-state p{margin:0 0 6px}
 
-.home-history{margin:8px 0 24px}.shipment-history-link{display:flex;align-items:center;gap:14px;width:100%;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--paper);color:var(--ink);font:inherit;text-align:left;cursor:pointer}.shipment-history-link>span:nth-child(2){flex:1;min-width:0}.shipment-history-link strong{display:block;font-size:17px}.shipment-history-link small{display:block;margin-top:6px;color:var(--muted);font-size:12px}.shipment-history-link:focus-visible{outline:3px solid #ff6b00;outline-offset:3px}
+.home-history{margin:8px 0 20px}.shipment-history-link{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);font:inherit;text-align:left;cursor:pointer}.shipment-history-link>svg{width:18px;height:18px;flex-shrink:0;color:var(--muted)}.shipment-history-link strong{flex:1;min-width:0;font-size:14px;font-weight:500}.shipment-history-link .history-count{font-size:12px;color:var(--muted)}.shipment-history-link .history-chevron{font-size:22px;line-height:1;color:var(--muted)}.shipment-history-link:focus-visible{outline:3px solid #ff6b00;outline-offset:3px}
 
 /* Browsers own their safe areas; Android's outer frame already consumes its insets. */
 :root{--safe-top:env(safe-area-inset-top,0px);--safe-right:env(safe-area-inset-right,0px);--safe-bottom:env(safe-area-inset-bottom,0px);--safe-left:env(safe-area-inset-left,0px)}

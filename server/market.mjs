@@ -1,3 +1,4 @@
+const lagosDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Lagos',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 import {testDispatchMode,canTestDispatch,simulatedDelivery} from './test-dispatch.mjs';
 import {dispatchMatchReasons} from './dispatch-match.mjs';
 import {vehicleMatches,VEHICLE_TYPES,kgToGrams} from '../web/vehicles.mjs';
@@ -22,12 +23,14 @@ export async function marketplace(db, {
   if (!(await db.prepare('PRAGMA table_info(rider_profiles)').all()).some(c => c.name === 'identity_format')) await db.exec('ALTER TABLE rider_profiles ADD COLUMN identity_format INTEGER DEFAULT 1');
   await db.exec('CREATE TABLE IF NOT EXISTS delivery_notifications(id TEXT PRIMARY KEY,rider_id TEXT,shipment_id TEXT,phase TEXT,title TEXT,body TEXT,seen INTEGER DEFAULT 0,created INTEGER,UNIQUE(rider_id,shipment_id,phase))');
   await db.exec(`CREATE TABLE IF NOT EXISTS rider_route_preferences(rider_id TEXT NOT NULL,route_id TEXT NOT NULL,direction TEXT NOT NULL CHECK(direction IN ('forward','reverse')),route_revision INTEGER NOT NULL,available INTEGER NOT NULL DEFAULT 1 CHECK(available IN (0,1)),PRIMARY KEY(rider_id,route_id,direction))`);
+  await db.exec('CREATE TABLE IF NOT EXISTS rider_route_days(rider_id TEXT PRIMARY KEY,day TEXT NOT NULL,updated INTEGER NOT NULL)');
   const open = async () => (await db.prepare('SELECT payload FROM shipments').all()).map(r => JSON.parse(r.payload)).filter(s => s.workflowVersion === 3 && s.status === 'Created' && Date.now() - Date.parse(s.createdAt) < 7 * 86400000);
   const allShipments=async()=>(await db.prepare('SELECT payload FROM shipments').all()).map(row=>JSON.parse(row.payload)).filter(s=>!s.testRemoval);
   const activeFor=(r,all)=>all.filter(j=>!['Delivered','Cancelled'].includes(j.status)&&Object.entries(j.actors||{}).some(([leg,actor])=>actor.id===r.id&&(j.custodian===leg||j.status==='Rider accepted'))).length;
   async function routeReasons(r,s){
     // Open offers require an explicit, current route/direction declaration. Never guess a destination from pickup city or GPS heading.
     if(!s.routeId)return ['route-direction-unavailable'];
+    const day=await db.prepare('SELECT day FROM rider_route_days WHERE rider_id=?').get(r.id);if(day?.day!==lagosDay())return ['route-direction-unavailable'];
     const route=await db.prepare('SELECT * FROM admin_routes WHERE id=? AND active=1').get(s.routeId);
     if(!route)return ['route-direction-unavailable'];
     const forward=normalize(s.origin)===normalize(route.origin_city)&&s.originState===route.origin_state&&normalize(s.destination)===normalize(route.destination_city)&&s.destinationState===route.destination_state;
@@ -106,22 +109,26 @@ export async function marketplace(db, {
         const r=await rider(req);
         if(req.method==='POST'){
           const p=await body(req);if(!Array.isArray(p.routes)||p.routes.length>50||typeof p.available!=='boolean')fail('Choose up to 50 route directions and your availability.');
+          if(p.available&&!p.routes.length)fail('Choose at least one route, or stay unavailable today.');
           const selected=[],keys=new Set();
           for(const choice of p.routes){
             if(!choice||typeof choice.routeId!=='string'||!['forward','reverse'].includes(choice.direction))fail('Invalid route direction.');
             const route=await db.prepare('SELECT * FROM admin_routes WHERE id=? AND active=1').get(choice.routeId);
+            const state=JSON.parse(r.public_profile||'{}').state;
+            if(route&&(choice.direction==='reverse'?route.destination_state:route.origin_state)!==state)fail('Choose a route starting in your registered state.',403);
             if(!route||choice.direction==='reverse'&&!route.bidirectional||choice.revision!==route.revision)fail('A route changed or is unavailable. Refresh the route list.',409);
             const key=route.id+':'+choice.direction;if(keys.has(key))fail('Duplicate route selection.');keys.add(key);selected.push({route,direction:choice.direction});
           }
           await db.exec('BEGIN IMMEDIATE');try{
             await db.prepare('DELETE FROM rider_route_preferences WHERE rider_id=?').run(r.id);
+            await db.prepare('INSERT INTO rider_route_days(rider_id,day,updated) VALUES (?,?,?) ON CONFLICT(rider_id) DO UPDATE SET day=excluded.day,updated=excluded.updated').run(r.id,lagosDay(),Date.now());
             for(const {route,direction}of selected)await db.prepare('INSERT INTO rider_route_preferences(rider_id,route_id,direction,route_revision,available) VALUES(?,?,?,?,?)').run(r.id,route.id,direction,route.revision,p.available?1:0);
             await db.exec('COMMIT');
           }catch(e){await db.exec('ROLLBACK');throw e;}
         }
-        const routes=(await db.prepare('SELECT id,name,origin_city,origin_state,destination_city,destination_state,bidirectional,revision FROM admin_routes WHERE active=1 ORDER BY name,id').all()).map(x=>({id:x.id,name:x.name,origin:x.origin_city,originState:x.origin_state,destination:x.destination_city,destinationState:x.destination_state,bidirectional:Boolean(x.bidirectional),revision:x.revision}));
+        const routes=(await db.prepare('SELECT id,name,origin_city,origin_state,destination_city,destination_state,bidirectional,revision FROM admin_routes WHERE active=1 ORDER BY name,id').all()).map(x=>({id:x.id,name:x.name,origin:x.origin_city,originState:x.origin_state,destination:x.destination_city,destinationState:x.destination_state,bidirectional:Boolean(x.bidirectional),revision:x.revision,allowedDirections:[...(x.origin_state===JSON.parse(r.public_profile||'{}').state?['forward']:[]),...(x.bidirectional&&x.destination_state===JSON.parse(r.public_profile||'{}').state?['reverse']:[])]})).filter(x=>x.allowedDirections.length);
         const selected=await db.prepare('SELECT route_id AS "routeId",direction,route_revision AS revision,available FROM rider_route_preferences WHERE rider_id=?').all(r.id);
-        send(200,{routes,selected,available:selected.some(x=>Boolean(x.available))});return true;
+        const daily=await db.prepare('SELECT day FROM rider_route_days WHERE rider_id=?').get(r.id);send(200,{routes,selected,today:lagosDay(),selectedDay:daily?.day||null,dailyConfirmed:daily?.day===lagosDay(),available:daily?.day===lagosDay()&&selected.some(x=>Boolean(x.available))});return true;
       }
       if (path === '/api/v4/rider/offers' && req.method === 'GET') {
         const r = await rider(req);

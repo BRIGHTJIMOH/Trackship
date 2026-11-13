@@ -76,3 +76,9 @@
 .topbar{gap:12px}.home-greeting{flex:1;min-width:0}.home-greeting>div{min-width:0}.home-greeting h1{overflow-wrap:anywhere}.top-actions{flex-shrink:0}
 .bottomnav{left:var(--safe-left);right:var(--safe-right);transform:none;margin-left:auto;margin-right:auto;width:min(calc(100% - 32px - var(--safe-left) - var(--safe-right)),520px)}
 .onboard.setup-page{padding-top:calc(28px + var(--safe-top));padding-bottom:calc(35px + var(--safe-bottom))}.onboard.pin-card{padding-top:calc(20px + var(--safe-top))}
+
+.home-history{margin:8px 0 14px}.shipment-history-link{min-height:44px;padding:8px 10px;border-radius:10px}.shipment-history-link strong{font-size:13px}.daily-route-dialog{backdrop-filter:blur(5px);background:#18181577}.daily-routes{max-height:85dvh;overflow:auto;width:min(440px,calc(100vw - 32px));padding:24px}.daily-routes h2{font-size:22px}.daily-routes>p{font-size:13px;color:var(--muted);margin:10px 0 16px}.daily-routes details{padding:0;border:0;box-shadow:none}.daily-routes .check-label{padding:12px 0;border-bottom:1px solid var(--line)}
+
+.daily-routes .card.info{padding:0;border:0;box-shadow:none;margin:0}.daily-routes .check-label[hidden]{display:none}.daily-routes .check-label span{font-size:14px;color:var(--ink)}
+
+.daily-routes h2{margin:0 0 18px}.daily-routes .check-label{margin:0 0 12px}.daily-routes #rider-route-preferences>.primary{margin-top:12px}

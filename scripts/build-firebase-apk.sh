@@ -22,7 +22,7 @@ if p.resolve()!=target.resolve():shutil.copyfile(p,target)
 PY
 GRADLE="${SENDRACK_GRADLE:-$ROOT/android/firebase/gradlew}"
 "$GRADLE" -p "$ROOT/android/firebase" assembleRelease --console=plain
-UNSIGNED="$ROOT/artifacts/SendRack-0.7.20-fcm-unsigned.apk"
+UNSIGNED="$ROOT/artifacts/SendRack-0.7.21-fcm-unsigned.apk"
 cp android/firebase/build/outputs/apk/release/SendRackFirebaseTest-release-unsigned.apk "$UNSIGNED"
 KEY_DIR="${SENDRACK_TEST_KEY_DIR:-/workspace/sendrack-test-signing}"
 if ! test -f "$KEY_DIR/sendrack-test.p12" || ! test -f "$KEY_DIR/password.txt" || ! test -f "$KEY_DIR/certificate-sha256.txt"; then
@@ -34,7 +34,7 @@ BT="$ANDROID_HOME/build-tools/35.0.0"
 ACTUAL=$(keytool -exportcert -keystore "$KEY_DIR/sendrack-test.p12" -storepass:file "$KEY_DIR/password.txt" -alias sendrack-test | sha256sum | cut -d ' ' -f 1)
 if test "$ACTUAL" != "$(cat "$KEY_DIR/certificate-sha256.txt")"; then echo 'Test signing certificate mismatch; refusing to sign.' >&2; exit 1; fi
 "$BT/zipalign" -P 16 -f 4 "$UNSIGNED" build/firebase-aligned.apk
-SIGNED="$ROOT/artifacts/SendRack-0.7.20-fcm.apk"
+SIGNED="$ROOT/artifacts/SendRack-0.7.21-fcm.apk"
 "$BT/apksigner" sign --ks "$KEY_DIR/sendrack-test.p12" --ks-key-alias sendrack-test --ks-pass "file:$KEY_DIR/password.txt" --out "$SIGNED" build/firebase-aligned.apk
 "$BT/apksigner" verify "$SIGNED"
 sha256sum "$SIGNED" > "$SIGNED.sha256"

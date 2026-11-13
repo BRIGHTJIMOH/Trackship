@@ -234,7 +234,7 @@ export async function operations(db, {
   const push=await deliveryPush(db,{env,body,rider,canDeliver:job=>market.canNotify({riderId:job.rider_id,shipmentId:job.shipment_id})});
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
-  const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false});return {id:session.actor,role:'super-admin'};}});
+  const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional){const rows=await db.prepare('SELECT id,payload FROM shipments').all();return {id:session.actor,role:'operations',shipmentIds:rows.filter(r=>{const sh=JSON.parse(r.payload);return session.states.includes(sh.originState)||session.states.includes(sh.destinationState);}).map(r=>r.id)};}return {id:session.actor,role:'super-admin'};}});
   const contactAccess=deliveryContacts(db,{owner,rider,job});
   await initializeTestDispatch(db);
   const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body,testModeAllowed:!walletControlEnabled&&!(providers.paymentReady&&providers.mode==='live')});

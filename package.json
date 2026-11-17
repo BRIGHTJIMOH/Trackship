@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server/server.mjs",
     "test": "node --test --test-isolation=none tests/*.test.mjs",
-    "test:ui": "node tests/reference-redesign-ui.mjs && node tests/wallet/finance-ui.mjs",
+    "test:ui": "node tests/system-audit-ui.mjs && node tests/reference-redesign-ui.mjs && node tests/wallet/finance-ui.mjs",
     "build:apk": "bash scripts/build-apk.sh",
     "test:apk": "node tests/test-apk-current.mjs",
     "db:check": "node scripts/check-database.mjs",

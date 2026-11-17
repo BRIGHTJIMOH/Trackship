@@ -184,14 +184,17 @@ try {
       window.__mapElement = document.querySelector(".operations-map");
       window.__mapCenter=window.__testOperationsMap.getCenter();
     });
+    await page.locator(".operations-filter-drawer summary").click();
     await page.getByLabel("Map state", { exact: true }).selectOption("Kaduna");
     await page.getByLabel("Map shipment search").fill("SR-SAMPLE-0001");
-    await page.locator(".map-active-section summary").click();
+    if(!await page.locator(".map-active-section").evaluate(el=>el.open))await page.locator(".map-active-section summary").click();
     await page.locator(".map-active-list [data-map-shipment]").first().click();
     await page
       .locator(".map-detail h3")
       .filter({ hasText: "SR-SAMPLE-0001" })
       .waitFor();
+    await page.evaluate(()=>{window.__mapCenter=window.__testOperationsMap.getCenter();});
+    await page.locator(".operations-diagnostics summary").click();
     await page.clock.install();
     for (let i = 0; i < 2; i++) {
       const next = page.waitForResponse(
@@ -270,7 +273,7 @@ try {
     await page.waitForFunction(() =>
       document
         .querySelector(".map-detail")
-        .textContent.includes("No authorized current-holder GPS"),
+        .textContent.includes("Waiting for holder location"),
     );
     assert.equal(await page.locator(".operations-marker").count(), 0);
     selected.status = "Delivered";

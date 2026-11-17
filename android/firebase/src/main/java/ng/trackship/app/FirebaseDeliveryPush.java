@@ -40,7 +40,7 @@ public final class FirebaseDeliveryPush {
   // A local marker cannot establish that the server still has this installation.
   if(current!=null&&PushRegistrationPolicy.fresh(installation.getString("registered",null),binding,installation.getLong("registeredAt",0),System.currentTimeMillis()))return;
   if(!requesting.compareAndSet(false,true))return;state(context,"getting-token");
-  try{FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token->{requesting.set(false);saveToken(context,token);state(context,"connecting");schedule(context);}).addOnFailureListener(error->{requesting.set(false);String message=String.valueOf(error.getMessage());state(context,PushRegistrationPolicy.tokenFailure(message));});}
+  try{FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token->{requesting.set(false);saveToken(context,token);state(context,"connecting");schedule(context);}).addOnFailureListener(error->{requesting.set(false);String message=String.valueOf(error.getMessage());state(context,PushRegistrationPolicy.tokenFailure(message));schedule(context);});}
   catch(Exception error){requesting.set(false);state(context,"firebase-unavailable");}
  }
  public static void clear(Context context){WorkManager.getInstance(context).cancelUniqueWork(WORK);context.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().remove("registered").remove("registeredAt").putString("state","sign-in-required").apply();}

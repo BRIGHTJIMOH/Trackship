@@ -81,3 +81,25 @@ test('push delivery rechecks route eligibility immediately before sending and su
  const push=await deliveryPush(f.server.database,{sender:{ready:true,async send(){sends++;return {status:'sent'};}},canDeliver:async job=>{assert.equal(job.rider_id,rider.profile.id);assert.ok(job.shipment_id);return false;}});await push.drain();assert.equal(sends,0);assert.equal((await f.server.database.prepare('SELECT state FROM push_deliveries WHERE notification_id=?').get(id)).state,'obsolete');await push.drain();assert.equal(sends,0);
  }finally{await f.close();}
 });
+
+test('choosing today’s route recovers existing offers without a subsequent inbox request',async()=>{
+ const {newTransport}=await import('../web/lifecycle.mjs'),f=await adminFixture();try{
+ const vendor=await f.account('vendor',vendorProfile),rider=await f.account('rider',riderProfile);await f.identity('rider',rider);
+ const fields={origin:'Zaria',originState:'Kaduna',destination:'Kaduna',destinationState:'Kaduna',deliveryType:'intrastate',deliveryFee:'1000'},routeId=await configuredRoute(f,fields);
+ const local=newTransport({...fields,routeId,sender:vendorProfile.businessName,recipient:'Sample',phone:'08011112222',description:'Before route selection',address:'Sample address'},vendorProfile.businessName);
+ const created=await f.api('/api/v3/shipments',local,{token:vendor.token});assert.equal(created.status,201);const shipment=await created.json();
+ const count=()=>f.server.database.prepare('SELECT COUNT(*) AS total FROM delivery_notifications WHERE rider_id=? AND shipment_id=?').get(rider.profile.id,shipment.id);
+ assert.equal((await count()).total,0);
+ const selected=await f.api('/api/v4/rider/routes',{routes:[{routeId,direction:'forward',revision:1}],available:true},{token:rider.token});assert.equal(selected.status,200);
+ assert.equal((await count()).total,1,'route selection itself must recover the notification');
+ const device=installation();await f.api('/api/v4/rider/push/register',device,{token:rider.token});let sent=0;
+ const push=await deliveryPush(f.server.database,{sender:{ready:true,async send(){sent++;return {status:'sent'};}}});await push.drain();assert.equal(sent,1);await push.drain();assert.equal(sent,1);
+ }finally{await f.close();}
+});
+
+test('temporarily ineligible unsent alerts can recover without duplicating a successful send',async()=>{
+ const f=await adminFixture();try{const rider=await f.account('rider',riderProfile),device=installation();await f.api('/api/v4/rider/push/register',device,{token:rider.token});await event(f.server.database,rider.profile.id);let eligible=false,sends=0;
+ const push=await deliveryPush(f.server.database,{sender:{ready:true,async send(){sends++;return {status:'sent'};}},canDeliver:async()=>eligible});
+ await push.drain();assert.equal(sends,0);eligible=true;await push.requeue(rider.profile.id);await push.drain();assert.equal(sends,1);await push.requeue(rider.profile.id);await push.drain();assert.equal(sends,1);
+ }finally{await f.close();}
+});

@@ -1,7 +1,7 @@
 import {configuredRoute} from './rider-route-fixture.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {adminFixture,vendorProfile,riderProfile} from './admin-fixture.mjs';
+import {adminFixture,vendorProfile,riderProfile,photo} from './admin-fixture.mjs';
 import {newTransport} from '../web/lifecycle.mjs';
 async function setup(){
  const f=await adminFixture(),vendor=await f.account('vendor',vendorProfile),otherVendor=await f.account('vendor',{...vendorProfile,phone:'08022223333'}),rider=await f.account('rider',riderProfile),other=await f.account('rider',{...riderProfile,phone:'08077778888'});
@@ -19,8 +19,9 @@ test('delivery calls require assignment and ownership, preserve payment checks a
  assert.equal((await f.api(accept,{}, {token:f.rider.token})).status,409);
  await f.api('/api/v3/shipments/'+s.id+'/pay',{email:'sample@example.invalid'},{token:f.vendor.token});assert.equal((await f.api('/api/v3/shipments/'+s.id+'/verify-payment',{}, {token:f.vendor.token})).status,200);
  assert.equal((await f.api(accept,{}, {token:f.rider.token})).status,200);
- const vendorResponse=await f.api(vendorPath,undefined,{token:f.vendor.token});assert.equal(vendorResponse.headers.get('cache-control'),'no-store');const vendor=await vendorResponse.json(),rider=await(await f.api(riderPath,undefined,{token:f.rider.token})).json();assert.deepEqual(vendor.contacts.map(c=>c.phone),[riderProfile.phone]);assert.equal(vendor.contacts[0].id,'pickup');assert.deepEqual(rider.contacts.map(c=>c.phone),[vendorProfile.phone]);assert.equal((await f.api(riderPath,undefined,{token:f.other.token})).status,403);
- const publicView=JSON.stringify(await(await f.api('/api/track/'+s.publicToken)).json());for(const value of [riderProfile.phone,vendorProfile.phone,'contacts'])assert.equal(publicView.includes(value),false);
+ const avatarSaved=await f.api('/api/accounts/profile',{...riderProfile,profilePhoto:photo},{token:f.rider.token});assert.equal(avatarSaved.status,200);
+ const vendorResponse=await f.api(vendorPath,undefined,{token:f.vendor.token});assert.equal(vendorResponse.headers.get('cache-control'),'no-store');const vendor=await vendorResponse.json(),rider=await(await f.api(riderPath,undefined,{token:f.rider.token})).json();assert.deepEqual(vendor.contacts.map(c=>c.phone),[riderProfile.phone]);assert.equal(vendor.contacts[0].id,'pickup');assert.equal(vendor.contacts[0].photo,photo);assert.deepEqual(rider.contacts.map(c=>c.phone),[vendorProfile.phone]);assert.equal((await f.api(riderPath,undefined,{token:f.other.token})).status,403);
+ const publicView=JSON.stringify(await(await f.api('/api/track/'+s.publicToken)).json());for(const value of [riderProfile.phone,vendorProfile.phone,'contacts',photo])assert.equal(publicView.includes(value),false);
  await f.server.database.prepare('UPDATE rider_profiles SET suspended=1 WHERE id=?').run(f.rider.profile.id);assert.equal((await f.api(riderPath,undefined,{token:f.rider.token})).status,403);assert.deepEqual((await(await f.api(vendorPath,undefined,{token:f.vendor.token})).json()).contacts,[]);await f.server.database.prepare('UPDATE rider_profiles SET suspended=0 WHERE id=?').run(f.rider.profile.id);
  const row=await f.server.database.prepare('SELECT payload FROM shipments WHERE id=?').get(s.id),payload=JSON.parse(row.payload);payload.actors.pickup.id=f.other.profile.id;await f.server.database.prepare('UPDATE shipments SET payload=? WHERE id=?').run(JSON.stringify(payload),s.id);assert.equal((await f.api(riderPath,undefined,{token:f.rider.token})).status,403);
  payload.status='Delivered';await f.server.database.prepare('UPDATE shipments SET payload=? WHERE id=?').run(JSON.stringify(payload),s.id);assert.deepEqual((await(await f.api(vendorPath,undefined,{token:f.vendor.token})).json()).contacts,[]);assert.deepEqual((await(await f.api(riderPath,undefined,{token:f.other.token})).json()).contacts,[]);

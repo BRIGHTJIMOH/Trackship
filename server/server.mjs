@@ -121,7 +121,7 @@ export async function createApp({
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://api.maptiler.com; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://api.maptiler.com; connect-src 'self' https:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     if (origin && allowed.has(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
@@ -155,7 +155,7 @@ export async function createApp({
       }
       if (await advanced(req, res, url, send)) return;
       if (route === '/api/ready' && req.method === 'GET'){await db.prepare('SELECT 1 AS ready').get();return send(200,{ready:true,database:db.kind});}
-      if(route==='/api/version'&&req.method==='GET')return send(200,{service:'sendrack',version:'0.7.1',commit:/^[a-f0-9]{40}$/.test(env.RENDER_GIT_COMMIT||env.SOURCE_COMMIT||'')?(env.RENDER_GIT_COMMIT||env.SOURCE_COMMIT):null,branch:env.RENDER_GIT_BRANCH||null,features:{adminLiveOperationsMap:true,emailSignup:true,riderRouteDirection:true,automaticRiderTracking:true}});
+      if(route==='/api/version'&&req.method==='GET')return send(200,{service:'sendrack',version:'0.7.1',commit:/^[a-f0-9]{40}$/.test(env.RENDER_GIT_COMMIT||env.SOURCE_COMMIT||'')?(env.RENDER_GIT_COMMIT||env.SOURCE_COMMIT):null,branch:env.RENDER_GIT_BRANCH||null,features:{notificationRouteRecovery:true,adminLiveOperationsMap:true,emailSignup:true,riderRouteDirection:true,automaticRiderTracking:true}});
       if (route === '/api/health' && req.method === 'GET') return send(200, {
         service: 'trackship-ng',
         version: '0.7.1'

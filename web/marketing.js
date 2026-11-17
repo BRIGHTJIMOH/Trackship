@@ -75,3 +75,30 @@ motion.addEventListener('click', () => { motionEnabled = !motionEnabled; reflect
 reducedMotion.addEventListener('change', () => { motionEnabled = !reducedMotion.matches; reflectMotion(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) resetArtwork(); });
 reflectMotion();
+
+async function loadStories(){
+ const host=document.querySelector('#website-videos');
+ try{
+  const response=await fetch('/api/website-videos',{signal:AbortSignal.timeout(10000)});
+  if(!response.ok)return;
+  const {videos}=await response.json();if(!videos.length)return;
+  host.replaceChildren();host.className='stories-grid';
+  for(const item of videos){
+   const card=document.createElement('article');card.className='story-card'+(item.id==='founder'?' founder-story':'');
+   const label=document.createElement('p');label.className='small-label';label.textContent=item.id==='founder'?'FROM OUR FOUNDER':'THE DELIVERY EXPERIENCE';
+   const heading=document.createElement('h3');heading.textContent=item.title;
+   const screen=document.createElement('div');screen.className='story-screen';
+   const play=document.createElement('button');play.type='button';play.className='story-play';play.textContent='▶';play.setAttribute('aria-label','Play '+item.title);
+   play.onclick=()=>{
+    const player=document.createElement(item.type==='file'?'video':'iframe');
+    player.src=item.src;player.title=item.title;
+    if(item.type==='file'){player.controls=true;player.playsInline=true;player.preload='metadata';}
+    else{player.allow='fullscreen; picture-in-picture';player.allowFullscreen=true;player.referrerPolicy='strict-origin-when-cross-origin';}
+    screen.replaceChildren(player);
+    player.tabIndex=0;player.focus();
+   };
+   screen.append(play);card.append(screen,label,heading);host.append(card);
+  }
+ }catch{/* Keep the honest coming-soon state when offline. */}
+}
+loadStories();

@@ -95,7 +95,7 @@ export async function marketplace(db, {
    return {matches:reasons.length===0,reasons,shipment:{code:s.code,status:s.status,pickupCity:s.origin,pickupState:s.originState,vehicle:s.vehicleClass||'any',weightKg:s.weightKg||null,paymentStatus:s.payment?.status},rider:{name:r.display_name,city:profile.city,state:profile.state,vehicle:profile.vehicle,identityStatus:r.identity_status,identityFormat:r.identity_format},notifications:Number(notice.total),activeDevices:Number(devices.total)};
   }
   return {
-    notify,diagnostics,
+    notify,diagnostics,recover: r=>matchingOffers(r,{recover:true}),
     async canNotify({riderId,shipmentId}){const s=await getShipment(shipmentId),r=await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(riderId);return Boolean(s&&r&&s.status==='Created'&&await eligible(r,s));},
 
     matchesVehicle:(r,s)=>{try{return vehicleMatches(JSON.parse(r.public_profile||'{}'),s);}catch{return false;}},
@@ -125,10 +125,11 @@ export async function marketplace(db, {
             for(const {route,direction}of selected)await db.prepare('INSERT INTO rider_route_preferences(rider_id,route_id,direction,route_revision,available) VALUES(?,?,?,?,?)').run(r.id,route.id,direction,route.revision,p.available?1:0);
             await db.exec('COMMIT');
           }catch(e){await db.exec('ROLLBACK');throw e;}
+          if(p.available)await matchingOffers(r,{recover:true});
         }
         const routes=(await db.prepare('SELECT id,name,origin_city,origin_state,destination_city,destination_state,bidirectional,revision FROM admin_routes WHERE active=1 ORDER BY name,id').all()).map(x=>({id:x.id,name:x.name,origin:x.origin_city,originState:x.origin_state,destination:x.destination_city,destinationState:x.destination_state,bidirectional:Boolean(x.bidirectional),revision:x.revision,allowedDirections:[...(x.origin_state===JSON.parse(r.public_profile||'{}').state?['forward']:[]),...(x.bidirectional&&x.destination_state===JSON.parse(r.public_profile||'{}').state?['reverse']:[])]})).filter(x=>x.allowedDirections.length);
         const selected=await db.prepare('SELECT route_id AS "routeId",direction,route_revision AS revision,available FROM rider_route_preferences WHERE rider_id=?').all(r.id);
-        const daily=await db.prepare('SELECT day FROM rider_route_days WHERE rider_id=?').get(r.id);send(200,{routes,selected,today:lagosDay(),selectedDay:daily?.day||null,dailyConfirmed:daily?.day===lagosDay(),available:daily?.day===lagosDay()&&selected.some(x=>Boolean(x.available))});return true;
+        const daily=await db.prepare('SELECT day FROM rider_route_days WHERE rider_id=?').get(r.id),routesChanged=selected.some(s=>s.available&&!routes.some(route=>route.id===s.routeId&&route.revision===s.revision&&route.allowedDirections.includes(s.direction)));send(200,{routes,selected,today:lagosDay(),selectedDay:daily?.day||null,routesChanged,dailyConfirmed:daily?.day===lagosDay()&&!routesChanged,available:daily?.day===lagosDay()&&!routesChanged&&selected.some(x=>Boolean(x.available))});return true;
       }
       if (path === '/api/v4/rider/offers' && req.method === 'GET') {
         const r = await rider(req);

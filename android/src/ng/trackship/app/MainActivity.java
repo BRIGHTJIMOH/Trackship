@@ -120,7 +120,7 @@ public class MainActivity extends Activity {
         web.loadUrl(ORIGIN+"/sendrack-entry.html?build="+appVersion);
     }
     private void openExternal(String url) {
-        try {Uri u=Uri.parse(url);if("tel".equals(u.getScheme())){startActivity(new Intent(Intent.ACTION_DIAL,u));return;}if(!"https".equals(u.getScheme()))return;startActivity(new Intent(Intent.ACTION_VIEW,u));}
+        try {Uri u=Uri.parse(url);if("tel".equals(u.getScheme())){startActivity(new Intent(Intent.ACTION_DIAL,u));return;}if("smsto".equals(u.getScheme())&&u.getSchemeSpecificPart().matches("[+0-9]{7,16}")){startActivity(new Intent(Intent.ACTION_SENDTO,u));return;}if(!"https".equals(u.getScheme()))return;startActivity(new Intent(Intent.ACTION_VIEW,u));}
         catch(Exception e){Toast.makeText(this,"No browser is available to open this link.",Toast.LENGTH_LONG).show();}
     }
     private class Bridge {

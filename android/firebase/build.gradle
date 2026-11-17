@@ -9,8 +9,8 @@ android {
         applicationId 'ng.sendrack.test'
         minSdk 26
         targetSdk 35
-        versionCode 22
-        versionName '0.7.22-fcm'
+        versionCode 23
+        versionName '0.7.23-fcm'
     }
     sourceSets {
         main {
@@ -31,7 +31,6 @@ android {
 def stageAssets = tasks.register('stageSendrackAssets', Sync) {
     from('../../web') {
         include 'index.html', '*.mjs', 'app.js', 'style.css', 'map-controls.css', 'assets/**'
-        exclude 'assets/sendrack-studio-scooter.webp'
     }
     into(layout.buildDirectory.dir('generated/sendrack-assets/web'))
     doLast {

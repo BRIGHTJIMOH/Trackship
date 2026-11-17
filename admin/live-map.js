@@ -27,7 +27,7 @@ export function liveOperationsMap({
   const element = document.createElement("section");
   element.id = "live-operations";
   element.className = "panel live-operations";
-  element.innerHTML = `<div class="panel-head"><div><h2>Live Operations Map</h2><p class="muted">Current-holder GPS · recorded fixes, never simulated movement</p></div><button class="secondary" data-map-refresh>Reconnect / refresh</button></div><div class="map-filters"><label>State<select name="state" aria-label="Map state"><option value="">All states</option></select></label><label>City<select name="city" aria-label="Map city"><option value="">All cities</option></select></label><label>Route<select name="route" aria-label="Map route"><option value="">All routes</option></select></label><label>Status<select name="status" aria-label="Map status"><option value="">All stages</option></select></label><label>Custody chain<select name="type" aria-label="Map custody chain"><option value="">Both chains</option><option value="intrastate">Intrastate</option><option value="interstate">Interstate</option><option value="legacy">Earlier workflow</option></select></label><label class="map-search">Shipment search<input name="search" aria-label="Map shipment search" placeholder="Tracking reference, route or city" maxlength="100"></label><label class="map-lastknown"><input name="showStale" type="checkbox">Show last known positions (grey)</label></div><p class="map-connection" role="status" aria-live="polite">Connecting to authorized operations…</p><p class="map-tiles-status muted" role="status" aria-live="polite">Map tiles not checked yet.</p><div class="map-legend">${Object.entries(
+  element.innerHTML = `<div class="panel-head"><div><h2>Live Operations Map</h2><p class="muted">Shipments, routes and current locations</p></div><button class="secondary" data-map-refresh>Reconnect / refresh</button></div><div class="map-filters"><label>State<select name="state" aria-label="Map state"><option value="">All states</option></select></label><label>City<select name="city" aria-label="Map city"><option value="">All cities</option></select></label><label>Route<select name="route" aria-label="Map route"><option value="">All routes</option></select></label><label>Status<select name="status" aria-label="Map status"><option value="">All stages</option></select></label><label>Custody chain<select name="type" aria-label="Map custody chain"><option value="">Both chains</option><option value="intrastate">Intrastate</option><option value="interstate">Interstate</option><option value="legacy">Earlier workflow</option></select></label><label class="map-search">Shipment search<input name="search" aria-label="Map shipment search" placeholder="Tracking reference, route or city" maxlength="100"></label><label class="map-lastknown"><input name="showStale" type="checkbox">Show last known positions (grey)</label></div><p class="map-connection" role="status" aria-live="polite">Connecting to authorized operations…</p><p class="map-tiles-status muted" role="status" aria-live="polite">Map tiles not checked yet.</p><div class="map-legend">${Object.entries(
     {
       waiting: "Awaiting assignment",
       assigned: "Assigned / pickup travel",
@@ -46,6 +46,14 @@ export function liveOperationsMap({
     .join(
       "",
     )}</div><div class="operations-layout"><div><div class="operations-map" aria-label="Active shipment locations"></div><div class="map-empty" role="status"><h3>No fresh GPS data yet</h3><p>Active shipments will appear here when an authorized current holder shares a recent GPS fix. No location is guessed.</p></div><p class="map-count muted"></p><div class="map-cluster-list" hidden></div><details class="map-active-section"><summary>Active shipments matching filters</summary><div class="map-active-list"></div></details></div><aside class="map-detail" aria-label="Selected shipment detail"><h3>Shipment detail</h3><p class="muted">Select a marker, cluster entry or attention item.</p></aside></div><details class="attention-section" open><summary>Needs Attention <span class="attention-count">0</span></summary><div class="map-attention"></div></details>`;
+  // Keep the real map and authorized shipment list in a single operations board.
+  const board=element.querySelector('.operations-layout'),mapColumn=board.firstElementChild,active=element.querySelector('.map-active-section'),detail=element.querySelector('.map-detail');
+  board.classList.add('tracking-board');mapColumn.classList.add('tracking-map-column');
+  active.open=true;active.querySelector('summary').textContent='Delivery tracking';board.prepend(active);mapColumn.append(detail);
+  const filterDrawer=document.createElement('details');filterDrawer.className='operations-filter-drawer';filterDrawer.innerHTML='<summary>Filters & search</summary>';element.querySelector('.map-filters').before(filterDrawer);filterDrawer.append(element.querySelector('.map-filters'));
+  const diagnostics=document.createElement('details');diagnostics.className='operations-diagnostics';diagnostics.innerHTML='<summary>Map status & legend</summary>';
+  for(const selector of ['.map-connection','.map-tiles-status','.map-legend','.map-count'])diagnostics.append(element.querySelector(selector));
+  element.querySelector('.attention-section').before(diagnostics);element.querySelector('.attention-section').open=false;
   const filters = {
     state: "",
     city: "",
@@ -100,6 +108,8 @@ export function liveOperationsMap({
   };
   function select(id) {
     selected = id;
+    element.querySelectorAll('.map-active-list [data-map-shipment]').forEach(button=>{const picked=button.dataset.mapShipment===id;button.classList.toggle('selected',picked);button.setAttribute('aria-pressed',String(picked));});
+    const shipment=records.get(id);if(shipment?.gps.position&&gpsState(shipment,clock())==='fresh')map?.panTo([shipment.gps.position.lat,shipment.gps.position.lng],{animate:false});
     renderDetail();
   }
   function renderDetail() {
@@ -113,7 +123,7 @@ export function liveOperationsMap({
     }
     const freshness = gpsState(s, clock()),
       within = matchesOperations(s, filters);
-    target.innerHTML = `<h3>${esc(s.code)}</h3><p class="map-stage">${esc(s.status)}</p><p>${esc(s.origin)}, ${esc(s.originState)} → ${esc(s.destination)}, ${esc(s.destinationState)}</p><p>${esc(s.deliveryType)} · current holder: <strong>${esc(s.custodian)}</strong></p><p class="map-freshness">${freshness === "fresh" ? (connected ? "Recent authorized GPS" : "Recent fix · feed disconnected") : freshness === "stale" ? "Last known GPS · stale, not live" : "No authorized current-holder GPS"}</p><p class="muted">Server received: ${esc(date(s.gps.receivedAt))}<br>GPS observed: ${esc(date(s.gps.observedAt))}${s.gps.position ? "<br>Reported accuracy: " + Math.round(s.gps.position.accuracy) + " m" : ""}</p>${!within ? '<p class="note">Selected shipment is outside the current filters; your selection is retained.</p>' : ""}${s.attention.length ? "<ul>" + s.attention.map((r) => "<li>" + esc(r) + "</li>").join("") + "</ul>" : ""}<h4>Custody checkpoints</h4><ol class="map-history">${s.events.map((e) => `<li><strong>${esc(e.status)}</strong><small>${esc(e.leg)} · ${esc(date(e.at))}</small></li>`).join("")}</ol>${s.gps.position ? `<button type="button" class="secondary" data-map-locate="${esc(s.id)}">Locate recorded fix</button>` : ""}<p class="muted">No customer contacts, precise addresses, identity documents or delivery codes are included in this map feed.</p>`;
+    target.innerHTML = `<div class="board-detail-head"><div><small>Shipment reference</small><h3>${esc(s.code)}</h3></div><span class="board-status">${esc(s.status)}</span></div><div class="board-journey"><div><small>From</small><strong>${esc(s.origin)}, ${esc(s.originState)}</strong></div><span aria-hidden="true">→</span><div><small>To</small><strong>${esc(s.destination)}, ${esc(s.destinationState)}</strong></div><div><small>Current holder</small><strong>${esc(s.custodian)}</strong></div></div><p class="map-freshness">${freshness === "fresh" ? (connected ? "Recent authorized GPS" : "Recent fix · feed disconnected") : freshness === "stale" ? "Last known GPS · stale, not live" : "Waiting for holder location"}</p>${s.gps.position ? `<button type="button" class="secondary" data-map-locate="${esc(s.id)}">Locate recorded fix</button>` : ""}<details class="board-checkpoints"><summary>Delivery checkpoints & GPS details</summary><p>${esc(s.deliveryType)} · Server received: ${esc(date(s.gps.receivedAt))}<br>GPS observed: ${esc(date(s.gps.observedAt))}${s.gps.position ? "<br>Reported accuracy: " + Math.round(s.gps.position.accuracy) + " m" : ""}</p>${!within ? '<p class="note">Outside the current filters.</p>' : ""}${s.attention.length ? "<ul>" + s.attention.map(r=>"<li>"+esc(r)+"</li>").join("") + "</ul>" : ""}<ol class="map-history">${s.events.map(e=>`<li><strong>${esc(e.status)}</strong><small>${esc(e.leg)} · ${esc(date(e.at))}</small></li>`).join('')}</ol></details>`;
   }
   function options() {
     const values = [...records.values()];
@@ -239,7 +249,7 @@ export function liveOperationsMap({
               : "No matching positions in this view";
       const copy =
         fresh === 0
-          ? "Recent observation and receipt timestamps, current custody, consent and an active session are required. Older or missing GPS is not shown as live. Use the shipment and attention lists below."
+          ? "A current holder location will appear when sharing starts. You can still select deliveries in the list."
           : "Pan or zoom out, adjust filters, or use Locate recorded fix in the shipment detail panel.";
       empty.innerHTML = "<h3>" + title + "</h3><p>" + copy + "</p>";
     }
@@ -294,12 +304,13 @@ export function liveOperationsMap({
           .slice(0, 100)
           .map(
             (s) =>
-              `<button type="button" class="map-attention-item" data-map-shipment="${esc(s.id)}">${esc(s.code)} · ${esc(s.status)} · ${gpsState(s, clock()) === "fresh" ? "Recent GPS" : "No current GPS"}</button>`,
+              `<button type="button" class="map-attention-item board-shipment ${selected===s.id?'selected':''}" data-map-shipment="${esc(s.id)}" aria-pressed="${selected===s.id}"><span class="board-shipment-top"><strong>${esc(s.code)}</strong><b>${esc(s.status)}</b></span><span class="board-shipment-route">${esc(s.origin)} → ${esc(s.destination)}</span><span class="board-shipment-bottom">${esc(s.custodian)}<i>${gpsState(s, clock()) === "fresh" ? "Recent GPS" : "Awaiting GPS"}</i></span></button>`,
           )
           .join("") +
         (filtered.length > 100
           ? `<p class="muted">100 of ${filtered.length} shown. Search or filter to locate another shipment.</p>`
           : "");
+    if(!filtered.length)activeList.innerHTML='<p class="muted board-no-deliveries">No active deliveries match these filters.</p>';
     if (selected) renderDetail();
     if (clusterIds) renderCluster();
   }
@@ -345,6 +356,7 @@ export function liveOperationsMap({
         zoomAnimation: false,
         markerZoomAnimation: false,
       }).setView([9.08, 8.68], 6);
+      map.attributionControl.setPosition('topright');
       map.on("movestart", () => { initialized = true; });
       map.on("zoomend moveend", renderMarkers);
       const host = document.createElement("div");

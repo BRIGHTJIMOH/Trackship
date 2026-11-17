@@ -4,7 +4,7 @@ const hash=value=>createHash('sha256').update(value).digest('hex');
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 function fail(message,status=400){throw Object.assign(new Error(message),{status});}
 const matches=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
-export async function deliveryPush(db,{env=process.env,body,rider,sender=createFcmSender({env}),now=Date.now,canDeliver=async()=>true}={}){
+export async function deliveryPush(db,{env=process.env,body,rider,sender=createFcmSender({env}),now=Date.now,canDeliver=async()=>true,onRegistered=async()=>{}}={}){
  await db.exec(`CREATE TABLE IF NOT EXISTS push_installations(installation_id TEXT PRIMARY KEY,secret_hash TEXT NOT NULL,rider_id TEXT NOT NULL,session_hash TEXT NOT NULL,fcm_token TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,enabled INTEGER NOT NULL DEFAULT 1,updated INTEGER NOT NULL);
  CREATE INDEX IF NOT EXISTS push_installations_rider ON push_installations(rider_id);
  CREATE TABLE IF NOT EXISTS push_deliveries(notification_id TEXT NOT NULL,installation_id TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,next_attempt INTEGER NOT NULL DEFAULT 0,lease_until INTEGER NOT NULL DEFAULT 0,provider_reference TEXT,last_error TEXT,PRIMARY KEY(notification_id,installation_id));`);
@@ -24,7 +24,13 @@ export async function deliveryPush(db,{env=process.env,body,rider,sender=createF
   if(existing&&existing.session_hash!==account.sessionHash)await db.prepare('DELETE FROM push_deliveries WHERE installation_id=?').run(p.installationId);
   await db.prepare(`INSERT INTO push_installations(installation_id,secret_hash,rider_id,session_hash,fcm_token,token_hash,enabled,updated) VALUES (?,?,?,?,?,?,1,?) ON CONFLICT(installation_id) DO UPDATE SET rider_id=excluded.rider_id,session_hash=excluded.session_hash,fcm_token=excluded.fcm_token,token_hash=excluded.token_hash,enabled=1,updated=excluded.updated`).run(p.installationId,hash(p.installationSecret),account.id,account.sessionHash,p.token,hash(p.token),now());
   if(existing&&existing.token_hash!==hash(p.token))await db.prepare("UPDATE push_deliveries SET state='pending',attempts=0,next_attempt=0,lease_until=0 WHERE installation_id=? AND state IN ('invalid','failed')").run(p.installationId);
+  await onRegistered(account);
+  await requeue(account.id);kick();
   send(200,{registered:true,pushReady:sender.ready});return true;
+ }
+ async function requeue(riderId){
+  // Reconsider only unsent alerts. A successful provider send is never duplicated.
+  await db.prepare("UPDATE push_deliveries SET state='pending',attempts=0,next_attempt=0,lease_until=0 WHERE state='obsolete' AND notification_id IN (SELECT id FROM delivery_notifications WHERE rider_id=? AND seen=0 AND created>?)").run(riderId,now()-86400000);
  }
  async function claim(){return db.withRequest('POST',async()=>{
   const time=now();
@@ -56,5 +62,5 @@ export async function deliveryPush(db,{env=process.env,body,rider,sender=createF
  }finally{running=false;}}
  let timer=null,wake=null;
  function kick(){if(!sender.ready||wake)return;db.outsideRequest(()=>{wake=setImmediate(()=>{wake=null;void drain().catch(()=>{});});wake.unref();});}
- return {route,drain,kick,ready:sender.ready,start(){if(sender.ready&&!timer){timer=setInterval(()=>{void drain().catch(()=>{});},15000);timer.unref();void drain().catch(()=>{});}},stop(){if(timer)clearInterval(timer);if(wake)clearImmediate(wake);timer=null;wake=null;}};
+ return {route,drain,kick,requeue,ready:sender.ready,start(){if(sender.ready&&!timer){timer=setInterval(()=>{void drain().catch(()=>{});},15000);timer.unref();void drain().catch(()=>{});}},stop(){if(timer)clearInterval(timer);if(wake)clearImmediate(wake);timer=null;wake=null;}};
 }

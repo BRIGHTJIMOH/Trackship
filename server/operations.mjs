@@ -232,7 +232,7 @@ export async function operations(db, {
     providers,
     env
   });
-  const push=await deliveryPush(db,{env,body,rider,canDeliver:job=>market.canNotify({riderId:job.rider_id,shipmentId:job.shipment_id})});
+  const push=await deliveryPush(db,{env,body,rider,onRegistered:r=>market.recover(r),canDeliver:job=>market.canNotify({riderId:job.rider_id,shipmentId:job.shipment_id})});
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
@@ -255,7 +255,7 @@ export async function operations(db, {
     const routeQuote=path.match(/^\/api\/routes\/([a-f0-9-]{36})\/quote$/);
     if(routeQuote&&req.method==='POST'){send(200,await catalog.quote(routeQuote[1],await body(req)));return true;}
     if (await accountAccess.route(req, path, send)) return true;
-    if (await market.route(req, path, send)) return true;
+    if (await market.route(req, path, send)){if(req.method==='POST'&&path==='/api/v4/rider/routes'){const r=await rider(req);await push.requeue(r.id);push.kick();}else if(path==='/api/v4/rider/dispatch/sync')push.kick();return true;}
     const pickupPin=path.match(/^\/api\/v3\/shipments\/([a-f0-9-]{36})\/pickup-location$/);
     if(pickupPin&&req.method==='POST'){const merchant=await owner(req);if(!merchant)fail('Sign in to set the pickup.',401);const row=await db.prepare('SELECT payload FROM shipments WHERE id=? AND owner=?').get(pickupPin[1],merchant);if(!row)fail('Delivery not found.',404);const s=JSON.parse(row.payload);if(s.status!=='Created')fail('Pickup cannot change after a rider accepts.',409);const p=await body(req),pin=pickupLocation(p);await putShipment({...s,pickupLocation:pin});send(200,{pickupLocation:pin});return true;}
 

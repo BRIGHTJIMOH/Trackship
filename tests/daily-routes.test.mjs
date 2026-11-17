@@ -8,3 +8,13 @@ test('daily route declarations use Lagos day, filter by starting state and rejec
  await f.server.database.prepare('UPDATE rider_route_days SET day=? WHERE rider_id=?').run('2000-01-01',rider.profile.id);const next=await(await f.api(path,undefined,{token:rider.token})).json();assert.equal(next.dailyConfirmed,false);assert.equal(next.available,false);assert.equal((await f.api(path,{routes:[],available:false},{token:rider.token})).status,200);const off=await(await f.api(path,undefined,{token:rider.token})).json();assert.equal(off.dailyConfirmed,true);assert.equal(off.available,false);
  }finally{await f.close();}
 });
+
+test('a changed working route requires fresh confirmation even on the same day',async()=>{
+ const f=await adminFixture();try{const owner=await f.login(),rider=await f.account('rider',riderProfile);await f.identity('rider',rider);
+ const input={name:'Test local route',origin:'Zaria',originState:'Kaduna',destination:'Kaduna',destinationState:'Kaduna',deliveryType:'intrastate',pickupFee:'1000',carrierFee:'0',lastMileFee:'0',active:true,bidirectional:true};
+ const route=await(await f.api('/api/admin/routes',input,owner)).json();const endpoint='/api/v4/rider/routes';await f.api(endpoint,{routes:[{routeId:route.id,direction:'forward',revision:route.revision}],available:true},{token:rider.token});
+ const updated=await(await f.api('/api/admin/routes/'+route.id,{...input,pickupFee:'1200',revision:route.revision},owner)).json();
+ const stale=await(await f.api(endpoint,undefined,{token:rider.token})).json();assert.equal(stale.routesChanged,true);assert.equal(stale.dailyConfirmed,false);assert.equal(stale.available,false);
+ const confirmed=await(await f.api(endpoint,{routes:[{routeId:route.id,direction:'forward',revision:updated.revision}],available:true},{token:rider.token})).json();assert.equal(confirmed.dailyConfirmed,true);assert.equal(confirmed.routesChanged,false);
+ }finally{await f.close();}
+});

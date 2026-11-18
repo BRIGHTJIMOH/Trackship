@@ -36,3 +36,28 @@ test('route settings require rider authentication, valid direction and current r
   await f.api('/api/v4/rider/routes',{routes:[],available:false},{token:a.token});assert.equal((await(await f.api('/api/v4/rider/routes',undefined,{token:a.token})).json()).selected.length,0);assert.equal((await(await f.api('/api/v4/rider/routes',undefined,{token:b.token})).json()).selected.length,1);
  }finally{await f.close();}
 });
+
+test('same-city two-way route accepts either explicitly selected equivalent direction',async()=>{
+ const f=await adminFixture();try{
+  const vendor=await f.account('vendor',vendorProfile),rider=await register(f,1),local={...fields,destination:'Zaria'},route=await configuredRoute(f,local);await selectRoute(f,rider,route,'reverse');
+  const s=await create(f,vendor,route,{destination:'Zaria',routeReverse:false});
+  const offers=await(await f.api('/api/v4/rider/offers',undefined,{token:rider.token})).json();assert.equal(offers.offers.some(o=>o.id===s.id),true);
+  assert.equal((await f.server.database.prepare("SELECT COUNT(*) AS n FROM delivery_notifications WHERE shipment_id=? AND rider_id=? AND phase='created'").get(s.id,rider.profile.id)).n,1);
+  // Selection is still required for this exact route, on this day, at its current revision.
+  await selectRoute(f,rider,route,'reverse',false);assert.equal((await(await f.api('/api/v4/rider/offers',undefined,{token:rider.token})).json()).offers.length,0);
+ }finally{await f.close();}
+});
+
+test('owner matching identifies the exact daily selection, route and revision blocker',async()=>{
+ const f=await adminFixture();try{
+  const vendor=await f.account('vendor',vendorProfile),rider=await register(f,1),owner=await f.login(),local={...fields,destination:'Zaria'},route=await configuredRoute(f,local),other=await configuredRoute(f,local),s=await create(f,vendor,route,{destination:'Zaria'});
+  const check=async()=>{const r=await f.api('/api/admin/dispatch-diagnostics?shipmentId='+s.id+'&riderId='+rider.profile.id,undefined,owner);assert.equal(r.status,200);return r.json();};
+  assert.deepEqual((await check()).reasons,['route-day-not-confirmed']);
+  await selectRoute(f,rider,other);assert.deepEqual((await check()).reasons,['route-not-selected']);
+  await selectRoute(f,rider,route,'reverse',false);assert.deepEqual((await check()).reasons,['route-unavailable-today']);
+  await selectRoute(f,rider,route,'reverse');await f.server.database.prepare('UPDATE admin_routes SET revision=2 WHERE id=?').run(route);assert.deepEqual((await check()).reasons,['route-selection-outdated']);
+  await selectRoute(f,rider,route,'reverse',true,2);const matched=await check();assert.equal(matched.matches,true);assert.equal(matched.shipment.routeName,'Test configured route');assert.equal(matched.rider.selectedRoutes[0].direction,'reverse');
+  await f.server.database.prepare('UPDATE admin_routes SET bidirectional=0 WHERE id=?').run(route);assert.deepEqual((await check()).reasons,['route-direction-mismatch']);assert.equal((await(await f.api('/api/v4/rider/offers',undefined,{token:rider.token})).json()).offers.length,0);
+  await f.server.database.prepare('UPDATE admin_routes SET active=0 WHERE id=?').run(route);assert.deepEqual((await check()).reasons,['route-inactive-or-removed']);
+ }finally{await f.close();}
+});

@@ -28,15 +28,21 @@ export async function marketplace(db, {
   const allShipments=async()=>(await db.prepare('SELECT payload FROM shipments').all()).map(row=>JSON.parse(row.payload)).filter(s=>!s.testRemoval);
   const activeFor=(r,all)=>all.filter(j=>!['Delivered','Cancelled'].includes(j.status)&&Object.entries(j.actors||{}).some(([leg,actor])=>actor.id===r.id&&(j.custodian===leg||j.status==='Rider accepted'))).length;
   async function routeReasons(r,s){
-    // Open offers require an explicit, current route/direction declaration. Never guess a destination from pickup city or GPS heading.
-    if(!s.routeId)return ['route-direction-unavailable'];
-    const day=await db.prepare('SELECT day FROM rider_route_days WHERE rider_id=?').get(r.id);if(day?.day!==lagosDay())return ['route-direction-unavailable'];
+    if(!s.routeId)return ['shipment-route-missing'];
+    const day=await db.prepare('SELECT day FROM rider_route_days WHERE rider_id=?').get(r.id);if(day?.day!==lagosDay())return ['route-day-not-confirmed'];
     const route=await db.prepare('SELECT * FROM admin_routes WHERE id=? AND active=1').get(s.routeId);
-    if(!route)return ['route-direction-unavailable'];
+    if(!route)return ['route-inactive-or-removed'];
     const forward=normalize(s.origin)===normalize(route.origin_city)&&s.originState===route.origin_state&&normalize(s.destination)===normalize(route.destination_city)&&s.destinationState===route.destination_state;
     const reverse=Boolean(route.bidirectional)&&normalize(s.origin)===normalize(route.destination_city)&&s.originState===route.destination_state&&normalize(s.destination)===normalize(route.origin_city)&&s.destinationState===route.origin_state;
-    const direction=forward?'forward':reverse?'reverse':null;
-    if(!direction||s.deliveryType!==route.delivery_type||!await db.prepare('SELECT rider_id FROM rider_route_preferences WHERE rider_id=? AND route_id=? AND direction=? AND route_revision=? AND available=1').get(r.id,route.id,direction,route.revision))return ['route-direction-unavailable'];
+    const directions=[...(forward?['forward']:[]),...(reverse?['reverse']:[])];
+    if(!directions.length||s.deliveryType!==route.delivery_type)return ['shipment-route-mismatch'];
+    const selected=await db.prepare('SELECT direction,route_revision,available FROM rider_route_preferences WHERE rider_id=? AND route_id=?').all(r.id,route.id);
+    if(!selected.length)return ['route-not-selected'];
+    const available=selected.filter(p=>p.available);if(!available.length)return ['route-unavailable-today'];
+    // Identical local endpoints match both directions of this same configured route.
+    // Different endpoints and one-way routes still require the exact permitted direction.
+    const matching=available.filter(p=>directions.includes(p.direction));if(!matching.length)return ['route-direction-mismatch'];
+    if(!matching.some(p=>p.route_revision===route.revision))return ['route-selection-outdated'];
     return [];
   }
   async function eligible(r,s){if((await routeReasons(r,s)).length)return false;return dispatchMatchReasons(r,s,{activeCount:activeFor(r,await allShipments()),capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}).length===0;}
@@ -91,8 +97,9 @@ export async function marketplace(db, {
    if(!shipmentId&&!riderId)return {shipments:all.sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt)).slice(0,100).map(s=>({id:s.id,code:s.code,status:s.status})),riders:riders.map(r=>({id:r.id,name:r.display_name}))};
    const s=all.find(s=>s.id===shipmentId),r=riders.find(r=>r.id===riderId);if(!s||!r)fail('Select an existing shipment and rider.',404);
    const reasons=[...dispatchMatchReasons(r,s,{activeCount:activeFor(r,all),capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}),...await routeReasons(r,s)];let profile={};try{profile=JSON.parse(r.public_profile||'{}');}catch{}
-   const notice=await db.prepare('SELECT COUNT(*) AS total FROM delivery_notifications WHERE shipment_id=? AND rider_id=?').get(s.id,r.id),devices=await db.prepare('SELECT COUNT(*) AS total FROM push_installations i JOIN rider_sessions session ON session.token_hash=i.session_hash WHERE i.rider_id=? AND i.enabled=1 AND session.expires>?').get(r.id,Date.now());
-   return {matches:reasons.length===0,reasons,shipment:{code:s.code,status:s.status,pickupCity:s.origin,pickupState:s.originState,vehicle:s.vehicleClass||'any',weightKg:s.weightKg||null,paymentStatus:s.payment?.status},rider:{name:r.display_name,city:profile.city,state:profile.state,vehicle:profile.vehicle,identityStatus:r.identity_status,identityFormat:r.identity_format},notifications:Number(notice.total),activeDevices:Number(devices.total)};
+   const route=s.routeId?await db.prepare('SELECT name FROM admin_routes WHERE id=?').get(s.routeId):null,selectedRoutes=await db.prepare('SELECT a.name,p.direction,p.available,p.route_revision AS revision FROM rider_route_preferences p JOIN admin_routes a ON a.id=p.route_id WHERE p.rider_id=?').all(r.id);
+   const notice=await db.prepare("SELECT COUNT(*) AS total FROM delivery_notifications WHERE shipment_id=? AND rider_id=? AND account_role='rider'").get(s.id,r.id),devices=await db.prepare(`SELECT COUNT(*) AS total FROM push_installations i JOIN rider_sessions session ON session.token_hash=i.session_hash WHERE i.rider_id=? AND i.account_role='rider' AND session.rider_id=i.rider_id AND i.enabled=1 AND session.expires>?`).get(r.id,Date.now());
+   return {matches:reasons.length===0,reasons,shipment:{code:s.code,routeName:route?.name||null,status:s.status,pickupCity:s.origin,pickupState:s.originState,vehicle:s.vehicleClass||'any',weightKg:s.weightKg||null,paymentStatus:s.payment?.status},rider:{name:r.display_name,selectedRoutes,city:profile.city,state:profile.state,vehicle:profile.vehicle,identityStatus:r.identity_status,identityFormat:r.identity_format},notifications:Number(notice.total),activeDevices:Number(devices.total)};
   }
   return {
     notify,diagnostics,recover: r=>matchingOffers(r,{recover:true}),

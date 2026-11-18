@@ -18,7 +18,7 @@ test('FCM uses cached OAuth v1 credentials and sends only an opaque inbox refere
  let tokens=0,sends=0;const sender=createFcmSender({env:{FCM_ENABLED:'true',FCM_SERVICE_ACCOUNT_JSON:JSON.stringify(account)},fetchImpl:async(url,options)=>{
   assert.equal(options.redirect,'error');
   if(url==='https://oauth2.googleapis.com/token'){tokens++;const jwt=options.body.get('assertion'),[header,body,signature]=jwt.split('.');assert.equal(verify('RSA-SHA256',Buffer.from(header+'.'+body),publicKey,Buffer.from(signature,'base64url')),true);const claims=JSON.parse(Buffer.from(body,'base64url'));assert.equal(claims.aud,'https://oauth2.googleapis.com/token');assert.equal(claims.scope,'https://www.googleapis.com/auth/firebase.messaging');return Response.json({access_token:'mock-oauth-token',expires_in:3600});}
-  assert.equal(url,'https://fcm.googleapis.com/v1/projects/sendrack-test-project/messages:send');assert.equal(options.headers.Authorization,'Bearer mock-oauth-token');const payload=JSON.parse(options.body);assert.deepEqual(Object.keys(payload.message.data).sort(),['binding','eventId']);assert.equal(payload.message.notification,undefined);assert.equal(payload.message.android.restricted_package_name,'ng.sendrack.test');sends++;return Response.json({name:'projects/sendrack-test-project/messages/'+sends});
+  assert.equal(url,'https://fcm.googleapis.com/v1/projects/sendrack-test-project/messages:send');assert.equal(options.headers.Authorization,'Bearer mock-oauth-token');const payload=JSON.parse(options.body);assert.deepEqual(Object.keys(payload.message.data).sort(),['accountRole','binding','eventId']);assert.equal(payload.message.notification,undefined);assert.equal(payload.message.android.restricted_package_name,'ng.sendrack.test');sends++;return Response.json({name:'projects/sendrack-test-project/messages/'+sends});
  }});
  const payload={token:'device-token',eventId:randomUUID(),binding:digest('account-session')};assert.equal((await sender.send(payload)).status,'sent');assert.equal((await sender.send(payload)).status,'sent');assert.equal(tokens,1);assert.equal(sends,2);assert.equal(createFcmSender({env:{}}).ready,false);assert.throws(()=>createFcmSender({env:{FCM_ENABLED:'true'}}),/private service-account/);
 });
@@ -101,5 +101,46 @@ test('temporarily ineligible unsent alerts can recover without duplicating a suc
  const f=await adminFixture();try{const rider=await f.account('rider',riderProfile),device=installation();await f.api('/api/v4/rider/push/register',device,{token:rider.token});await event(f.server.database,rider.profile.id);let eligible=false,sends=0;
  const push=await deliveryPush(f.server.database,{sender:{ready:true,async send(){sends++;return {status:'sent'};}},canDeliver:async()=>eligible});
  await push.drain();assert.equal(sends,0);eligible=true;await push.requeue(rider.profile.id);await push.drain();assert.equal(sends,1);await push.requeue(rider.profile.id);await push.drain();assert.equal(sends,1);
+ }finally{await f.close();}
+});
+
+test('a token rotation during a send cannot mark the refreshed device delivery as sent',async()=>{
+ const f=await adminFixture();try{
+  const r=await f.account('rider',riderProfile),device=installation();await f.api('/api/v4/rider/push/register',device,{token:r.token});const id=await event(f.server.database,r.profile.id);let time=Date.now(),sends=0;
+  const push=await deliveryPush(f.server.database,{now:()=>time,sender:{ready:true,async send(payload){sends++;if(sends===1){assert.equal(payload.token,device.token);assert.equal((await f.api('/api/v4/rider/push/register',{...device,token:device.token+'-rotated'},{token:r.token})).status,200);}else assert.equal(payload.token,device.token+'-rotated');return {status:'sent',reference:'mock-send-'+sends};}}});
+  await push.drain();assert.notEqual((await f.server.database.prepare('SELECT state FROM push_deliveries WHERE notification_id=?').get(id)).state,'sent');time+=61000;await push.drain();assert.equal(sends,2);assert.equal((await f.server.database.prepare('SELECT state FROM push_deliveries WHERE notification_id=?').get(id)).state,'sent');
+ }finally{await f.close();}
+});
+
+test('push failures log safe codes and event references without tokens or provider secrets',async()=>{
+ const f=await adminFixture();try{
+  const r=await f.account('rider',riderProfile),device=installation();await f.api('/api/v4/rider/push/register',device,{token:r.token});const id=await event(f.server.database,r.profile.id),logs=[];
+  const push=await deliveryPush(f.server.database,{logger:line=>logs.push(line),sender:{ready:true,async send(){throw Object.assign(Error('sensitive provider response '+device.token),{code:'FCM_AUTHORIZATION_FAILED'});}}});
+  await push.drain();assert.equal(logs[0].notificationId,id);assert.equal(logs[0].code,'FCM_AUTHORIZATION_FAILED');assert.equal(logs[0].attempt,1);assert.ok(!JSON.stringify(logs).includes(device.token));assert.equal((await f.server.database.prepare('SELECT last_error FROM push_deliveries WHERE notification_id=?').get(id)).last_error,'FCM_AUTHORIZATION_FAILED');
+ }finally{await f.close();}
+});
+
+test('re-registering a rejected Firebase token requests rotation instead of claiming the phone is connected',async()=>{
+ const f=await adminFixture();try{
+  const r=await f.account('rider',riderProfile),device=installation();await f.api('/api/v4/rider/push/register',device,{token:r.token});await event(f.server.database,r.profile.id);
+  const push=await deliveryPush(f.server.database,{logger:()=>{},sender:{ready:true,async send(){return {status:'invalid-token',code:'UNREGISTERED'};}}});await push.drain();
+  const result=await(await f.api('/api/v4/rider/push/register',device,{token:r.token})).json();assert.equal(result.registered,false);assert.equal(result.tokenRefreshRequired,true);assert.equal((await f.server.database.prepare('SELECT enabled FROM push_installations WHERE installation_id=?').get(device.installationId)).enabled,0);
+ }finally{await f.close();}
+});
+
+test('vendors and riders register separately, receive their own lifecycle alerts and revoke devices on logout',async()=>{
+ const {newTransport}=await import('../web/lifecycle.mjs'),f=await adminFixture();try{
+  const v=await f.account('vendor',vendorProfile),other=await f.account('vendor',{...vendorProfile,phone:'08012345679'}),r=await f.account('rider',riderProfile);await f.identity('rider',r);
+  const vd=installation(),rd=installation();assert.equal((await f.api('/api/v4/vendor/push/register',vd,{token:r.token})).status,401);assert.equal((await f.api('/api/v4/rider/push/register',rd,{token:v.token})).status,401);
+  assert.equal((await f.api('/api/v4/vendor/push/register',vd,{token:v.token})).status,200);assert.equal((await f.api('/api/v4/rider/push/register',rd,{token:r.token})).status,200);
+  const fields={origin:'Zaria',originState:'Kaduna',destination:'Kaduna',destinationState:'Kaduna',deliveryType:'intrastate',deliveryFee:'1000'},routeId=await configuredRoute(f,fields,[r]);
+  const s=await(await f.api('/api/v3/shipments',newTransport({...fields,routeId,sender:vendorProfile.businessName,recipient:'Sample recipient',phone:'08011112222',description:'Role-bound delivery',address:'Sample delivery address'},vendorProfile.businessName),{token:v.token})).json();
+  await f.api(`/api/v3/shipments/${s.id}/pay`,{email:'sample@example.invalid'},{token:v.token});await f.api(`/api/v3/shipments/${s.id}/verify-payment`,{},{token:v.token});assert.equal((await f.api(`/api/v4/rider/offers/${s.id}/accept`,{},{token:r.token})).status,200);
+  const mine=(await(await f.api('/api/v4/vendor/notifications',undefined,{token:v.token})).json()).notifications;assert.equal(mine.length,1);assert.match(mine[0].body,/Rider accepted/);assert.equal((await(await f.api('/api/v4/vendor/notifications',undefined,{token:other.token})).json()).notifications.length,0);assert.equal((await f.api('/api/v4/vendor/notifications',undefined,{token:r.token})).status,401);
+  await f.api('/api/v4/vendor/notifications/read',{ids:[mine[0].id]},{token:other.token});assert.equal((await f.server.database.prepare('SELECT seen FROM delivery_notifications WHERE id=?').get(mine[0].id)).seen,0);
+  const sent=[],push=await deliveryPush(f.server.database,{sender:{ready:true,async send(p){sent.push(p);return {status:'sent',reference:'mock-role-send'};}}});await push.drain();const vendorSends=sent.filter(p=>p.accountRole==='vendor');assert.equal(vendorSends.length,1);assert.equal(vendorSends[0].token,vd.token);assert.equal(vendorSends[0].binding,digest(v.token));assert.ok(sent.some(p=>p.accountRole==='rider'&&p.token===rd.token));
+  await f.api('/api/v4/vendor/notifications/read',{ids:[mine[0].id]},{token:v.token});assert.equal((await f.server.database.prepare('SELECT seen FROM delivery_notifications WHERE id=?').get(mine[0].id)).seen,1);
+  const owner=await f.login(),ready=await(await f.api('/api/admin/delivery-readiness',undefined,owner)).json();assert.equal(ready.push.activeVendorDevices,1);assert.equal(ready.push.activeDevices,1);
+  assert.equal((await f.api('/api/auth/logout',{},{token:v.token})).status,200);assert.equal((await f.server.database.prepare('SELECT COUNT(*) AS n FROM push_installations WHERE session_hash=?').get(digest(v.token))).n,0);assert.equal((await f.api('/api/v4/vendor/notifications',undefined,{token:v.token})).status,401);assert.equal((await f.api('/api/v3/rider/me',undefined,{token:r.token})).status,200);
  }finally{await f.close();}
 });

@@ -145,7 +145,7 @@ export async function createApp({
       if (!rate(req, 'all', 300)) return send(429, {
         error: 'Too many requests. Try again in a minute.'
       });
-      if(route.startsWith('/api/v4/rider/push/')&&!rate(req,'push-device',20))return send(429,{error:'Please try again in a minute.'});
+      if(/^\/api\/v4\/(rider|vendor)\/push\//.test(route)&&!rate(req,'push-device',20))return send(429,{error:'Please try again in a minute.'});
       if(route==='/api/waitlist'&&req.method==='POST'){
         if(!rate(req,'waitlist',5))return send(429,{error:'Please try again in a minute.'});
         const p=await body(req,4096),email=typeof p.email==='string'?p.email.trim().toLowerCase():'';

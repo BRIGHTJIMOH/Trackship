@@ -80,7 +80,7 @@ public class MainActivity extends Activity {
         web.getSettings().setSupportMultipleWindows(false);
         web.addJavascriptInterface(new Bridge(), "TrackShip");
         web.setWebViewClient(new WebViewClient() {
-            @Override public void onPageFinished(WebView view,String url){view.evaluateJavascript("document.documentElement.dataset.nativeInsets='true'",null);if(getIntent().getBooleanExtra("open-rider-alerts",false)){getIntent().removeExtra("open-rider-alerts");view.evaluateJavascript("window.TrackShipOpenAlerts?.()",null);}}
+            @Override public void onPageFinished(WebView view,String url){view.evaluateJavascript("document.documentElement.dataset.nativeInsets='true'",null);openDeliveryAlert(view,getIntent());}
 
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
                 Uri uri=req.getUrl();
@@ -148,10 +148,12 @@ public class MainActivity extends Activity {
         @JavascriptInterface public boolean hasIdentity(String phone){return new IdentityVault(MainActivity.this).exists(phone);}
         @JavascriptInterface public String loadIdentity(String phone){return new IdentityVault(MainActivity.this).load(phone);}
         @JavascriptInterface public void clearIdentity(String phone){new IdentityVault(MainActivity.this).remove(phone);}
-        @JavascriptInterface public void configureDeliveryAlerts(String base,String token){runOnUiThread(()->{if(!DeliveryAlerts.configure(MainActivity.this,base,token))return;if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED&&!getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).getBoolean("asked",false)){getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).edit().putBoolean("asked",true).apply();requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},ALERT_PERMISSION);}});}
+        @JavascriptInterface public void configureDeliveryAlerts(String base,String token){configureAccountAlerts(base,token,"rider");}
+        @JavascriptInterface public void configureAccountAlerts(String base,String token,String role){runOnUiThread(()->{if(!DeliveryAlerts.configure(MainActivity.this,base,token,role))return;if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED&&!getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).getBoolean("asked",false)){getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).edit().putBoolean("asked",true).apply();requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},ALERT_PERMISSION);}});}
+
         @JavascriptInterface public String getDeliveryPushStatus(){return FirebaseBridge.status(MainActivity.this);}
         @JavascriptInterface public void retryDeliveryPush(){runOnUiThread(()->FirebaseBridge.call(MainActivity.this,"retry"));}
-        @JavascriptInterface public void requestDeliveryAlertsPermission(){runOnUiThread(()->{if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},ALERT_PERMISSION);});}
+        @JavascriptInterface public void requestDeliveryAlertsPermission(){runOnUiThread(()->{boolean denied=android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED;boolean asked=getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).getBoolean("asked",false);if(denied&&(!asked||shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS))){getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).edit().putBoolean("asked",true).apply();requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},ALERT_PERMISSION);}else startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName()));});}
         @JavascriptInterface public void clearDeliveryAlerts(){runOnUiThread(()->DeliveryAlerts.clear(MainActivity.this));}
         @JavascriptInterface public void notifyDelivery(String id,String title,String body){runOnUiThread(()->DeliveryAlerts.show(MainActivity.this,id,title,body));}
         @JavascriptInterface public void exportCsv(String csv){if(csv==null||csv.length()>200000)return;runOnUiThread(()->{pendingBackup=csv;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("text/csv");i.putExtra(Intent.EXTRA_TITLE,"SendRack-bulk-template.csv");try{startActivityForResult(i,SAVE_BACKUP);}catch(Exception e){pendingBackup=null;}});}
@@ -178,7 +180,9 @@ public class MainActivity extends Activity {
         if(web!=null&&needsReauth){needsReauth=false;web.evaluateJavascript("window.TrackShipLock?.()",value->{if(web!=null)web.setVisibility(View.VISIBLE);});}
         else if(web!=null)web.setVisibility(View.VISIBLE);
     }
-    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(web!=null&&intent.getBooleanExtra("open-rider-alerts",false)){intent.removeExtra("open-rider-alerts");web.evaluateJavascript("window.TrackShipOpenAlerts?.()",null);}}
+    private void openDeliveryAlert(WebView view,Intent intent){if(intent==null)return;String role=intent.getStringExtra("open-account-alerts");if(role==null&&intent.getBooleanExtra("open-rider-alerts",false))role="rider";if(!"vendor".equals(role)&&!"rider".equals(role))return;intent.removeExtra("open-account-alerts");intent.removeExtra("open-rider-alerts");view.evaluateJavascript("window.SendRackPendingAlert=true;window.SendRackPendingAlertRole='"+role+"';window.TrackShipOpenAlerts?.('"+role+"')",null);}
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(web!=null)openDeliveryAlert(web,intent);}
+
     @Override public void onBackPressed(){web.evaluateJavascript("window.TrackShipBack?.()",null);}
     @Override protected void onDestroy(){if(viewerLocation!=null)viewerLocation.destroy();if(fileCallback!=null)fileCallback.onReceiveValue(null);web.removeJavascriptInterface("TrackShip");web.destroy();super.onDestroy();}
 }

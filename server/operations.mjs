@@ -1,3 +1,5 @@
+import {vendorPushAccount,vendorNotifications} from './push/vendor-notifications.mjs';
+import {recordLifecycleNotifications} from './push/lifecycle-notifications.mjs';
 import {websiteVideos} from './website-videos.mjs';
 import {initializeTestDispatch,testDispatchMode} from './test-dispatch.mjs';
 import {testShipments} from './test-shipments.mjs';
@@ -54,7 +56,8 @@ export async function operations(db, {
     const row = await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);
     return row ? JSON.parse(row.payload) : null;
   };
-  const putShipment = async s => await db.prepare('UPDATE shipments SET payload=? WHERE id=?').run(JSON.stringify(s), s.id);
+  let push;
+  const putShipment = async s => {const before=await getShipment(s.id);const result=await db.prepare('UPDATE shipments SET payload=? WHERE id=?').run(JSON.stringify(s),s.id);if(await recordLifecycleNotifications(db,before,s))push?.kick();return result;};
   async function transaction(fn) {
     await db.exec('BEGIN IMMEDIATE');
     try {
@@ -232,7 +235,8 @@ export async function operations(db, {
     providers,
     env
   });
-  const push=await deliveryPush(db,{env,body,rider,onRegistered:r=>market.recover(r),canDeliver:job=>market.canNotify({riderId:job.rider_id,shipmentId:job.shipment_id})});
+  push=await deliveryPush(db,{env,body,rider,vendor:req=>vendorPushAccount(db,req),onRegistered:r=>market.recover(r),canDeliver:async job=>{if(job.account_role!=='vendor')return market.canNotify({riderId:job.rider_id,shipmentId:job.shipment_id,phase:job.phase});const row=await db.prepare('SELECT s.payload FROM shipments s JOIN vendor_accounts v ON v.owner_key=s.owner WHERE s.id=? AND v.id=? AND COALESCE(v.suspended,0)=0').get(job.shipment_id,job.rider_id);if(!row)return false;const s=JSON.parse(row.payload);return !s.testRemoval&&(s.events||[]).some(e=>'vendor-status:'+(e.id||e.status+':'+e.at)===job.phase);}});
+  const vendorInbox=vendorNotifications(db,{body});
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
@@ -247,6 +251,7 @@ export async function operations(db, {
     if(path==='/api/admin/dispatch-diagnostics'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,await market.diagnostics(url.searchParams.get('shipmentId'),url.searchParams.get('riderId')));return true;}
     if(path==='/api/admin/delivery-readiness'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,{...await deliveryReadiness(db,{env,push,providers,walletControlEnabled}),testDispatchEnabled:await testDispatchMode(db)});return true;}
     if(await contactAccess(req,path,send))return true;
+    if(await vendorInbox(req,path,send))return true;
     if(await push.route(req,path,send))return true;
     if(await liveMap(req,url,send))return true;
     if(await adminAccess.route(req,res,url,send))return true;
@@ -319,6 +324,8 @@ export async function operations(db, {
       await body(req);
       const raw = req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
       if (raw) {
+        await db.prepare("UPDATE push_deliveries SET state='obsolete',lease_until=0,last_error='ACCOUNT_SESSION_ENDED' WHERE state IN ('pending','sending') AND installation_id IN (SELECT installation_id FROM push_installations WHERE session_hash=?)").run(digest(raw));
+        await db.prepare('DELETE FROM push_installations WHERE session_hash=?').run(digest(raw));
         await db.prepare('DELETE FROM vendor_sessions WHERE token_hash=?').run(digest(raw));
         await db.prepare('UPDATE workspaces SET disabled=1 WHERE token_hash=?').run(digest(raw));
       }
@@ -792,7 +799,7 @@ export async function operations(db, {
           const proof = await db.prepare('SELECT * FROM delivery_proofs WHERE shipment_id=?').get(s.id);
           if (!proof || proof.used || proof.expires < Date.now() || proof.attempts >= 5) fail('The delivery code is expired or locked. Ask the vendor to arrange support.', 409);
           await db.prepare('UPDATE delivery_proofs SET attempts=attempts+1 WHERE shipment_id=?').run(s.id);
-          if (!/^\d{6}$/.test(input.otp || '') || !equal(digest(proof.salt + input.otp), proof.hash)) fail('Incorrect customer delivery code.', 401);
+          if (!/^\d{6}$/.test(input.otp || '') || !equal(digest(proof.salt + input.otp), proof.hash)) fail('Incorrect customer delivery code.', 422);
           const updated = await transaction(async () => {
             const fresh = await getShipment(s.id);
             if (fresh.status === 'Delivered') return fresh;

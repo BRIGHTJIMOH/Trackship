@@ -17,7 +17,7 @@ try{
  assert.equal(await page.locator('.home-current .shipment-retry').count(),3);assert.equal(await page.locator('.home-current .unsent-badge').count(),3);assert.equal(await page.locator('.shipment-send-state').count(),0);assert.doesNotMatch(await page.locator('.reference-home').innerText(),/Sign in to sync|Sign in to send|Review unsent|Check your connection and retry/);
  assert.ok(await page.evaluate(()=>Boolean(document.querySelector('.home-wallet-card').compareDocumentPosition(document.querySelector('.home-quick-actions'))&Node.DOCUMENT_POSITION_FOLLOWING)));
  for(const card of await page.locator('.home-current .card').all()){assert.ok(await card.evaluate(el=>el.getBoundingClientRect().bottom-el.querySelector('.shipment-retry').getBoundingClientRect().bottom<=2));}
- await page.screenshot({path:'artifacts/session-home/compact-unsent.png',fullPage:true});await page.locator('.home-wallet-activity').click();await page.locator('.wallet-activity-title').waitFor();
+ await page.screenshot({path:'artifacts/session-home/compact-unsent.png',fullPage:true});await page.locator('[aria-label="Open wallet"]').click();await page.locator('.wallet-activity-title').waitFor();
  await page.route('**/api/wallet/refresh',r=>r.fulfill({status:401,contentType:'application/json',body:JSON.stringify({error:'Incorrect transaction code'})}));await page.locator('#wallet-refresh').click();await page.waitForTimeout(100);assert.equal(await page.locator('#cloud-login').count(),0);assert.equal(await page.locator('.wallet-activity-title').count(),1);
 
  // Revocation during an active session must remove Home and retain the account's drafts.

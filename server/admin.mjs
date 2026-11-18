@@ -36,7 +36,8 @@ export async function adminConsole(db,{body,env,catalog}){
  if(p==='/api/admin/session'&&req.method==='GET'){const s=await authorize(req,{operator:false,regional:true});send(200,{username:s.actor,regional:Boolean(s.regional),states:s.states||[],csrf:s.csrf,expires:s.expires});return true;}
  if(await regional.manage(req,url,send))return true;
  const handled=['/api/admin/waitlist','/api/admin/logout','/api/admin/overview','/api/admin/shipments','/api/admin/users','/api/admin/routes','/api/admin/pricing','/api/admin/settlements','/api/admin/audit'];const detail=p.match(/^\/api\/admin\/(shipments|users|routes)\/([a-z0-9-]+)(?:\/(suspend|resume))?$/);
- if(!handled.includes(p)&&!detail)return false;
+ const routeDelete=p.match(/^\/api\/admin\/routes\/([a-z0-9-]+)\/delete$/);
+ if(!handled.includes(p)&&!detail&&!routeDelete)return false;
  const s=await authorize(req,{regional:true});const actor=s.actor;
  if(s.regional&&p!=='/api/admin/logout')return regional.scoped(req,url,send,s);
  if(p==='/api/admin/logout'&&req.method==='POST'){const token=cookies(req);if(token){await db.prepare('DELETE FROM admin_sessions WHERE token_hash=?').run(digest(token));await db.prepare('DELETE FROM regional_admin_sessions WHERE token_hash=?').run(digest(token));}setCookie(res,'',0);await audit(actor,'logout','session','current');send(200,{loggedOut:true});return true;}
@@ -51,6 +52,7 @@ export async function adminConsole(db,{body,env,catalog}){
  }
  if(p==='/api/admin/users'&&req.method==='GET'){send(200,{users:await users()});return true;}
  if(detail?.[1]==='users'&&['suspend','resume'].includes(detail[3])&&req.method==='POST'){const input=await body(req),table=input.role==='vendor'?'vendor_accounts':input.role==='rider'?'rider_profiles':null;if(!table)fail('Choose vendor or rider.');const user=await db.prepare('SELECT id FROM '+table+' WHERE id=?').get(detail[2]);if(!user)fail('Account not found.',404);const suspended=detail[3]==='suspend'?1:0;await db.prepare('UPDATE '+table+' SET suspended=? WHERE id=?').run(suspended,user.id);if(suspended){await db.prepare('DELETE FROM '+(input.role==='vendor'?'vendor_sessions WHERE vendor_id=?':'rider_sessions WHERE rider_id=?')).run(user.id);if(input.role==='rider')for(const sh of await shipments())if(sh.actors?.[sh.custodian]?.id===user.id)await db.prepare('UPDATE shipments SET payload=? WHERE id=?').run(JSON.stringify({...sh,ownerId:undefined,location:null,locationConsent:null}),sh.id);}await audit(actor,detail[3],'account',user.id,input.role);send(200,{suspended:Boolean(suspended)});return true;}
+ if(routeDelete&&req.method==='POST'){const input=await body(req),result=await catalog.remove(routeDelete[1],input.revision);await audit(actor,'route.delete','route',result.id,result.name);send(200,result);return true;}
  if(p==='/api/admin/routes'&&req.method==='GET'){send(200,{routes:await catalog.list()});return true;}
  if((p==='/api/admin/routes'||detail?.[1]==='routes')&&req.method==='POST'){const input=await body(req);const result=await catalog.save(input,detail?.[2]);await audit(actor,detail?'route.update':'route.create','route',result.id,result.name);send(detail?200:201,result);return true;}
  if(p==='/api/admin/pricing'&&req.method==='GET'){send(200,await catalog.pricing());return true;}

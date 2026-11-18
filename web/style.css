@@ -136,4 +136,4 @@ html{scroll-padding-bottom:calc(120px + var(--safe-bottom,0px))}.shipment-track-
 /* Compact Home wallet actions; full wallet controls retain their layout. */
 .wallet-home .customer-wallet-actions{min-width:94px;gap:6px}.wallet-home .customer-wallet-actions button{font-size:11px;padding:8px 10px;min-height:36px;white-space:nowrap}.customer-balance.wallet-home{padding:16px 20px}
 /* Let the opening artwork fill the lower screen with a deliberate edge crop. */
-.reference-splash .splash-illustration img{left:-12%;bottom:-9%;width:124%;height:124%;max-width:none}
+.reference-splash .splash-illustration img{left:-12%;bottom:-1px;width:124%;height:100%;max-width:none;object-position:center bottom}

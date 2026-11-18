@@ -5,7 +5,7 @@
   --green: #b9d3a9;
   --forest: #254a38;
   --line: #e1e6dd;
-  --orange: #ff6b00;
+  --orange: #254a38;
   --page-space: clamp(24px, 4.5vw, 70px);
 }
 * { box-sizing: border-box; }

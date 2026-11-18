@@ -89,3 +89,12 @@ export function historyRelation(local,remote) {
  for(let i=0;i<shortest;i++)if(JSON.stringify(local.events[i])!==JSON.stringify(remote.events[i]))return 'conflict';
  return remote.events.length>local.events.length?'remote':local.events.length>remote.events.length?'local':'equal';
 }
+
+// Copy delivery details only; never retain a prior shipment's identity or quote.
+export function reuseDeliveryDetails(previous,current={}) {
+ const result={};
+ for(const key of ['size','service','description','weightKg','vehicleClass','declaredValue','notes'])if(current[key]!==undefined)result[key]=current[key];
+ for(const key of ['deliveryType','originState','destinationState','sender','origin','pickupAddress','pickupCommunity','destination','address','recipient','phone'])result[key]=typeof previous[key]==='string'?previous[key]:(current[key]||'');
+ if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(previous.routeId||'')){result.routeId=previous.routeId;result.routeReverse=previous.routeReverse===true;}
+ return result;
+}

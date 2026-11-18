@@ -16,3 +16,6 @@ input,select,textarea{background:#262626;color:#ededed;border-color:#494949}.pan
 /* Short pages start at the top, rather than centring inside the grid. */
 .workspace{margin:0 auto;align-self:start}.topbar{padding-block:16px;margin-bottom:18px}.page-head{margin-bottom:18px}.page-head p{margin-top:5px}
 .workspace{width:100%;min-width:0}
+
+.route-state-filter{display:flex;align-items:center;gap:12px;margin:0 0 18px}.route-state-filter label{font-size:12px;color:var(--muted)}.route-state-filter select{max-width:260px}.route-state-group .panel-head{padding:18px 20px;margin:0}.route-actions{display:flex;gap:8px;white-space:nowrap}.route-actions .route-delete{color:#ff8c7c;border-color:#764039}
+.route-state-group{margin-bottom:18px}.route-state-group table{table-layout:fixed;min-width:940px}.route-state-group th:first-child{width:30%}.route-state-group th:last-child{width:230px}.route-state-group td:first-child{overflow-wrap:anywhere}

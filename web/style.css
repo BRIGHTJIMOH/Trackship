@@ -126,3 +126,7 @@
 :root[data-theme=dark] .stat.active span{color:#fff}
 .home-highlights button{gap:7px;line-height:1.2}
 .onboard.access-screen{padding-left:calc(24px + var(--safe-left));padding-right:calc(24px + var(--safe-right));padding-top:calc(28px + var(--safe-top));padding-bottom:calc(28px + var(--safe-bottom))}
+
+/* Compact home wallet and a single action footer for every shipment card. */
+.home-wallet-card{margin:0 0 18px;border-radius:22px;overflow:hidden;background:var(--paper);border:1px solid var(--line)}.home-wallet-card .customer-balance{margin:0;border-radius:0}.home-wallet-activity{display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 18px;background:var(--paper);color:var(--ink);font-size:13px;text-align:left}.shipment-retry{min-height:44px}.unsent-badge{background:var(--cream);color:#a44500}
+html{scroll-padding-bottom:calc(120px + var(--safe-bottom,0px))}.shipment-track-link{scroll-margin-bottom:calc(120px + var(--safe-bottom,0px))}#toast{pointer-events:none}

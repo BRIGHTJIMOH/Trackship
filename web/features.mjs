@@ -77,11 +77,11 @@ export function createFeatures(ctx){
  function dailyRouteDialog(){if(!rider()||ctx.getView()!=='home'||!riderRoutes||riderRoutes.dailyConfirmed!==false)return '';return `<div class="modal-backdrop daily-route-dialog" role="dialog" aria-modal="true" aria-label="Today’s routes"><section class="modal daily-routes"><h2>Your routes today</h2>${routePreferences(true)}<button type="button" class="textbutton wide" id="skip-routes-today">Not today</button></section></div>`;}
  async function refreshRouteSettings(){const saved=session();if(!saved)return;const value=await request(saved.base,'/api/v4/rider/routes',{headers:{Authorization:'Bearer '+saved.token}});if(!dispatchCurrent(saved))return;riderRoutes=value;if(ctx.getView()==='nearby')render();}
  let contactGeneration=0;
- function contactsView(s,isRider,compact=false){if(s.workflowVersion!==3||['Delivered','Cancelled'].includes(s.status))return '';return `<section class="card delivery-contacts" data-contact-shipment="${esc(s.id)}" data-contact-rider="${isRider}" data-contact-compact="${compact}" data-contact-leg="${esc(s.custodian==='vendor'?'pickup':s.custodian)}"><h2>Delivery contacts</h2><div class="delivery-contact-list"><p class="muted">Loading contacts…</p></div></section>`;}
+ function contactsView(s,isRider,compact=false){if(s.workflowVersion!==3||['Delivered','Cancelled'].includes(s.status)||!(isRider?session()?.token:data().connection?.token)||!isRider&&!s.synced)return '';return `<section class="card delivery-contacts" data-contact-shipment="${esc(s.id)}" data-contact-rider="${isRider}" data-contact-compact="${compact}" data-contact-leg="${esc(s.custodian==='vendor'?'pickup':s.custodian)}"><h2>Delivery contacts</h2><div class="delivery-contact-list"><p class="muted">Loading contacts…</p></div></section>`;}
  async function loadContacts(){
   const region=document.querySelector('.delivery-contacts'),s=getCurrent();if(!region||!s)return;
   const generation=++contactGeneration,isRider=region.dataset.contactRider==='true',saved=isRider?session():data().connection,target=region.querySelector('.delivery-contact-list');
-  if(!saved){target.textContent='Connect your account to view delivery contacts.';return;}
+  if(!saved){region.hidden=true;return;}
   const stillCurrent=()=>generation===contactGeneration&&region.isConnected&&getCurrent()?.id===s.id&&(isRider?session():data().connection)?.token===saved.token;
   const fetchContacts=async()=>{if(isRider&&(!s.dispatchToken||s.remoteBase!==saved.base))throw Error('Connect this delivery to your rider account.');return request(saved.base,isRider?'/api/v3/jobs/'+s.dispatchToken+'/contacts':'/api/v3/shipments/'+s.id+'/contacts',{cache:'no-store',headers:{Authorization:'Bearer '+saved.token}});};
   try{
@@ -109,7 +109,7 @@ export function createFeatures(ctx){
  function mapPosition(s){const ended=['Delivered','Cancelled'].includes(s?.status),fix=s?.location,age=fix?Date.now()-Date.parse(fix.at):Infinity,fresh=!ended&&(s?.locationConsent||s?.locationSharing)&&fix&&fix.leg===trackingLeg(s)&&age>=0&&age<120000;
   if(fresh)return {position:fix,kind:'holder',message:'Updated '+new Date(fix.at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})};
   if(!ended&&s?.custodian==='vendor'&&s.pickupLocation?.source==='sender-confirmed')return {position:s.pickupLocation,kind:'pickup',message:s.pickupLocation.approximate?'Pickup area':'Pickup location'};
-  return {position:null,kind:null,message:ended?(s.status==='Delivered'?'Delivery complete.':'Delivery cancelled.'):s?.custodian==='vendor'?'Pickup location not added yet.':'Waiting for the rider’s location.'};
+  return {position:null,kind:null,message:ended?(s.status==='Delivered'?'Delivery complete.':'Delivery cancelled.'):s?.custodian==='vendor'?'Pickup pin needed':'Waiting for the rider’s location.'};
  }
  function mapView(s){mapShipment=s;return `<section class="shipment-map-region" data-map-reference="${esc(s.id||s.code||'unselected')}"><div class="real-map" id="live-map" aria-label="Delivery map"></div><p id="map-provider-status" class="privacy" role="status" aria-live="polite">Loading map…</p><button class="textbutton" id="refresh-map-provider" type="button">Retry map</button><p class="shipment-gps-status muted">${esc(mapPosition(s).message)}</p>${data().activeRole==='vendor'&&data().connection&&s.synced&&s.status==='Created'?'<button type="button" class="textbutton" id="set-pickup-pin">Set pickup here</button>':''}</section>`;}
 

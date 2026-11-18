@@ -313,6 +313,7 @@ export async function createApp({
         '/assets/leaflet.css': 'assets/leaflet.css',
         '/style.css': 'style.css',
         '/assets/sendrack-studio-scooter.webp':'assets/sendrack-studio-scooter.webp',
+        '/assets/sendrack-courier-illustration.webp':'assets/sendrack-courier-illustration.webp',
         '/assets/vehicle-keke.webp':'assets/vehicle-keke.webp',
         '/assets/vehicle-car.webp':'assets/vehicle-car.webp',
         '/assets/vehicle-dispatch.webp':'assets/vehicle-dispatch.webp',

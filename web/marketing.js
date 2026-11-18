@@ -83,6 +83,7 @@ async function loadStories(){
   if(!response.ok)return;
   const {videos}=await response.json();if(!videos.length)return;
   host.replaceChildren();host.className='stories-grid';
+  document.querySelector('#stories').hidden=false;document.querySelector('[data-signup-index]').textContent='04 — GET IN EARLY';document.querySelectorAll('[data-video-nav]').forEach(link=>link.hidden=false);if(location.hash==='#stories')document.querySelector('#stories').scrollIntoView({behavior:'instant'});
   for(const item of videos){
    const card=document.createElement('article');card.className='story-card'+(item.id==='founder'?' founder-story':'');
    const label=document.createElement('p');label.className='small-label';label.textContent=item.id==='founder'?'FROM OUR FOUNDER':'THE DELIVERY EXPERIENCE';
@@ -99,6 +100,6 @@ async function loadStories(){
    };
    screen.append(play);card.append(screen,label,heading);host.append(card);
   }
- }catch{/* Keep the honest coming-soon state when offline. */}
+ }catch{/* Keep unpublished stories off the public page. */}
 }
 loadStories();

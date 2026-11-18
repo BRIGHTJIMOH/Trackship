@@ -51,8 +51,10 @@ export function liveOperationsMap({
   board.classList.add('tracking-board');mapColumn.classList.add('tracking-map-column');
   active.open=true;active.querySelector('summary').textContent='Delivery tracking';board.prepend(active);mapColumn.append(detail);
   const filterDrawer=document.createElement('details');filterDrawer.className='operations-filter-drawer';filterDrawer.innerHTML='<summary>Filters & search</summary>';element.querySelector('.map-filters').before(filterDrawer);filterDrawer.append(element.querySelector('.map-filters'));
+  const locations=document.createElement('div');locations.className='operations-location-filters';for(const name of ['state','city'])locations.append(element.querySelector('[name='+name+']').closest('label'));filterDrawer.before(locations);
+  board.before(element.querySelector('.map-legend'));
   const diagnostics=document.createElement('details');diagnostics.className='operations-diagnostics';diagnostics.innerHTML='<summary>Map status & legend</summary>';
-  for(const selector of ['.map-connection','.map-tiles-status','.map-legend','.map-count'])diagnostics.append(element.querySelector(selector));
+  for(const selector of ['.map-connection','.map-tiles-status','.map-count'])diagnostics.append(element.querySelector(selector));
   element.querySelector('.attention-section').before(diagnostics);element.querySelector('.attention-section').open=false;
   const filters = {
     state: "",
@@ -459,7 +461,7 @@ export function liveOperationsMap({
     await refresh(true);
     if (tiles && (element.querySelector(".map-tiles-status").dataset.state === "error" || element.querySelector(".map-tiles-status").dataset.degraded === "true")) tiles.retryProvider ? tiles.retryProvider() : tiles.redraw();
   };
-  element.querySelector(".map-filters").addEventListener("input", (e) => {
+  element.addEventListener("input", (e) => {
     const name = e.target.name;
     if (!(name in filters)) return;
     filters[name] = name === "showStale" ? e.target.checked : e.target.value;

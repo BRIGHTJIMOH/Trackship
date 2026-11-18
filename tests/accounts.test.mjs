@@ -393,3 +393,22 @@ test('vehicle-selected offers and notifications enforce pickup class and declare
   const invalid={...newTransport(fields,vendorProfile.businessName),vehicleClass:'unsupported-plane'};assert.equal((await f.call('/api/v3/shipments',invalid,vendor.token)).status,400);
  }finally{await f.close();}
 });
+
+test('dashboard session check rejects revoked, expired and suspended sessions for either role', async()=>{
+ for(const [role,profile,table] of [['vendor',vendorProfile,'vendor_sessions'],['rider',riderProfile,'rider_sessions']]){
+ const f=await fixture();try{
+  assert.equal((await f.call('/api/accounts/session')).status,401);
+   const a=await auth(f,role,profile),res=await f.call('/api/accounts/session',undefined,a.token);
+   assert.equal(res.status,200);assert.deepEqual(await res.json(),{role,phone:profile.phone});
+   await f.storage.prepare('UPDATE '+table+' SET expires=?').run(Date.now()-1);
+   assert.equal((await f.call('/api/accounts/session',undefined,a.token)).status,401);
+   await f.storage.prepare('UPDATE '+table+' SET expires=?').run(Date.now()+60000);
+   const accountTable=role==='vendor'?'vendor_accounts':'rider_profiles';
+   await f.storage.prepare('UPDATE '+accountTable+' SET suspended=1 WHERE phone=?').run(profile.phone);
+   assert.equal((await f.call('/api/accounts/session',undefined,a.token)).status,401);
+   await f.storage.prepare('UPDATE '+accountTable+' SET suspended=0 WHERE phone=?').run(profile.phone);
+   assert.equal((await f.call('/api/auth/logout',{},a.token)).status,200);
+   assert.equal((await f.call('/api/accounts/session',undefined,a.token)).status,401);
+ }finally{await f.close();}
+ }
+});

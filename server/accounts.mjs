@@ -156,6 +156,14 @@ export async function accounts(db, {
         });
         return true;
       }
+      if (path === '/api/accounts/session' && req.method === 'GET') {
+        const v = await vendor(req);
+        if (v) { send(200, {role:'vendor',phone:v.phone}); return true; }
+        const t=raw(req), session=t?await db.prepare('SELECT rider_id,expires FROM rider_sessions WHERE token_hash=?').get(hash(t)):null;
+        const r=session&&session.expires>Date.now()?await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(session.rider_id):null;
+        if (!r || r.suspended) fail('Please sign in again.',401);
+        send(200, {role:'rider',phone:r.phone}); return true;
+      }
       if (path === '/api/accounts/profile' && req.method === 'POST') {
         const p = await body(req, 180000),
           v = await vendor(req);

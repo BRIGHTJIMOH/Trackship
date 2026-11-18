@@ -13,3 +13,6 @@ input,select,textarea{background:#262626;color:#ededed;border-color:#494949}.pan
 @media(max-width:700px){.sidebar nav button{color:#c5c5c5}.workspace{padding-inline:16px}.sidebar .nav-label{display:inline}}
 @media(min-width:1000px){.sidebar .finance-link{display:flex;justify-content:center;align-items:center;min-height:44px;width:44px;align-self:center;font-size:0;border-radius:50%;color:#bcbdb7}.sidebar .finance-link:before{content:'₦';font-size:20px}.sidebar .finance-link:hover{background:#30312e}}
 .table-panel td,.table-panel td strong,.table-panel td button,.table-panel td a,td{color:#e0e0db}.table-panel td small,td small{color:#b0b2a9}.table-panel th{color:#bdbfb6}.table-panel .link{color:#ff9e7d}
+/* Short pages start at the top, rather than centring inside the grid. */
+.workspace{margin:0 auto;align-self:start}.topbar{padding-block:16px;margin-bottom:18px}.page-head{margin-bottom:18px}.page-head p{margin-top:5px}
+.workspace{width:100%;min-width:0}

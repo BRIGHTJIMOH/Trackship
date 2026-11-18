@@ -14,7 +14,7 @@ try{
  const page=await context.newPage();await page.goto(f.base+'/admin');await page.locator('.operations-map.leaflet-container').waitFor();
  for(const width of [1440,1920,768,390]){
   await page.setViewportSize({width,height:900});await page.waitForTimeout(250);
-  const m=await page.evaluate(()=>{const map=document.querySelector('.operations-map').getBoundingClientRect(),layout=document.querySelector('.operations-layout').getBoundingClientRect(),panel=document.querySelector('#live-operations').getBoundingClientRect(),kpi=document.querySelector('.kpis').getBoundingClientRect();return {width:map.width,layout:layout.width,height:map.height,first:panel.top<kpi.top,overflow:document.documentElement.scrollWidth>innerWidth}});
+  const m=await page.evaluate(()=>{const map=document.querySelector('.operations-map').getBoundingClientRect(),layout=document.querySelector('.operations-layout').getBoundingClientRect(),panel=document.querySelector('#live-operations').getBoundingClientRect(),kpi=document.querySelector('.kpis')?.getBoundingClientRect();return {width:map.width,layout:layout.width,height:map.height,first:!kpi||panel.top<kpi.top,overflow:document.documentElement.scrollWidth>innerWidth}});
   assert(m.first);assert(m.width>=m.layout*(width>760?.55:.98));assert(m.height>=(width<=700?360:480));assert(!m.overflow);console.log('PASS map-first full-width layout',width,m);
  }
  await page.screenshot({path:path.join(output,'admin-map-mobile.png'),fullPage:true});

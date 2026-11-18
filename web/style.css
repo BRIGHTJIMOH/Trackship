@@ -139,3 +139,17 @@ html{scroll-padding-bottom:calc(120px + var(--safe-bottom,0px))}.shipment-track-
 .reference-splash .splash-illustration img{left:-12%;bottom:-1px;width:124%;height:100%;max-width:none;object-position:center bottom}
 
 .home-highlights{grid-template-columns:repeat(var(--shortcut-count,4),minmax(0,1fr));row-gap:14px;padding-bottom:6px}.home-highlights button{min-width:0}
+
+/* Home stays inside the available viewport, including large Android text sizes. */
+.shell{width:100%;min-width:0;overflow-anchor:none}
+.home-wallet-card{min-width:0}
+.customer-balance.wallet-home{flex-wrap:wrap;gap:12px}
+.wallet-home>div:first-child{flex:1 1 140px;min-width:0}
+.wallet-home h2{font-size:clamp(22px,6.9vw,27px);line-height:1.25}
+.wallet-home .balance-open{max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.wallet-home .customer-wallet-actions{flex:0 1 94px;min-width:0}
+.wallet-home .customer-wallet-actions button{white-space:normal;overflow-wrap:anywhere;min-height:36px}
+.home-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+.home-quick-actions button{min-width:0}
+.home-quick-actions button>span:first-child{overflow-wrap:anywhere}
+@media(max-width:340px){.shell{padding-left:calc(16px + var(--safe-left));padding-right:calc(16px + var(--safe-right))}.customer-balance.wallet-home{padding:16px}.wallet-home>div:first-child{flex-basis:100%}.wallet-home .customer-wallet-actions{flex:1 1 100%;flex-direction:row}.wallet-home .customer-wallet-actions button{flex:1;min-width:0}.home-quick-actions button>span:first-child{font-size:14px}.home-quick-actions img{width:65px;right:-10px}}

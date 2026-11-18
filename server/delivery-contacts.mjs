@@ -37,6 +37,7 @@ export function deliveryContacts(db,{owner,rider,job}){
     if(handler&&!handler.suspended&&phonePattern.test(handler.phone))contacts.push({id:leg,label:leg==='carrier'?'Carrier':leg==='lastmile'?'Last-mile rider':'Pickup rider',name:String(handler.display_name||'Assigned handler').slice(0,80),phone:handler.phone,...photo(profile)});
    }
   }
+  if(requestingRider&&requestingLeg==='pickup'&&shipment.requestType==='receive'&&phonePattern.test(shipment.pickupPhone||'')){const index=contacts.findIndex(c=>c.id==='vendor');if(index>=0)contacts.splice(index,1);contacts.unshift({id:'vendor',label:'Sender',name:String(shipment.sender).slice(0,80),phone:shipment.pickupPhone});}
   const primaryContactId=requestingRider?(contacts.some(c=>c.id==='recipient')?'recipient':'vendor'):(shipment.custodian==='vendor'?'pickup':shipment.custodian);
   send(200,{contacts,primaryContactId,message:contacts.length?'':requestingRider?'Vendor contact unavailable.':'Your rider’s contact appears after they accept.'});return true;
  };

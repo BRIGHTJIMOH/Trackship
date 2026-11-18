@@ -1,3 +1,4 @@
+import {mobileFeatures} from './mobile-features.mjs';
 import {vendorPushAccount,vendorNotifications} from './push/vendor-notifications.mjs';
 import {recordLifecycleNotifications} from './push/lifecycle-notifications.mjs';
 import {websiteVideos} from './website-videos.mjs';
@@ -239,6 +240,7 @@ export async function operations(db, {
   const vendorInbox=vendorNotifications(db,{body});
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
+  const mobile=await mobileFeatures(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional){const rows=await db.prepare('SELECT id,payload FROM shipments').all();return {id:session.actor,role:'operations',shipmentIds:rows.filter(r=>{const sh=JSON.parse(r.payload);return session.states.includes(sh.originState)||session.states.includes(sh.destinationState);}).map(r=>r.id)};}return {id:session.actor,role:'super-admin'};}});
   const contactAccess=deliveryContacts(db,{owner,rider,job});
@@ -246,6 +248,7 @@ export async function operations(db, {
   const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body,testModeAllowed:!walletControlEnabled&&!(providers.paymentReady&&providers.mode==='live')});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await mobile.route(req,path,send))return true;
     if(await videos(req,path,send))return true;
     if(await testRemovalAccess(req,url,send))return true;
     if(path==='/api/admin/dispatch-diagnostics'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,await market.diagnostics(url.searchParams.get('shipmentId'),url.searchParams.get('riderId')));return true;}
@@ -487,6 +490,7 @@ export async function operations(db, {
       const merchant = await owner(req);if(!merchant)fail('Business access is required.',401);
       let s=await body(req);if(!uuid.test(s.id||'')||!tokenPattern.test(s.publicToken||'')||!s.jobTokens||!tokenPattern.test(s.jobTokens.pickup||''))fail('Invalid shipment references.');
       const existing=await db.prepare('SELECT owner,payload FROM shipments WHERE id=?').get(s.id);if(existing){if(existing.owner!==merchant)fail('Shipment not found.',404);const saved=JSON.parse(existing.payload);if(saved.status==='Created'&&!saved.testRemoval){await market.notify(saved,'created');push.kick();}send(200,saved);return true;}
+      const enabled=await mobile.read();if(s.creationMode==='bulk'&&!enabled.bulkShipments)fail('Bulk shipments are not enabled.',403);if(s.requestType==='receive'&&!enabled.receiveParcel)fail('Receive parcel is not enabled.',403);
       let quoted=null;if(s.routeId){quoted=await catalog.quote(s.routeId,s);if(s.pricingBreakdown&&(s.pricingBreakdown.routeRevision!==quoted.routeRevision||s.pricingBreakdown.pricingRevision!==quoted.pricingRevision))fail('Route pricing changed. Refresh the quote and review before creating this shipment.',409);s={...s,deliveryFee:(quoted.totalKobo/100).toFixed(2),pickupFee:(quoted.fees.pickup/100).toFixed(2),carrierFee:(quoted.fees.carrier/100).toFixed(2),lastMileFee:(quoted.fees.lastmile/100).toFixed(2),pricingBreakdown:quoted};}else{if((await catalog.pricing()).requireRoutes)fail('Choose a configured delivery route.');delete s.pricingBreakdown;}
       const errors=validateTransport(s);if(errors.length)fail(errors[0]);
       if(s.deliveryType==='interstate'&&(!tokenPattern.test(s.jobTokens.carrier||'')||!tokenPattern.test(s.jobTokens.lastmile||'')))fail('Invalid shipment references.');

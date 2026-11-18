@@ -13,15 +13,15 @@ export function createFcmSender({env=process.env,fetchImpl=fetch,now=Date.now}={
   if(pending)return pending;
   pending=(async()=>{const seconds=Math.floor(now()/1000),header=encode({alg:'RS256',typ:'JWT'}),claims=encode({iss:email,scope:'https://www.googleapis.com/auth/firebase.messaging',aud:'https://oauth2.googleapis.com/token',iat:seconds,exp:seconds+3600}),input=header+'.'+claims,assertion=input+'.'+sign('RSA-SHA256',Buffer.from(input),key).toString('base64url');
    const response=await fetchImpl('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}),signal:AbortSignal.timeout(10000),redirect:'error'});
-   if(!response.ok)throw new Error('FCM authorization failed.');const result=await response.json();if(typeof result.access_token!=='string'||!Number.isFinite(result.expires_in)||result.expires_in<60)throw new Error('FCM authorization response is invalid.');cached={value:result.access_token,until:now()+Math.min(result.expires_in,3600)*1000};return cached.value;
+   if(!response.ok)throw Object.assign(new Error('FCM authorization failed.'),{code:'FCM_AUTHORIZATION_FAILED'});const result=await response.json();if(typeof result.access_token!=='string'||!Number.isFinite(result.expires_in)||result.expires_in<60)throw new Error('FCM authorization response is invalid.');cached={value:result.access_token,until:now()+Math.min(result.expires_in,3600)*1000};return cached.value;
   })();try{return await pending;}finally{pending=null;}
  }
- return {ready:true,async send({token,eventId,binding}){
-  const response=await fetchImpl('https://fcm.googleapis.com/v1/projects/'+project+'/messages:send',{method:'POST',headers:{Authorization:'Bearer '+await accessToken(),'Content-Type':'application/json'},body:JSON.stringify({message:{token,data:{eventId,binding},android:{priority:'HIGH',ttl:'3600s',restricted_package_name:'ng.sendrack.test'}}}),signal:AbortSignal.timeout(10000),redirect:'error'});
+ return {ready:true,projectId:project,async send({token,eventId,binding,accountRole='rider'}){
+  const response=await fetchImpl('https://fcm.googleapis.com/v1/projects/'+project+'/messages:send',{method:'POST',headers:{Authorization:'Bearer '+await accessToken(),'Content-Type':'application/json'},body:JSON.stringify({message:{token,data:{eventId,binding,accountRole},android:{priority:'HIGH',ttl:'3600s',restricted_package_name:'ng.sendrack.test'}}}),signal:AbortSignal.timeout(10000),redirect:'error'});
   const result=await response.json().catch(()=>({}));
   if(response.ok&&typeof result.name==='string')return {status:'sent',reference:result.name};
   if(response.status===401)cached=null;
   const code=result.error?.details?.find(d=>d['@type']==='type.googleapis.com/google.firebase.fcm.v1.FcmError')?.errorCode;
-  return {status:code==='UNREGISTERED'?'invalid-token':'retry',code:code==='UNREGISTERED'?'UNREGISTERED':'FCM_HTTP_'+response.status};
+  return {status:code==='UNREGISTERED'?'invalid-token':'retry',code:code==='UNREGISTERED'?'UNREGISTERED':code&&/^[A-Z_]{1,60}$/.test(code)?'FCM_'+code:'FCM_HTTP_'+response.status};
  }};
 }

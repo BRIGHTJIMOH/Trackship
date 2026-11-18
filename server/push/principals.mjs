@@ -1,0 +1,2 @@
+// Role is part of every lookup; a token or UUID from another role cannot match.
+export const PUSH_ACCOUNTS_SQL=`SELECT 'rider' AS account_role,s.token_hash,s.expires,s.rider_id AS account_id,COALESCE(r.suspended,0) AS suspended FROM rider_sessions s JOIN rider_profiles r ON r.id=s.rider_id UNION ALL SELECT 'vendor' AS account_role,s.token_hash,s.expires,s.vendor_id AS account_id,COALESCE(v.suspended,0) AS suspended FROM vendor_sessions s JOIN vendor_accounts v ON v.id=s.vendor_id`;

@@ -77,10 +77,10 @@ export async function marketplace(db, {
     await Promise.allSettled(sends);
     return count;
   }
-  async function notificationsFor(r){const rows=await db.prepare('SELECT n.id,n.shipment_id AS "shipmentId",n.title,n.body,n.seen,n.created,s.payload AS shipment_payload FROM delivery_notifications n LEFT JOIN shipments s ON s.id=n.shipment_id WHERE n.rider_id=? ORDER BY n.created DESC LIMIT 100').all(r.id);return rows.filter(n=>!n.shipment_payload||!JSON.parse(n.shipment_payload).testRemoval).map(({shipment_payload,...n})=>n);}
+  async function notificationsFor(r){const rows=await db.prepare(`SELECT n.id,n.shipment_id AS "shipmentId",n.title,n.body,n.seen,n.created,s.payload AS shipment_payload FROM delivery_notifications n LEFT JOIN shipments s ON s.id=n.shipment_id WHERE n.rider_id=? AND n.account_role='rider' ORDER BY n.created DESC LIMIT 100`).all(r.id);return rows.filter(n=>!n.shipment_payload||!JSON.parse(n.shipment_payload).testRemoval).map(({shipment_payload,...n})=>n);}
   async function matchingOffers(r,{recover=false}={}){
    const testMode=!walletHolds&&!(providers.paymentReady&&providers.mode==='live')&&await testDispatchMode(db);
-   const all=await allShipments(),activeCount=activeFor(r,all),matched=[],known=recover?new Set((await db.prepare("SELECT shipment_id FROM delivery_notifications WHERE rider_id=? AND phase='created'").all(r.id)).map(n=>n.shipment_id)):null;
+   const all=await allShipments(),activeCount=activeFor(r,all),matched=[],known=recover?new Set((await db.prepare("SELECT shipment_id FROM delivery_notifications WHERE rider_id=? AND account_role='rider' AND phase='created'").all(r.id)).map(n=>n.shipment_id)):null;
    for(const s of all){if((await routeReasons(r,s)).length||dispatchMatchReasons(r,s,{activeCount,capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}).length)continue;
     const testAvailable=testMode&&await canTestDispatch(db,s);matched.push({...preview(s),testDispatchAvailable:testAvailable});
     if(recover&&!known.has(s.id)){const ready=['paid','held'].includes(s.payment?.status)||testAvailable;await db.prepare('INSERT OR IGNORE INTO delivery_notifications(id,rider_id,shipment_id,phase,title,body,created) VALUES (?,?,?,?,?,?,?)').run(randomUUID(),r.id,s.id,'created','New shipment in your pickup area',`${s.business} · ${s.origin}, ${s.originState}. ${ready?'Ready to accept.':'Awaiting vendor payment.'} Open SendRack delivery offers.`,Date.now());}
@@ -96,7 +96,7 @@ export async function marketplace(db, {
   }
   return {
     notify,diagnostics,recover: r=>matchingOffers(r,{recover:true}),
-    async canNotify({riderId,shipmentId}){const s=await getShipment(shipmentId),r=await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(riderId);return Boolean(s&&r&&s.status==='Created'&&await eligible(r,s));},
+    async canNotify({riderId,shipmentId,phase}){const s=await getShipment(shipmentId),r=await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(riderId);if(!s||s.testRemoval||!r||r.suspended)return false;if(phase?.startsWith('status:'))return Object.values(s.actors||{}).some(a=>a?.id===riderId)&&(s.events||[]).some(e=>'status:'+(e.id||e.status+':'+e.at)===phase);return Boolean(s.status==='Created'&&await eligible(r,s));},
 
     matchesVehicle:(r,s)=>{try{return vehicleMatches(JSON.parse(r.public_profile||'{}'),s);}catch{return false;}},
     eligible,
@@ -171,7 +171,7 @@ export async function marketplace(db, {
         const r = await rider(req);
         const p = await body(req);
         if (!Array.isArray(p.ids) || p.ids.length > 100) fail('Invalid notification references.');
-        for (const id of p.ids) await db.prepare('UPDATE delivery_notifications SET seen=1 WHERE id=? AND rider_id=?').run(String(id), r.id);
+        for (const id of p.ids) await db.prepare("UPDATE delivery_notifications SET seen=1 WHERE id=? AND rider_id=? AND account_role='rider'").run(String(id), r.id);
         send(200, {
           read: true
         });

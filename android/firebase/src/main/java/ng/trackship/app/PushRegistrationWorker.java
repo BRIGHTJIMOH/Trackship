@@ -27,7 +27,7 @@ public final class PushRegistrationWorker extends Worker {
   String binding=FirebaseDeliveryPush.hash(base+":"+session+":"+token);if(PushRegistrationPolicy.fresh(installation.getString("registered",null),binding,installation.getLong("registeredAt",0),System.currentTimeMillis()))return Result.success();
   HttpsURLConnection connection=null;
   try{
-   URL url=new URL(base+"/api/v4/rider/push/register");if(!"https".equals(url.getProtocol())){FirebaseDeliveryPush.state(context,"invalid-service");return Result.failure();}
+   URL url=new URL(base+"/api/v4/"+auth.getString("role","rider")+"/push/register");if(!"https".equals(url.getProtocol())){FirebaseDeliveryPush.state(context,"invalid-service");return Result.failure();}
    connection=(HttpsURLConnection)url.openConnection();connection.setConnectTimeout(10000);connection.setReadTimeout(10000);connection.setInstanceFollowRedirects(false);connection.setRequestMethod("POST");connection.setRequestProperty("Authorization","Bearer "+session);connection.setRequestProperty("Content-Type","application/json");connection.setDoOutput(true);
    JSONObject payload=new JSONObject().put("installationId",id).put("installationSecret",secret).put("token",token);byte[] bytes=payload.toString().getBytes(StandardCharsets.UTF_8);connection.setFixedLengthStreamingMode(bytes.length);try(OutputStream out=connection.getOutputStream()){out.write(bytes);}
    int status=connection.getResponseCode();
@@ -35,6 +35,11 @@ public final class PushRegistrationWorker extends Worker {
    if(status!=200){String reason=PushRegistrationPolicy.httpState(status);FirebaseDeliveryPush.state(context,reason);return PushRegistrationPolicy.retryable(status)?Result.retry():Result.failure();}
    JSONObject result;
    try(InputStream in=connection.getInputStream()){java.io.ByteArrayOutputStream data=new java.io.ByteArrayOutputStream();byte[] buffer=new byte[1024];int n;while((n=in.read(buffer))!=-1){if(data.size()+n>8192)throw new java.io.IOException();data.write(buffer,0,n);}result=new JSONObject(data.toString("UTF-8"));}
+   if(result.optBoolean("tokenRefreshRequired",false)){
+    com.google.android.gms.tasks.Tasks.await(com.google.firebase.messaging.FirebaseMessaging.getInstance().deleteToken(),20,java.util.concurrent.TimeUnit.SECONDS);
+    if(session.equals(auth.getString("token",null))&&token.equals(installation.getString("fcm",null)))installation.edit().remove("fcm").remove("registered").remove("registeredAt").apply();
+    FirebaseDeliveryPush.state(context,"getting-token");return Result.retry();
+   }
    if(!result.optBoolean("registered",false)){FirebaseDeliveryPush.state(context,"invalid-server-response");return Result.retry();}
    // Never let a delayed registration overwrite a newly selected rider account.
    if(!session.equals(auth.getString("token",null))||!base.equals(auth.getString("base",null)))return auth.contains("token")?Result.retry():Result.success();if(!token.equals(installation.getString("fcm",null)))return Result.retry();installation.edit().putString("registered",binding).putLong("registeredAt",System.currentTimeMillis()).apply();FirebaseDeliveryPush.state(context,result.optBoolean("pushReady",false)?"connected":"server-push-disabled");

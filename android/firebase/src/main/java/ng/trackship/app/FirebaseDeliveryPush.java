@@ -29,13 +29,14 @@ public final class FirebaseDeliveryPush {
  static void state(Context c,String value){c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putString("state",value).putLong("stateAt",System.currentTimeMillis()).apply();}
  public static String status(Context c){
   SharedPreferences prefs=c.getSharedPreferences(PREF,Context.MODE_PRIVATE),auth=c.getSharedPreferences("trackship-delivery-alerts",Context.MODE_PRIVATE);
-  try{return new JSONObject().put("state",!auth.contains("token")?"sign-in-required":!((NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE)).areNotificationsEnabled()?"permission-required":prefs.getString("state","not-connected")).put("tokenAvailable",prefs.contains("fcm")).put("updatedAt",prefs.getLong("stateAt",0)).toString();}catch(Exception e){return "{\"state\":\"unavailable\"}";}
+  try{return new JSONObject().put("state",!auth.contains("token")?"sign-in-required":!((NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE)).areNotificationsEnabled()?"permission-required":!DeliveryAlerts.channelEnabled(c)?"channel-blocked":prefs.getString("state","not-connected")).put("tokenAvailable",prefs.contains("fcm")).put("updatedAt",prefs.getLong("stateAt",0)).toString();}catch(Exception e){return "{\"state\":\"unavailable\"}";}
  }
  public static void retry(Context c){c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().remove("registered").remove("registeredAt").apply();manualRetry.set(true);configure(c);}
  public static void configure(Context context){
   SharedPreferences auth=context.getSharedPreferences("trackship-delivery-alerts",Context.MODE_PRIVATE),installation=context.getSharedPreferences(PREF,Context.MODE_PRIVATE);
   if(!auth.contains("token")){state(context,"sign-in-required");return;}
   if(!((NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE)).areNotificationsEnabled()){state(context,"permission-required");return;}
+  if(!DeliveryAlerts.channelEnabled(context)){state(context,"channel-blocked");return;}
   String current=installation.getString("fcm",null),binding=hash(auth.getString("base","")+":"+auth.getString("token","")+":"+current);
   // A local marker cannot establish that the server still has this installation.
   if(current!=null&&PushRegistrationPolicy.fresh(installation.getString("registered",null),binding,installation.getLong("registeredAt",0),System.currentTimeMillis()))return;

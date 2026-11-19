@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+node scripts/check-native-assets.mjs
 TOOLS="${TRACKSHIP_TOOLS:-/workspace/toolchains}"
 ANDROID_JAR="$TOOLS/platform/android-35/android.jar"
 BT="$TOOLS/build-tools/android-15"

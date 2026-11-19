@@ -4,6 +4,7 @@ public final class LocalAssetPolicyTest {
  public static void main(String[] args){
   check(LocalAssetPolicy.allowed("/assets/sendrack-courier-illustration.webp"));
   check(LocalAssetPolicy.allowed("/features.mjs"));
+  check(LocalAssetPolicy.allowed("/delivery-cards.mjs"));
   check(LocalAssetPolicy.allowed("/assets/vehicle-truck.webp"));
   check(!LocalAssetPolicy.allowed(null));
   check(!LocalAssetPolicy.allowed("/assets/../../private.txt"));

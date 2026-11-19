@@ -15,7 +15,9 @@
     "test:admin": "node tests/admin-ui.mjs",
     "test:wallet": "node --test tests/wallet/*.test.mjs",
     "test:maps": "node tests/map-provider-ui.mjs && node tests/map-viewer-ui.mjs && node tests/mobile-map-origin-ui.mjs",
-    "test:progress": "node tests/tracking-progress-ui.mjs"
+    "test:progress": "node tests/tracking-progress-ui.mjs",
+    "check:native-assets": "node scripts/check-native-assets.mjs",
+    "test:apk-startup": "node tests/apk-startup-ui.mjs"
   },
   "engines": {
     "node": ">=24"

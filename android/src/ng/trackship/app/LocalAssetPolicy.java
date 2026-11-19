@@ -11,6 +11,7 @@ public final class LocalAssetPolicy {
   "/index.html",
   "/app.js",
   "/core.mjs",
+  "/delivery-cards.mjs",
   "/lifecycle.mjs",
   "/history.mjs",
   "/features.mjs",

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';import {execFileSync} from 'node:child_process';import {readFile,mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';import path from 'node:path';import {tmpdir} from 'node:os';import {chromium} from 'playwright-core';import {checkNativeAssets} from '../scripts/check-native-assets.mjs';
-const apk=process.env.SENDRACK_TEST_APK||'artifacts/SendRack-0.7.36-fcm.apk',repro=process.env.SENDRACK_REPRO_BLANK==='1',dir=await mkdtemp(path.join(tmpdir(),'sendrack-native-startup-'));
+const apk=process.env.SENDRACK_TEST_APK||'artifacts/SendRack-0.7.37-fcm.apk',repro=process.env.SENDRACK_REPRO_BLANK==='1',dir=await mkdtemp(path.join(tmpdir(),'sendrack-native-startup-'));
 const java=process.env.JAVA_HOME?path.join(process.env.JAVA_HOME,'bin/java'):'/workspace/toolchains/jdk-21.0.9+10/bin/java',javac=java.replace(/java$/,'javac');
 let browser;
 try{

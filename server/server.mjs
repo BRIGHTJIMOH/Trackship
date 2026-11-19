@@ -298,6 +298,7 @@ export async function createApp({
         '/index.html': 'index.html',
         '/app.js': 'app.js',
         '/core.mjs': 'core.mjs',
+        '/delivery-cards.mjs': 'delivery-cards.mjs',
         '/lifecycle.mjs': 'lifecycle.mjs',
         '/history.mjs': 'history.mjs',
         '/features.mjs': 'features.mjs',

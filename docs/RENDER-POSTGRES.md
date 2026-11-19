@@ -10,11 +10,11 @@ The backend can now run on PostgreSQL through asynchronous `pg` calls. SQLite re
 - Transactional SQLite import with dry-run, an empty-target requirement, row-count/checksum verification, rollback and verification of the original identity encryption key.
 - SQLite and real PostgreSQL regression tests, including two API instances competing for a shipment and confirming the same delivery.
 
-The Blueprint selects paid plans. Review the current web/database price, storage and backup terms in Render before applying it. Nothing in this repository has created a paid service. Preserve backups and the identity encryption key outside the service. Do not recreate an existing service/database merely to apply a name change.
+The current Blueprint declares free plans; it does not select a production-sized paid tier. Review the current web/database price, storage and backup terms in Render before applying it. Nothing in this repository has created a paid service. Preserve backups and the identity encryption key outside the service. Do not recreate an existing service/database merely to apply a name change.
 
 ## When the Render account is ready
 
-1. Connect `BRIGHTJIMOH/Trackship` and select the prepared `apk-test-v0.7.0` branch. Create the Blueprint from `render.yaml` after reviewing its plans. Render provisions the database and supplies `DATABASE_URL` privately.
+1. Connect `BRIGHTJIMOH/Trackship` and select the prepared `apk-test-v0.7.0` branch. Create the Blueprint from `render.yaml` after reviewing and choosing suitable plans for the intended workload. Render provisions the database and supplies `DATABASE_URL` privately.
 2. Set `ADMIN_PASSWORD` privately in Render to a unique password of at least 14 characters. The owner dashboard is `https://YOUR-SERVICE/admin`; it has no default password or public signup. See [owner dashboard](ADMIN-DASHBOARD.md).
 
    `DATABASE_SSL=disable` in this Blueprint applies only to Render's private internal connection. Use `DATABASE_SSL=require` for an external/public PostgreSQL connection. TLS certificate verification is enabled in that mode; do not disable certificate verification.

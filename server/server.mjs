@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {createLibraryHttp} from './library/http.mjs';
 import {openDatabase} from './database.mjs';
 import {createFundingWebhookHandler} from './wallet/funding-http.mjs';
 import {createWalletHttp} from './wallet/http.mjs';
@@ -18,10 +19,13 @@ export async function createApp({
   walletFunding,
   walletHolds,
   walletControl,
+  libraryStorage,
+  seedLibrary = true,
   env = process.env,
   dataDir = process.env.DATA_DIR || path.join(root, '.data'),
   origins = process.env.ALLOWED_ORIGINS || 'https://appassets.trackship.ng'
 } = {}) {
+  if(libraryStorage&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock file storage cannot run in production.');
   if(walletControl&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock finance APIs cannot run in production.');
   const walletWebhook = walletFunding ? createFundingWebhookHandler({funding:walletFunding,env}) : null;
   if(walletHolds&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock wallet custody cannot run in production.');
@@ -107,12 +111,14 @@ export async function createApp({
     walletControlEnabled:Boolean(walletControl),
     env
   }));}catch(e){await db.close();throw e;}
+  let libraryHttp;try{libraryHttp=await createLibraryHttp(db,{authorize:req=>advanced.financeAuthorize(req),audit:advanced.libraryAudit,body,env,seed:seedLibrary,...(libraryStorage?{storage:libraryStorage}:{})});}catch(e){await db.close();throw e;}
   const financeHttp=walletControl?createWalletHttp({...walletControl,env,
     resolveOwner:req=>db.withRequest('GET',()=>advanced.financeAuthorize(req)),
     resolveUser:req=>db.withRequest('GET',()=>advanced.walletPrincipal(req)),
     custodyTimeline:id=>db.withRequest('GET',async()=>{const row=await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);if(!row)return [];return (JSON.parse(row.payload).events||[]).map(({status,at,leg,actorName})=>({status,at,leg,actorName}));})
   }):null;
   const server = http.createServer((req,res)=>{
+    if(libraryHttp.matches(req)){void libraryHttp.handle(req,res);return;}
     if(financeHttp?.matches(req)){void financeHttp.handle(req,res);return;}
     // Dedicated short wallet transactions; never run provider reads under the legacy global write lock.
     if(walletWebhook?.matches(req)){void walletWebhook.handle(req,res);return;}
@@ -282,7 +288,7 @@ export async function createApp({
         error: 'Method not allowed.'
       });
       if(route==='/app/wallet'){res.writeHead(302,{Location:'/app#wallet'});res.end();return;}
-      const ownerFiles={'/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js'};
+      const ownerFiles={'/admin/file-library.js':'file-library.js','/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js'};
       if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
       const files = {
         '/welcome':'marketing.html',

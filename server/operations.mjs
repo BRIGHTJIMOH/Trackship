@@ -896,6 +896,7 @@ export async function operations(db, {
   };
   router.legacyCreationAllowed=async()=>!(await catalog.pricing()).requireRoutes;
   router.ownerSession = accountAccess.owner;
+  router.libraryAudit = adminAccess.audit;
   router.financeAuthorize = req=>adminAccess.authorize(req,{operator:false});
   router.deliveryPush=push;
   router.walletPrincipal = async req=>{const v=await accountAccess.vendor(req);if(v){const p=JSON.parse(v.profile||'{}');return {role:'vendor',ownerId:v.id,displayName:p.ownerName||p.businessName||'Your account'};}try{const r=await rider(req);return {role:'rider',ownerId:r.id,displayName:r.display_name||'Your account'};}catch(e){if(e.status===401)return null;throw e;}};

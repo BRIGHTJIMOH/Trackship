@@ -4,7 +4,7 @@ import {createHash,createDecipheriv} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {createApp} from './server.mjs';
-const TABLES=['mobile_features','website_videos','email_account_challenges','marketing_waitlist','workspaces','shipments','auth_challenges','rider_sessions','rider_profiles','job_tokens','delivery_proofs','payments','earnings','vendor_accounts','vendor_sessions','account_challenges','delivery_notifications','push_installations','push_deliveries','admin_sessions','admin_audit','admin_routes','admin_pricing','dispatch_test_settings','rider_route_preferences','rider_route_days','regional_admins','regional_admin_sessions'];
+const TABLES=['library_folders','library_files','mobile_features','website_videos','email_account_challenges','marketing_waitlist','workspaces','shipments','auth_challenges','rider_sessions','rider_profiles','job_tokens','delivery_proofs','payments','earnings','vendor_accounts','vendor_sessions','account_challenges','delivery_notifications','push_installations','push_deliveries','admin_sessions','admin_audit','admin_routes','admin_pricing','dispatch_test_settings','rider_route_preferences','rider_route_days','regional_admins','regional_admin_sessions'];
 const identifier=name=>{if(!/^[a-z_]+$/.test(name))throw new Error('Unexpected database identifier.');return '"'+name+'"';};
 const checksum=(rows,columns)=>createHash('sha256').update(JSON.stringify(rows.map(row=>columns.map(c=>row[c]??null)).map(JSON.stringify).sort())).digest('hex');
 export function sqliteSnapshot(filename){
@@ -23,7 +23,7 @@ export async function migrateSqlite({source,env=process.env,apply=false}={}){
  if(!env.DATABASE_URL)throw new Error('DATABASE_URL is required to import into PostgreSQL.');
  const encrypted=snapshot.filter(t=>['vendor_accounts','rider_profiles'].includes(t.table)).flatMap(t=>t.rows).filter(r=>r.identity_cipher);
  if(encrypted.length){const raw=env.TRACKSHIP_IDENTITY_KEY||'';if(raw.length<32)throw new Error('The existing identity encryption key is required before importing documents.');const key=/^[a-f0-9]{64}$/.test(raw)?Buffer.from(raw,'hex'):createHash('sha256').update(raw).digest();try{for(const row of encrypted){const p=JSON.parse(row.identity_cipher),cipher=createDecipheriv('aes-256-gcm',key,Buffer.from(p.iv,'hex'));cipher.setAuthTag(Buffer.from(p.tag,'hex'));JSON.parse(Buffer.concat([cipher.update(Buffer.from(p.data,'hex')),cipher.final()]).toString());}}catch{throw new Error('Identity key verification failed. Import refused to prevent unreadable documents.');}}
- const server=await createApp({env});const db=server.database;
+ const server=await createApp({env,seedLibrary:false});const db=server.database;
  try{
   if(db.kind!=='postgres')throw new Error('Migration target must be PostgreSQL.');
   await db.withRequest('POST',async()=>{

@@ -11,12 +11,13 @@ export async function deliveryReadiness(db,{env,push,providers,walletControlEnab
  const counts=Object.fromEntries(rows.map(r=>[r.state,Number(r.total)]));
  const blockers=[];
  if(!providers.emailReady)blockers.push('Email verification provider is not configured.');
+ if(providers.emailTestSender)blockers.push('Signup email uses the Resend test sender, which cannot deliver to general users. Verify a domain in Resend and update EMAIL_FROM to an address on that domain.');
  if(!push.ready)blockers.push('Firebase server push is not configured. Set FCM_ENABLED=true and FCM_SERVICE_ACCOUNT_FILE to a private Render Secret File.');
  if(!Number(devices.total))blockers.push('No active rider notification devices are registered. Install the Firebase APK, sign in and allow notifications.');
  if(!Number(available.total))blockers.push('No riders have confirmed a current working route today. Riders choose today’s routes on Home or in Profile.');
  blockers.push(walletControlEnabled?'Automatic wallet holds use the mock provider. These are sample funds, not a live bank balance.':'Automatic wallet funding is not enabled. Creating a shipment alone does not fund it.');
  return {
-  emailConfigured:Boolean(providers.emailReady),
+  emailConfigured:Boolean(providers.emailReady),emailTestSender:Boolean(providers.emailTestSender),
   push:{projectId:push.projectId||null,enabled:env.FCM_ENABLED==='true',configured:Boolean(push.ready),activeDevices:Number(devices.total),activeVendorDevices:Number(vendorDevices.total),availableRiders:Number(available.total),alertsLastDay:Number(notices.total),errors:errors.map(e=>({code:/^[A-Z0-9_]{1,80}$/.test(e.code)?e.code:'PROVIDER_ERROR',count:Number(e.total)})),providerAccepted:counts.sent||0,pending:(counts.pending||0)+(counts.sending||0),failed:(counts.failed||0)+(counts.invalid||0)},
   funding:{automaticWalletEnabled:Boolean(walletControlEnabled),walletProvider:walletControlEnabled?'mock':null,checkoutConfigured:Boolean(providers.paymentReady),checkoutMode:providers.paymentReady?providers.mode:null,liveAutomaticBankFunding:false},
   blockers,

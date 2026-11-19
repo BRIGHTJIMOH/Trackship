@@ -1,0 +1,56 @@
+import {randomUUID} from 'node:crypto';import {privateLibraryStorage} from './storage.mjs';
+const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};const validId=s=>typeof s==='string'&&/^[a-z0-9-]{1,80}$/.test(s);const defaultFolders=[['apks','APKs'],['mockups','Mockups'],['brand','Brand assets'],['documents','Documents'],['photos','Photos'],['videos','Videos']];
+const extensions=new Set('apk zip png jpg jpeg webp gif heic heif svg mp4 mov webm m4v mp3 m4a wav pdf xls xlsx csv doc docx ppt pptx txt'.split(' '));
+const cleanName=(s,max)=>{if(typeof s!=='string'||!s.trim()||s!==s.trim()||s.length>max||/[\x00-\x1f\x7f/\\]/.test(s)||s==='.'||s==='..')fail('Use a name without slashes or control characters.');return s;};
+export async function createLibraryHttp(db,{authorize,audit,body,env,seed=true,storage=privateLibraryStorage(env)}){
+ await db.withRequest('POST',()=>db.exec(`CREATE TABLE IF NOT EXISTS library_folders(id TEXT PRIMARY KEY,parent_id TEXT NOT NULL,name TEXT NOT NULL,created INTEGER NOT NULL,UNIQUE(parent_id,name));
+ CREATE TABLE IF NOT EXISTS library_files(id TEXT PRIMARY KEY,folder_id TEXT NOT NULL,name TEXT NOT NULL,bytes INTEGER NOT NULL,object_key TEXT,source_url TEXT,status TEXT NOT NULL,created INTEGER NOT NULL,expires INTEGER,actor TEXT NOT NULL);
+ CREATE INDEX IF NOT EXISTS library_files_folder ON library_files(folder_id,status,created,id);`));
+ if(seed)await db.withRequest('POST',async()=>{for(const[id,name]of defaultFolders)await db.prepare('INSERT OR IGNORE INTO library_folders(id,parent_id,name,created) VALUES (?,?,?,?)').run(id,'',name,Date.now());
+  const origin='https://sendrack-downloads-0735.jimohbright300.chatgpt.site';const seeds=[['release-0737','apks','SendRack-0.7.37.apk',0],['shirt-mockup','mockups','SendRack-Shirt-Mockup.png',0],['logo-green','brand','SendRack-Logo-Green.png',0],['chest-green','brand','SendRack-Chest-Print-Green.png',0],['chest-cream','brand','SendRack-Chest-Print-Cream.png',0],['shirt-pack','brand','SendRack-Shirt-Print-Pack.zip',0],['architecture','documents','SendRack-Architecture-Report.pdf',0],['cards-preview','documents','SendRack-Cards-Preview.pdf',0]];
+  for(const[id,folder,name,size]of seeds)await db.prepare("INSERT OR IGNORE INTO library_files(id,folder_id,name,bytes,source_url,status,created,actor) VALUES (?,?,?,?,?,'ready',?,'SendRack')").run('starter-'+id,folder,name,size,origin+'/files/'+name,Date.now());
+ });
+ const configuredLimit=(name,fallback)=>{const value=Number(env[name]);return Number.isSafeInteger(value)&&value>0?value:fallback;};
+ const quota=Math.max(1048576,Math.min(configuredLimit('LIBRARY_QUOTA_BYTES',5368709120),1099511627776)),maxFile=Math.min(configuredLimit('LIBRARY_MAX_FILE_BYTES',262144000),quota,1073741824);
+ const read=fn=>db.withRequest('GET',fn),write=fn=>db.withRequest('POST',async()=>{await db.exec('BEGIN IMMEDIATE');try{const value=await fn();await db.exec('COMMIT');return value;}catch(e){await db.exec('ROLLBACK');throw e;}});const folder=async id=>id===''?{id:'',name:'My files',parent_id:null}:await db.prepare('SELECT * FROM library_folders WHERE id=?').get(id);
+ const publicFile=f=>({id:f.id,name:f.name,bytes:f.bytes,created:f.created,source:f.source_url?'starter':'upload',status:f.status,downloadUrl:'/api/admin/library/files/'+f.id+'/download'});
+ const usage=async()=>Number((await db.prepare("SELECT COALESCE(SUM(bytes),0) AS bytes FROM library_files WHERE source_url IS NULL AND (status IN ('ready','deleting') OR (status='pending' AND expires>?))").get(Date.now())).bytes);
+ return {matches:req=>new URL(req.url,'http://local').pathname.startsWith('/api/admin/library'),async handle(req,res){
+  const send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(data));};
+  try{const user=await read(()=>authorize(req));const url=new URL(req.url,'http://local'),p=url.pathname;
+   if(p==='/api/admin/library'&&req.method==='GET'){
+    const id=url.searchParams.get('folder')||'';if(id&&!validId(id))fail('Invalid folder.');const current=await read(()=>folder(id));if(!current)fail('Folder not found.',404);
+    const crumbs=[];let parent=current;for(let i=0;parent&&i<9;i++){crumbs.unshift({id:parent.id,name:parent.name});parent=parent.id?await read(()=>folder(parent.parent_id)):null;}
+    const page=Math.max(1,Math.min(10000,Math.floor(Number(url.searchParams.get('page'))||1)));const [folders,files,total,used]=await read(async()=>Promise.all([db.prepare('SELECT id,name,parent_id,created FROM library_folders WHERE parent_id=? ORDER BY name LIMIT 500').all(id),db.prepare("SELECT * FROM library_files WHERE folder_id=? AND status='ready' ORDER BY created DESC,id DESC LIMIT 100 OFFSET ?").all(id,(page-1)*100),db.prepare("SELECT COUNT(*) AS total FROM library_files WHERE folder_id=? AND status='ready'").get(id),usage()]));
+    return send(200,{folder:{id:current.id,name:current.name},breadcrumbs:crumbs,folders,files:files.map(publicFile),page,total:Number(total.total),storage:{ready:storage.ready,usedBytes:used,quotaBytes:quota,maxFileBytes:maxFile}});
+   }
+   if(p==='/api/admin/library/folders'&&req.method==='POST'){
+    const input=await body(req,4096),name=cleanName(input.name,80),parent=input.parentId||'';if(parent&&!validId(parent))fail('Invalid parent folder.');
+    const value=await write(async()=>{let f=await folder(parent);if(!f)fail('Folder not found.',404);let depth=0;while(f.id){if(++depth>=8)fail('Folders can be nested up to eight levels.');f=await folder(f.parent_id);}if((await db.prepare('SELECT COUNT(*) AS n FROM library_folders').get()).n>=500)fail('The folder limit has been reached.',409);if(await db.prepare('SELECT id FROM library_folders WHERE parent_id=? AND name=?').get(parent,name))fail('A folder with this name already exists.',409);const id=randomUUID();await db.prepare('INSERT INTO library_folders(id,parent_id,name,created) VALUES (?,?,?,?)').run(id,parent,name,Date.now());await audit(user.actor,'library.folder.create','folder',id,name);return {id,name};});return send(201,value);
+   }
+   if(p==='/api/admin/library/uploads'&&req.method==='POST'){
+    if(!storage.ready)fail('Permanent file storage is not connected yet. Configure the private storage connection before uploading.',503);
+    const input=await body(req,4096),name=cleanName(input.name,180),folderId=input.folderId||'',extension=name.split('.').at(-1).toLowerCase();if(!extensions.has(extension))fail('This file type is not supported.');if(!Number.isSafeInteger(input.bytes)||input.bytes<1||input.bytes>maxFile)fail('Choose a file within the upload size limit.');
+    if(folderId&&!validId(folderId))fail('Invalid folder.');
+    const file=await write(async()=>{if(!await folder(folderId))fail('Folder not found.',404);if(await usage()+input.bytes>quota)fail('The library storage allowance is full.',409);const f={id:randomUUID(),name,bytes:input.bytes,folder_id:folderId,created:Date.now()};f.object_key='sendrack-library/'+f.id;await db.prepare("INSERT INTO library_files(id,folder_id,name,bytes,object_key,status,created,expires,actor) VALUES (?,?,?,?,?,'pending',?,?,?)").run(f.id,folderId,name,f.bytes,f.object_key,f.created,f.created+3600000,user.actor);return f;});
+    try{return send(201,{id:file.id,...await storage.upload(file)});}catch{await write(()=>db.prepare("UPDATE library_files SET status='failed' WHERE id=? AND status='pending'").run(file.id));fail('The storage service could not prepare this upload. Try again.',502);}
+   }
+   const match=p.match(/^\/api\/admin\/library\/files\/([a-z0-9-]{1,80})\/(complete|download|delete)$/);if(!match)fail('Library action not found.',404);
+   const file=await read(()=>db.prepare('SELECT * FROM library_files WHERE id=?').get(match[1]));if(!file||['deleted','failed'].includes(file.status))fail('File not found.',404);
+   if(match[2]==='complete'&&req.method==='POST'){
+    if(file.status==='ready')return send(200,{file:publicFile(file)});if(file.status!=='pending'||file.expires<Date.now())fail('This upload has expired. Upload the file again.',409);if(!storage.ready)fail('Storage is not connected.',503);
+    let uploaded;try{uploaded=await storage.inspect(file);}catch{fail('The upload has not been confirmed. Retry after the transfer finishes.',409);}if(uploaded.bytes!==file.bytes)fail('Uploaded file size did not match. Remove it and try again.',409);
+    await write(async()=>{const changed=await db.prepare("UPDATE library_files SET status='ready',expires=0 WHERE id=? AND status='pending'").run(file.id);if(!changed.changes)fail('This upload is already being changed. Refresh the folder.',409);await audit(user.actor,'library.file.upload','file',file.id,file.name);});return send(200,{file:publicFile({...file,status:'ready'})});
+   }
+   if(match[2]==='download'&&req.method==='GET'){
+    if(file.status!=='ready')fail('This file is not ready to download.',409);let target=file.source_url;if(!target){if(!storage.ready)fail('Storage is not connected.',503);try{target=await storage.download(file);}catch{fail('The storage service could not prepare the download.',502);}}
+    await write(()=>audit(user.actor,'library.file.download','file',file.id,file.name));res.writeHead(302,{Location:target,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'});return res.end();
+   }
+   if(match[2]==='delete'&&req.method==='POST'){
+    const claimed=await write(()=>db.prepare("UPDATE library_files SET status='deleting',expires=? WHERE id=? AND status IN ('ready','pending')").run(Date.now()+60000,file.id));if(!claimed.changes)fail('This file is already being changed.',409);
+    try{if(!file.source_url){if(!storage.ready)fail('Storage is not connected.',503);await storage.remove(file);}}catch{await write(()=>db.prepare("UPDATE library_files SET status=? WHERE id=? AND status='deleting'").run(file.status,file.id));fail('The storage service could not remove this file. Try again.',502);}
+    await write(async()=>{await db.prepare("UPDATE library_files SET status='deleted' WHERE id=?").run(file.id);await audit(user.actor,'library.file.delete','file',file.id,file.name);});return send(200,{deleted:true});
+   }fail('Method not allowed.',405);
+  }catch(e){send(e.status||503,{error:e.status?e.message:'The file library is unavailable. Try again.'});}
+ }};
+}

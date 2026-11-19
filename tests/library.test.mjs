@@ -13,7 +13,7 @@ test('library requires owner session and CSRF, isolates regional/vendor access, 
  const response=await f.api('/api/admin/login',{username:'library-regional',password:managerPassword});const regional={...await response.json(),cookie:response.headers.get('set-cookie').split(';')[0]};assert.equal((await f.api(prefix,undefined,regional)).status,403);
  const root=await(await f.api(prefix,undefined,owner)).json();assert.equal(root.storage.ready,false);assert.equal(root.folders.length,6);assert.equal((await f.api(prefix+'/uploads',{name:'test.pdf',bytes:4},owner)).status,503);
  assert.equal((await f.api(prefix+'/folders',{name:'Invoices'},owner)).status,201);assert.equal((await f.api(prefix+'/folders',{name:'Invoices'},owner)).status,409);assert.equal((await f.api(prefix+'/folders',{name:'../bad'},owner)).status,400);
- const files=await(await f.api(prefix+'?folder=apks',undefined,owner)).json();assert.equal(files.files[0].source,'starter');assert.equal(files.files[0].bytes,0);assert.equal(JSON.stringify(files).includes('object_key'),false);
+ const files=await(await f.api(prefix+'?folder=apks',undefined,owner)).json();assert.equal(files.files[0].source,'starter');assert.equal(files.files.find(f=>f.id==='starter-release-0737').bytes,0);assert.equal(files.files.find(f=>f.id==='starter-release-0738').bytes,4406489);assert.equal(JSON.stringify(files).includes('object_key'),false);
  const download=await fetch(f.base+files.files[0].downloadUrl,{headers:{Cookie:owner.cookie},redirect:'manual'});assert.equal(download.status,302);assert.ok(download.headers.get('location').startsWith('https://sendrack-downloads-0735.'));
  }finally{await f.close();}
 });

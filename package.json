@@ -18,7 +18,8 @@
     "test:progress": "node tests/tracking-progress-ui.mjs",
     "check:native-assets": "node scripts/check-native-assets.mjs",
     "test:apk-startup": "node tests/apk-startup-ui.mjs",
-    "worker:push": "node server/push/worker.mjs"
+    "worker:push": "node server/push/worker.mjs",
+    "test:admin-pwa": "node tests/admin-pwa-ui.mjs"
   },
   "engines": {
     "node": ">=24"

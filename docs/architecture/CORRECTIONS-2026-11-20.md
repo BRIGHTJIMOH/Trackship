@@ -52,6 +52,8 @@ The repository's free-plan Render Blueprint remains unchanged. An always-on plan
 
 ## Verification evidence
 
+Validation on 20 November: 124 PostgreSQL checks passed with no skips or failures; SQLite passed 119 checks with five PostgreSQL-only skips. A final focused PostgreSQL pass after the last index changes passed all 15 checks. Owner refresh, dispatch recovery, browser signup, solid theme switching/persistence and signed-APK startup browser checks also passed. These are controlled local checks, not a production capacity benchmark.
+
 The regression suite and focused architecture checks run against isolated PostgreSQL and local SQLite. The new cases cover stable/private history pagination, rebuilding projections, raw legacy updates, GPS without shipment rewrites, stale observation rejection, logout, asset availability during database failure, shared throttling, forged forwarding headers, poll backoff/cancellation, parallel notification claims and GPS progress while the legacy write guard is occupied.
 
 Browser checks cover owner draft/focus preservation, quiet dispatch recovery across weak networks/account switches, and browser vendor/rider signup recovery. Physical Android/iPhone execution, live Render plans, CDN, real object storage, provider delivery and a production-scale load/failover test remain separate acceptance gates.

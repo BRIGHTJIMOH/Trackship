@@ -14,7 +14,7 @@ out=Path(args.output_dir);out.mkdir(parents=True,exist_ok=True)
 source=root/'docs/architecture/CORRECTIONS-2026-11-20.md';lines=source.read_text().splitlines()
 commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
 styles=getSampleStyleSheet();styles.add(ParagraphStyle(name='ReportBody',fontName='Helvetica',fontSize=10,leading=14,spaceAfter=8));styles.add(ParagraphStyle(name='CellBody',fontName='Helvetica',fontSize=8.4,leading=11,spaceAfter=0))
-styles['Heading1'].textColor=colors.HexColor('#254a38');styles['Heading1'].fontSize=15;styles['Heading1'].leading=19
+styles['Heading1'].textColor=colors.HexColor('#254a38');styles['Heading1'].fontSize=15;styles['Heading1'].leading=19;styles['Heading1'].keepWithNext=True
 pdf=[];doc=Document();section=doc.sections[0];section.top_margin=Inches(.75);section.bottom_margin=Inches(.75)
 normal=doc.styles['Normal'];normal.font.name='Arial';normal.font.size=Pt(10.5)
 for style in ['Title','Heading 1','Heading 2']:doc.styles[style].font.color.rgb=RGBColor.from_string('254A38')

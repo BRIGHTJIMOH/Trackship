@@ -1,3 +1,4 @@
+import {accountColumns} from './account-columns.mjs';
 import {randomUUID,randomBytes,randomInt,createHash,timingSafeEqual} from 'node:crypto';
 import {normalizePhone,validateOnboarding} from '../web/core.mjs';
 const hash=s=>createHash('sha256').update(s).digest('hex');
@@ -19,7 +20,7 @@ export async function emailAccounts(db,{body,providers,publicProfile,vendor}){
   const token=req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];if(!token)return null;
   const session=await db.prepare('SELECT rider_id,expires FROM rider_sessions WHERE token_hash=?').get(hash(token));
   if(!session||session.expires<=Date.now())return null;
-  const account=await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(session.rider_id);return account&&!account.suspended?account:null;
+  const account=await db.prepare('SELECT '+accountColumns('rider')+' FROM rider_profiles WHERE id=?').get(session.rider_id);return account&&!account.suspended?account:null;
  }
  async function transaction(fn){await db.exec('BEGIN IMMEDIATE');try{const value=await fn();await db.exec('COMMIT');return value;}catch(e){await db.exec('ROLLBACK');throw e;}}
  return async(req,path,send)=>{
@@ -35,7 +36,7 @@ export async function emailAccounts(db,{body,providers,publicProfile,vendor}){
     if(await db.prepare('SELECT id FROM '+table(p.role)+' WHERE phone=? OR email=?').get(phone,email))fail('An account already exists. Log in instead. Existing phone accounts must link an email from their signed-in profile.',409);
     profile=publicProfile(p.role,phone,p.profile);const errors=validateOnboarding(p.role,profile);if(errors.length)fail(errors[0]);
    }else if(p.intent==='login'){
-    account=await db.prepare('SELECT * FROM '+table(p.role)+' WHERE email=?').get(email);
+    account=await db.prepare('SELECT '+accountColumns(p.role)+' FROM '+table(p.role)+' WHERE email=?').get(email);
     if(!account||!account.email_verified_at)fail('No verified email account matches. Existing phone accounts must link an email from their signed-in profile.',404);
     phone=account.phone;
    }else{
@@ -65,7 +66,7 @@ export async function emailAccounts(db,{body,providers,publicProfile,vendor}){
   const result=await transaction(async()=>{
    const fresh=await db.prepare('SELECT used,expires FROM email_account_challenges WHERE id=?').get(c.id);
    if(fresh.used||fresh.expires<=Date.now())fail('This email code has expired or was already used.',401);
-   let account=await db.prepare('SELECT * FROM '+table(c.role)+' WHERE phone=?').get(c.phone);
+   let account=await db.prepare('SELECT '+accountColumns(c.role)+' FROM '+table(c.role)+' WHERE phone=?').get(c.phone);
    if(c.intent==='signup'&&account)fail('This phone account already exists. Log in instead.',409);
    if(c.intent!=='signup'&&(!account||account.id!==c.account_id||account.suspended))fail('Account access is unavailable. Log in again.',401);
    if(c.intent==='login'&&(account.email!==c.email||!account.email_verified_at))fail('The account email changed. Request a new code.',401);
@@ -75,7 +76,7 @@ export async function emailAccounts(db,{body,providers,publicProfile,vendor}){
    }
    const other=await db.prepare('SELECT id FROM '+table(c.role)+' WHERE email=?').get(c.email);if(other&&other.id!==account?.id)fail('This email is already linked to another account of this type.',409);
    const created=!account,verifiedAt=account?.email_verified_at||Date.now();
-   if(!account){const id=randomUUID(),profile=JSON.parse(c.profile);if(c.role==='vendor')await db.prepare('INSERT INTO vendor_accounts(id,phone,owner_key,profile,email,email_verified_at) VALUES (?,?,?,?,?,?)').run(id,c.phone,randomUUID(),JSON.stringify(profile),c.email,verifiedAt);else await db.prepare('INSERT INTO rider_profiles(id,phone,display_name,public_profile,email,email_verified_at) VALUES (?,?,?,?,?,?)').run(id,c.phone,profile.fullName,JSON.stringify(profile),c.email,verifiedAt);account=await db.prepare('SELECT * FROM '+table(c.role)+' WHERE id=?').get(id);
+   if(!account){const id=randomUUID(),profile=JSON.parse(c.profile);if(c.role==='vendor')await db.prepare('INSERT INTO vendor_accounts(id,phone,owner_key,profile,email,email_verified_at) VALUES (?,?,?,?,?,?)').run(id,c.phone,randomUUID(),JSON.stringify(profile),c.email,verifiedAt);else await db.prepare('INSERT INTO rider_profiles(id,phone,display_name,public_profile,email,email_verified_at) VALUES (?,?,?,?,?,?)').run(id,c.phone,profile.fullName,JSON.stringify(profile),c.email,verifiedAt);account=await db.prepare('SELECT '+accountColumns(c.role)+' FROM '+table(c.role)+' WHERE id=?').get(id);
    }else if(c.intent==='link')await db.prepare('UPDATE '+table(c.role)+' SET email=?,email_verified_at=? WHERE id=?').run(c.email,verifiedAt,account.id);
    await db.prepare('UPDATE email_account_challenges SET used=1 WHERE id=?').run(c.id);
    const token=randomBytes(32).toString('hex');await db.prepare('INSERT INTO '+(c.role==='vendor'?'vendor_sessions':'rider_sessions')+' VALUES (?,?,?)').run(hash(token),account.id,Date.now()+30*86400000);

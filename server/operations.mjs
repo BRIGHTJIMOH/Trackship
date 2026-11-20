@@ -1,3 +1,5 @@
+import {initializeTrackingStore,hydrateTracking,saveRiderLocation} from './tracking-store.mjs';
+import {initializeShipmentIndex} from './shipment-index.mjs';
 import {mobileFeatures} from './mobile-features.mjs';
 import {vendorPushAccount,vendorNotifications} from './push/vendor-notifications.mjs';
 import {recordLifecycleNotifications} from './push/lifecycle-notifications.mjs';
@@ -55,7 +57,7 @@ export async function operations(db, {
   if (!(await db.prepare('PRAGMA table_info(payments)').all()).some(c => c.name === 'checkout_url')) await db.exec('ALTER TABLE payments ADD COLUMN checkout_url TEXT');
   const getShipment = async id => {
     const row = await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);
-    return row ? JSON.parse(row.payload) : null;
+    return row ? (await hydrateTracking(db,[JSON.parse(row.payload)]))[0] : null;
   };
   let push;
   const putShipment = async s => {const before=await getShipment(s.id);const result=await db.prepare('UPDATE shipments SET payload=? WHERE id=?').run(JSON.stringify(s),s.id);if(await recordLifecycleNotifications(db,before,s))push?.kick();return result;};
@@ -75,7 +77,7 @@ export async function operations(db, {
     if (!raw) fail('Verify your rider phone number to continue.', 401);
     const session = await db.prepare('SELECT rider_id,expires FROM rider_sessions WHERE token_hash=?').get(digest(raw));
     if (!session || session.expires < Date.now()) fail('Rider sign-in expired. Verify your phone again.', 401);
-    const profile=await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(session.rider_id);if(profile?.suspended)fail('This rider account is suspended. Contact support.',403);
+    const profile=await db.prepare('SELECT id,phone,display_name,identity_status,identity_format,suspended,recipient_code,public_profile FROM rider_profiles WHERE id=?').get(session.rider_id);if(profile?.suspended)fail('This rider account is suspended. Contact support.',403);
     return {...profile,sessionHash:digest(raw)};
   }
   async function job(raw) {
@@ -212,7 +214,7 @@ export async function operations(db, {
   }
   const accountAccess = await accounts(db, {
     body,
-    providers
+    providers,env
   });
   for (const [column, definition] of [['identity_cipher', 'TEXT'], ['identity_status', "TEXT DEFAULT 'missing'"]]) if (!(await db.prepare('PRAGMA table_info(vendor_accounts)').all()).some(c => c.name === column)) await db.exec(`ALTER TABLE vendor_accounts ADD COLUMN ${column} ${definition}`);
   function encryptIdentity(p) {
@@ -225,6 +227,7 @@ export async function operations(db, {
       data: encrypted.toString('hex')
     });
   }
+  await initializeShipmentIndex(db);await initializeTrackingStore(db);
   const market = await marketplace(db, {
     body,
     walletHolds,
@@ -242,7 +245,7 @@ export async function operations(db, {
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const mobile=await mobileFeatures(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
-  const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional){const rows=await db.prepare('SELECT id,payload FROM shipments').all();return {id:session.actor,role:'operations',shipmentIds:rows.filter(r=>{const sh=JSON.parse(r.payload);return session.states.includes(sh.originState)||session.states.includes(sh.destinationState);}).map(r=>r.id)};}return {id:session.actor,role:'super-admin'};}});
+  const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional)return {id:session.actor,role:'operations',states:session.states};return {id:session.actor,role:'super-admin'};}});
   const contactAccess=deliveryContacts(db,{owner,rider,job});
   await initializeTestDispatch(db);
   const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body,testModeAllowed:!walletControlEnabled&&!(providers.paymentReady&&providers.mode==='live')});
@@ -335,7 +338,7 @@ export async function operations(db, {
       if (raw && (await db.prepare('SELECT rider_id FROM rider_sessions WHERE token_hash=?').get(digest(raw)))) {
         const hash = digest(raw);
         await transaction(async () => {
-          for (const row of await db.prepare('SELECT payload FROM shipments').all()) {
+          for (const row of await db.prepare('SELECT s.payload FROM shipments s JOIN shipment_index i ON i.id=s.id WHERE i.consent_session=?').all(hash)) {
             const s = JSON.parse(row.payload);
             if (s.locationConsent?.sessionHash === hash) await putShipment({
               ...s,
@@ -343,6 +346,8 @@ export async function operations(db, {
               locationConsent: null
             });
           }
+          await db.prepare("UPDATE push_deliveries SET state='obsolete',lease_until=0,last_error='ACCOUNT_SESSION_ENDED' WHERE state IN ('pending','sending') AND installation_id IN (SELECT installation_id FROM push_installations WHERE session_hash=?)").run(hash);
+          await db.prepare('UPDATE rider_location_state SET consent=0,lat=NULL,lng=NULL,accuracy=NULL WHERE session_hash=?').run(hash);
           await db.prepare('DELETE FROM push_installations WHERE session_hash=?').run(hash);
           await db.prepare('DELETE FROM rider_sessions WHERE token_hash=?').run(hash);
         });
@@ -482,7 +487,7 @@ export async function operations(db, {
         if (row) shipments.push(JSON.parse(row.payload));
       }
       send(200, {
-        shipments
+        shipments:await hydrateTracking(db,shipments)
       });
       return true;
     }
@@ -685,15 +690,12 @@ export async function operations(db, {
         if(typeof p.lat!=='number'||typeof p.lng!=='number'||!Number.isFinite(p.lat)||!Number.isFinite(p.lng)||Math.abs(p.lat)>90||Math.abs(p.lng)>180||!Number.isFinite(p.accuracy)||p.accuracy<0||p.accuracy>5000||!Number.isSafeInteger(p.observedAt)||p.observedAt>now||now-p.observedAt>30000)fail('A valid current GPS fix is required.',400);
       }
       const tracked=await transaction(async()=>{
-        let count=0;
-        for(const row of await db.prepare('SELECT payload FROM shipments').all()){
+        let count=0;await rider(req);
+        for(const row of await db.prepare("SELECT s.payload FROM shipments s JOIN shipment_index i ON i.id=s.id WHERE i.tracking_rider=? AND i.removed=0 AND i.status NOT IN ('Delivered','Cancelled') ORDER BY s.id"+(db.kind==='postgres'?' FOR UPDATE OF s':'')).all(r.id)){
           const s=JSON.parse(row.payload),leg=trackingLeg(s);
           if(s.workflowVersion!==3||!['pickup','carrier','lastmile'].includes(leg)||s.actors?.[leg]?.id!==r.id||['Delivered','Cancelled'].includes(s.status))continue;
-          if(p.stop===true){if(s.locationConsent?.sessionHash===r.sessionHash)await putShipment({...s,location:null,locationConsent:null});continue;}
-          const consent={actor:r.id,sessionHash:r.sessionHash,leg,at:new Date(now).toISOString()};
-          const next={...s,locationConsent:consent};
-          if(p.start!==true)next.location={lat:p.lat,lng:p.lng,accuracy:p.accuracy,at:new Date(now).toISOString(),receivedAt:new Date(now).toISOString(),observedAt:new Date(p.observedAt).toISOString(),leg};
-          await putShipment(next);count++;
+          if(p.stop===true){await db.prepare('UPDATE rider_location_state SET consent=0,lat=NULL,lng=NULL,accuracy=NULL,observed_at=?,received_at=? WHERE shipment_id=? AND session_hash=?').run(now,now,s.id,r.sessionHash);continue;}
+          await saveRiderLocation(db,{shipmentId:s.id,riderId:r.id,leg,sessionHash:r.sessionHash,p,now});count++;
         }
         return count;
       });

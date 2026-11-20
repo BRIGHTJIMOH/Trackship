@@ -4,7 +4,8 @@ import {createHash,createDecipheriv} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {createApp} from './server.mjs';
-const TABLES=['library_folders','library_files','mobile_features','website_videos','email_account_challenges','marketing_waitlist','workspaces','shipments','auth_challenges','rider_sessions','rider_profiles','job_tokens','delivery_proofs','payments','earnings','vendor_accounts','vendor_sessions','account_challenges','delivery_notifications','push_installations','push_deliveries','admin_sessions','admin_audit','admin_routes','admin_pricing','dispatch_test_settings','rider_route_preferences','rider_route_days','regional_admins','regional_admin_sessions'];
+const DERIVED=['architecture_migrations','shipment_index','shipment_assignments','rider_match_index','request_rate_windows'];
+const TABLES=['rider_location_state','library_folders','library_files','mobile_features','website_videos','email_account_challenges','marketing_waitlist','workspaces','shipments','auth_challenges','rider_sessions','rider_profiles','job_tokens','delivery_proofs','payments','earnings','vendor_accounts','vendor_sessions','account_challenges','delivery_notifications','push_installations','push_deliveries','admin_sessions','admin_audit','admin_routes','admin_pricing','dispatch_test_settings','rider_route_preferences','rider_route_days','regional_admins','regional_admin_sessions'];
 const identifier=name=>{if(!/^[a-z_]+$/.test(name))throw new Error('Unexpected database identifier.');return '"'+name+'"';};
 const checksum=(rows,columns)=>createHash('sha256').update(JSON.stringify(rows.map(row=>columns.map(c=>row[c]??null)).map(JSON.stringify).sort())).digest('hex');
 export function sqliteSnapshot(filename){
@@ -13,7 +14,7 @@ export function sqliteSnapshot(filename){
  try{
   const check=source.prepare('PRAGMA quick_check').get();if(check.quick_check!=='ok')throw new Error('SQLite integrity check failed.');source.exec('BEGIN');
   const names=source.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(r=>r.name);
-  if(names.some(n=>!TABLES.includes(n)))throw new Error('Source has unknown tables; review them before migration.');
+  if(names.some(n=>!TABLES.includes(n)&&!DERIVED.includes(n)))throw new Error('Source has unknown tables; review them before migration.');
   const snapshot=[];for(const table of TABLES.filter(t=>names.includes(t))){const columns=source.prepare('PRAGMA table_info('+table+')').all().map(c=>c.name);const rows=source.prepare('SELECT * FROM '+identifier(table)).all();snapshot.push({table,columns,rows,checksum:checksum(rows,columns)});}source.exec('COMMIT');return snapshot;
  }finally{source.close();}
 }

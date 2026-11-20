@@ -6,11 +6,11 @@ try{
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/dispatch-quiet-test',r=>r.fulfill({contentType:'text/html',body:`<link rel="stylesheet" href="/style.css"><main id="fixture"></main><script type="module">
  import {createFeatures} from '/features.mjs';
- const intervals=[],originalInterval=window.setInterval;window.setInterval=(fn,ms)=>ms===10000?(intervals.push(fn),98765):originalInterval(fn,ms);
+ const timers=[],originalTimeout=window.setTimeout;window.setTimeout=(fn,ms)=>ms>=9000&&ms<=132000?(timers.push(fn),98765):originalTimeout(fn,ms);
  window.state={activeRole:'rider',accounts:{rider:{fullName:'Sample rider'}},riderConnection:{base:location.origin,token:'a'.repeat(64)}};
  window.calls=0;window.pending=[];window.renderCount=0;
  const features=createFeatures({getData:()=>state,getView:()=> 'alerts',getCurrent:()=>null,commit:()=>true,render:()=>{renderCount++;},toast:()=>{},request:(base,path)=>{if(path.endsWith('/read'))return Promise.resolve({read:true});calls++;return new Promise((resolve,reject)=>pending.push({resolve,reject}));},esc:s=>String(s??''),icon:()=>'',openView:()=>{},sync:()=>{},openLink:()=>{},shareText:()=>{},openCloudAccount:()=>{}});
- document.querySelector('#fixture').innerHTML=features.alerts();features.afterRender('alerts');window.tick=()=>intervals[0]();window.loaded=true;
+ document.querySelector('#fixture').innerHTML=features.alerts();features.afterRender('alerts');window.tick=()=>timers.shift()?.();window.loaded=true;
  </script>`}));
  await page.goto(f.base+'/dispatch-quiet-test');await page.waitForFunction(()=>window.loaded&&calls===1);await page.evaluate(()=>{for(let i=0;i<8;i++)tick();});assert.equal(await page.evaluate(()=>calls),1);
  const payload={offers:[{id:'sample',business:'Sample shop',description:'Sample parcel',origin:'Zaria',destination:'Zaria',pickupFeeKobo:100000,paymentStatus:'paid'}],notifications:[]};

@@ -252,8 +252,8 @@ test("live map: unsupported roles denied and restricted operations scopes never 
   const db = {
     prepare(sql) {
       return {
-        all: async () =>
-          sql.includes("FROM shipments")
+        all: async (...args) =>
+          sql.includes("JOIN shipments")&&!sql.includes("1=0")&&(args.length===0||args.includes(s.id))
             ? [{ id: s.id, payload: JSON.stringify(s) }]
             : sql.includes("rider_sessions")
               ? [{ token_hash: session, rider_id: rider, expires: at + 600000 }]

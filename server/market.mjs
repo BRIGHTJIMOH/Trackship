@@ -1,3 +1,4 @@
+import {matchRiderColumns,normalizeMatch,activeAssignmentCount} from './shipment-index.mjs';
 const lagosDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Lagos',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 import {testDispatchMode,canTestDispatch,simulatedDelivery} from './test-dispatch.mjs';
 import {dispatchMatchReasons} from './dispatch-match.mjs';
@@ -24,9 +25,7 @@ export async function marketplace(db, {
   await db.exec('CREATE TABLE IF NOT EXISTS delivery_notifications(id TEXT PRIMARY KEY,rider_id TEXT,shipment_id TEXT,phase TEXT,title TEXT,body TEXT,seen INTEGER DEFAULT 0,created INTEGER,UNIQUE(rider_id,shipment_id,phase))');
   await db.exec(`CREATE TABLE IF NOT EXISTS rider_route_preferences(rider_id TEXT NOT NULL,route_id TEXT NOT NULL,direction TEXT NOT NULL CHECK(direction IN ('forward','reverse')),route_revision INTEGER NOT NULL,available INTEGER NOT NULL DEFAULT 1 CHECK(available IN (0,1)),PRIMARY KEY(rider_id,route_id,direction))`);
   await db.exec('CREATE TABLE IF NOT EXISTS rider_route_days(rider_id TEXT PRIMARY KEY,day TEXT NOT NULL,updated INTEGER NOT NULL)');
-  const open = async () => (await db.prepare('SELECT payload FROM shipments').all()).map(r => JSON.parse(r.payload)).filter(s => s.workflowVersion === 3 && s.status === 'Created' && Date.now() - Date.parse(s.createdAt) < 7 * 86400000);
-  const allShipments=async()=>(await db.prepare('SELECT payload FROM shipments').all()).map(row=>JSON.parse(row.payload)).filter(s=>!s.testRemoval);
-  const activeFor=(r,all)=>all.filter(j=>!['Delivered','Cancelled'].includes(j.status)&&Object.entries(j.actors||{}).some(([leg,actor])=>actor.id===r.id&&(j.custodian===leg||j.status==='Rider accepted'))).length;
+  await db.exec('CREATE INDEX IF NOT EXISTS rider_routes_match ON rider_route_preferences(route_id,available,rider_id);CREATE INDEX IF NOT EXISTS notifications_account_created ON delivery_notifications(rider_id,created,id);');
   async function routeReasons(r,s){
     if(!s.routeId)return ['shipment-route-missing'];
     const day=await db.prepare('SELECT day FROM rider_route_days WHERE rider_id=?').get(r.id);if(day?.day!==lagosDay())return ['route-day-not-confirmed'];
@@ -45,7 +44,7 @@ export async function marketplace(db, {
     if(!matching.some(p=>p.route_revision===route.revision))return ['route-selection-outdated'];
     return [];
   }
-  async function eligible(r,s){if((await routeReasons(r,s)).length)return false;return dispatchMatchReasons(r,s,{activeCount:activeFor(r,await allShipments()),capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}).length===0;}
+  async function eligible(r,s){if((await routeReasons(r,s)).length)return false;return dispatchMatchReasons(r,s,{activeCount:await activeAssignmentCount(db,r.id),capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}).length===0;}
   const preview = s => ({
     id: s.id,
     code: s.code,
@@ -67,7 +66,7 @@ export async function marketplace(db, {
   });
   async function notify(s, phase = 'created') {
     const testAvailable=!walletHolds&&!(providers.paymentReady&&providers.mode==='live')&&await testDispatchMode(db)&&await canTestDispatch(db,s);
-    const rows = await db.prepare("SELECT * FROM rider_profiles WHERE identity_status IN ('submitted','approved') AND identity_format>=4").all();
+    const rows = await db.prepare(`SELECT DISTINCT ${matchRiderColumns(db)} FROM rider_profiles r JOIN rider_match_index m ON m.id=r.id JOIN rider_route_preferences p ON p.rider_id=r.id JOIN rider_route_days d ON d.rider_id=r.id WHERE p.route_id=? AND p.available=1 AND d.day=? AND m.state=? AND m.city=? AND r.identity_status IN ('submitted','approved') AND r.identity_format>=4 AND COALESCE(r.suspended,0)=0`).all(s.routeId||'',lagosDay(),normalizeMatch(s.originState),normalizeMatch(s.origin));
     let count = 0;
     const sends = [];
     for (const r of rows) {
@@ -86,30 +85,30 @@ export async function marketplace(db, {
   async function notificationsFor(r){const rows=await db.prepare(`SELECT n.id,n.shipment_id AS "shipmentId",n.title,n.body,n.seen,n.created,s.payload AS shipment_payload FROM delivery_notifications n LEFT JOIN shipments s ON s.id=n.shipment_id WHERE n.rider_id=? AND n.account_role='rider' ORDER BY n.created DESC LIMIT 100`).all(r.id);return rows.filter(n=>!n.shipment_payload||!JSON.parse(n.shipment_payload).testRemoval).map(({shipment_payload,...n})=>n);}
   async function matchingOffers(r,{recover=false}={}){
    const testMode=!walletHolds&&!(providers.paymentReady&&providers.mode==='live')&&await testDispatchMode(db);
-   const all=await allShipments(),activeCount=activeFor(r,all),matched=[],known=recover?new Set((await db.prepare("SELECT shipment_id FROM delivery_notifications WHERE rider_id=? AND account_role='rider' AND phase='created'").all(r.id)).map(n=>n.shipment_id)):null;
+   const all=(await db.prepare(`SELECT DISTINCT s.payload,i.created_at,i.id FROM shipment_index i JOIN shipments s ON s.id=i.id JOIN rider_route_preferences p ON p.route_id=i.route_id WHERE p.rider_id=? AND p.available=1 AND i.removed=0 AND i.workflow=3 AND i.status='Created' AND i.created_at>? ORDER BY i.created_at DESC,i.id DESC LIMIT 200`).all(r.id,new Date(Date.now()-7*86400000).toISOString())).map(row=>JSON.parse(row.payload)),activeCount=await activeAssignmentCount(db,r.id),matched=[],known=recover?new Set((await db.prepare("SELECT shipment_id FROM delivery_notifications WHERE rider_id=? AND account_role='rider' AND phase='created'").all(r.id)).map(n=>n.shipment_id)):null;
    for(const s of all){if((await routeReasons(r,s)).length||dispatchMatchReasons(r,s,{activeCount,capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}).length)continue;
     const testAvailable=testMode&&await canTestDispatch(db,s);matched.push({...preview(s),testDispatchAvailable:testAvailable});
     if(recover&&!known.has(s.id)){const ready=['paid','held'].includes(s.payment?.status)||testAvailable;await db.prepare('INSERT OR IGNORE INTO delivery_notifications(id,rider_id,shipment_id,phase,title,body,created) VALUES (?,?,?,?,?,?,?)').run(randomUUID(),r.id,s.id,'created','New shipment in your pickup area',`${s.business} · ${s.origin}, ${s.originState}. ${ready?'Ready to accept.':'Awaiting vendor payment.'} Open SendRack delivery offers.`,Date.now());}
    }return matched;
   }
   async function diagnostics(shipmentId,riderId){
-   const all=await allShipments(),riders=await db.prepare('SELECT id,display_name,public_profile,phone,identity_status,identity_format,suspended FROM rider_profiles').all();
+   const all=(await db.prepare('SELECT s.payload FROM shipments s JOIN shipment_index i ON i.id=s.id WHERE i.removed=0'+(shipmentId?' AND i.id=?':'')+' ORDER BY i.created_at DESC,i.id DESC LIMIT 100').all(...(shipmentId?[shipmentId]:[]))).map(row=>JSON.parse(row.payload)),riders=await db.prepare('SELECT id,display_name,public_profile,phone,identity_status,identity_format,suspended FROM rider_profiles'+(riderId?' WHERE id=?':'')+' ORDER BY id LIMIT 200').all(...(riderId?[riderId]:[]));
    if(!shipmentId&&!riderId)return {shipments:all.sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt)).slice(0,100).map(s=>({id:s.id,code:s.code,status:s.status})),riders:riders.map(r=>({id:r.id,name:r.display_name}))};
    const s=all.find(s=>s.id===shipmentId),r=riders.find(r=>r.id===riderId);if(!s||!r)fail('Select an existing shipment and rider.',404);
-   const reasons=[...dispatchMatchReasons(r,s,{activeCount:activeFor(r,all),capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}),...await routeReasons(r,s)];let profile={};try{profile=JSON.parse(r.public_profile||'{}');}catch{}
+   const reasons=[...dispatchMatchReasons(r,s,{activeCount:await activeAssignmentCount(db,r.id),capacity:Number(env.TRACKSHIP_RIDER_CAPACITY||5)}),...await routeReasons(r,s)];let profile={};try{profile=JSON.parse(r.public_profile||'{}');}catch{}
    const route=s.routeId?await db.prepare('SELECT name FROM admin_routes WHERE id=?').get(s.routeId):null,selectedRoutes=await db.prepare('SELECT a.name,p.direction,p.available,p.route_revision AS revision FROM rider_route_preferences p JOIN admin_routes a ON a.id=p.route_id WHERE p.rider_id=?').all(r.id);
    const notice=await db.prepare("SELECT COUNT(*) AS total FROM delivery_notifications WHERE shipment_id=? AND rider_id=? AND account_role='rider'").get(s.id,r.id),devices=await db.prepare(`SELECT COUNT(*) AS total FROM push_installations i JOIN rider_sessions session ON session.token_hash=i.session_hash WHERE i.rider_id=? AND i.account_role='rider' AND session.rider_id=i.rider_id AND i.enabled=1 AND session.expires>?`).get(r.id,Date.now());
    return {matches:reasons.length===0,reasons,shipment:{code:s.code,routeName:route?.name||null,status:s.status,pickupCity:s.origin,pickupState:s.originState,vehicle:s.vehicleClass||'any',weightKg:s.weightKg||null,paymentStatus:s.payment?.status},rider:{name:r.display_name,selectedRoutes,city:profile.city,state:profile.state,vehicle:profile.vehicle,identityStatus:r.identity_status,identityFormat:r.identity_format},notifications:Number(notice.total),activeDevices:Number(devices.total)};
   }
   return {
     notify,diagnostics,recover: r=>matchingOffers(r,{recover:true}),
-    async canNotify({riderId,shipmentId,phase}){const s=await getShipment(shipmentId),r=await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(riderId);if(!s||s.testRemoval||!r||r.suspended)return false;if(phase?.startsWith('status:'))return Object.values(s.actors||{}).some(a=>a?.id===riderId)&&(s.events||[]).some(e=>'status:'+(e.id||e.status+':'+e.at)===phase);return Boolean(s.status==='Created'&&await eligible(r,s));},
+    async canNotify({riderId,shipmentId,phase}){const s=await getShipment(shipmentId),r=await db.prepare('SELECT '+matchRiderColumns(db)+' FROM rider_profiles r WHERE r.id=?').get(riderId);if(!s||s.testRemoval||!r||r.suspended)return false;if(phase?.startsWith('status:'))return Object.values(s.actors||{}).some(a=>a?.id===riderId)&&(s.events||[]).some(e=>'status:'+(e.id||e.status+':'+e.at)===phase);return Boolean(s.status==='Created'&&await eligible(r,s));},
 
     matchesVehicle:(r,s)=>{try{return vehicleMatches(JSON.parse(r.public_profile||'{}'),s);}catch{return false;}},
     eligible,
     async route(req, path, send) {
-      if(path==='/api/v4/rider/dispatch/sync'&&req.method==='POST'){
-       const r=await rider(req);await body(req);const offers=await matchingOffers(r,{recover:true});
+      if(['/api/v4/rider/dispatch/feed','/api/v4/rider/dispatch/sync'].includes(path)&&req.method===(path.endsWith('/feed')?'GET':'POST')){
+       const r=await rider(req);if(req.method==='POST')await body(req);const offers=await matchingOffers(r,{recover:req.method==='POST'});
        send(200,{offers,notifications:await notificationsFor(r),identityRequired:r.identity_format<4||!['submitted','approved'].includes(r.identity_status)});return true;
       }
       if(path==='/api/v4/rider/routes'&&['GET','POST'].includes(req.method)){

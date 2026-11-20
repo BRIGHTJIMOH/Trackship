@@ -9,6 +9,7 @@ export async function deliveryReadiness(db,{env,push,providers,walletControlEnab
  const errors=await db.prepare("SELECT last_error AS code,COUNT(*) AS total FROM push_deliveries WHERE last_error IS NOT NULL AND state IN ('pending','failed','invalid') GROUP BY last_error").all();
  const rows=await db.prepare('SELECT state,COUNT(*) AS total FROM push_deliveries GROUP BY state').all();
  const counts=Object.fromEntries(rows.map(r=>[r.state,Number(r.total)]));
+ const oldest=await db.prepare("SELECT MIN(n.created) AS created FROM push_deliveries d JOIN delivery_notifications n ON n.id=d.notification_id WHERE d.state IN ('pending','sending')").get();
  const blockers=[];
  if(!providers.emailReady)blockers.push('Email verification provider is not configured.');
  if(providers.emailTestSender)blockers.push('Signup email uses the Resend test sender, which cannot deliver to general users. Verify a domain in Resend and update EMAIL_FROM to an address on that domain.');
@@ -18,7 +19,7 @@ export async function deliveryReadiness(db,{env,push,providers,walletControlEnab
  blockers.push(walletControlEnabled?'Automatic wallet holds use the mock provider. These are sample funds, not a live bank balance.':'Automatic wallet funding is not enabled. Creating a shipment alone does not fund it.');
  return {
   emailConfigured:Boolean(providers.emailReady),emailTestSender:Boolean(providers.emailTestSender),
-  push:{projectId:push.projectId||null,enabled:env.FCM_ENABLED==='true',configured:Boolean(push.ready),activeDevices:Number(devices.total),activeVendorDevices:Number(vendorDevices.total),availableRiders:Number(available.total),alertsLastDay:Number(notices.total),errors:errors.map(e=>({code:/^[A-Z0-9_]{1,80}$/.test(e.code)?e.code:'PROVIDER_ERROR',count:Number(e.total)})),providerAccepted:counts.sent||0,pending:(counts.pending||0)+(counts.sending||0),failed:(counts.failed||0)+(counts.invalid||0)},
+  push:{projectId:push.projectId||null,enabled:env.FCM_ENABLED==='true',configured:Boolean(push.ready),activeDevices:Number(devices.total),activeVendorDevices:Number(vendorDevices.total),availableRiders:Number(available.total),alertsLastDay:Number(notices.total),errors:errors.map(e=>({code:/^[A-Z0-9_]{1,80}$/.test(e.code)?e.code:'PROVIDER_ERROR',count:Number(e.total)})),providerAccepted:counts.sent||0,pending:(counts.pending||0)+(counts.sending||0),failed:(counts.failed||0)+(counts.invalid||0),oldestPendingAgeMs:oldest?.created?Math.max(0,now-Number(oldest.created)):0,workerMode:env.PUSH_WORKER_MODE||'embedded'},
   funding:{automaticWalletEnabled:Boolean(walletControlEnabled),walletProvider:walletControlEnabled?'mock':null,checkoutConfigured:Boolean(providers.paymentReady),checkoutMode:providers.paymentReady?providers.mode:null,liveAutomaticBankFunding:false},
   blockers,
   verification:'Configuration and FCM acceptance do not establish device receipt. Complete a consenting two-phone test before treating dispatch as live.'

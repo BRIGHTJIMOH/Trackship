@@ -98,3 +98,13 @@ export function reuseDeliveryDetails(previous,current={}) {
  if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(previous.routeId||'')){result.routeId=previous.routeId;result.routeReverse=previous.routeReverse===true;}
  return result;
 }
+
+// Visible-page fallback only; push remains the background notification channel.
+export function pollDelay(failures,baseMs=10000,random=Math.random){return Math.min(120000,baseMs*2**Math.min(5,Math.max(0,failures)))*(0.9+random()*0.2);}
+export function createPoller(task,{baseMs=10000,isVisible=()=>true,random=Math.random,schedule=setTimeout,cancel=clearTimeout}={}){
+ let timer=null,running=false,stopped=false,failures=0;
+ const queue=delay=>{if(!stopped)timer=schedule(run,delay);};
+ async function run(){timer=null;if(stopped)return;if(running||!isVisible()){queue(baseMs);return;}running=true;try{const ok=await task();failures=ok===false?failures+1:0;}catch{failures++;}finally{running=false;queue(pollDelay(failures,baseMs,random));}}
+ queue(pollDelay(0,baseMs,random));
+ return {reset(){if(stopped)return;failures=0;if(timer!==null)cancel(timer);queue(0);},stop(){stopped=true;if(timer!==null)cancel(timer);timer=null;}};
+}

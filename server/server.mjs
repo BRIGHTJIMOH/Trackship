@@ -1,10 +1,12 @@
+import {hydrateTracking} from './tracking-store.mjs';
+import {sharedRequestLimits,runtimeControls} from './request-controls.mjs';
+import {createStaticHandler} from './static.mjs';
 import http from 'node:http';
 import {createLibraryHttp} from './library/http.mjs';
 import {openDatabase} from './database.mjs';
 import {createFundingWebhookHandler} from './wallet/funding-http.mjs';
 import {createWalletHttp} from './wallet/http.mjs';
 import { randomBytes, createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateShipment, canTransition, publicShipment } from '../web/core.mjs';
@@ -29,6 +31,7 @@ export async function createApp({
   if(walletControl&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock finance APIs cannot run in production.');
   const walletWebhook = walletFunding ? createFundingWebhookHandler({funding:walletFunding,env}) : null;
   if(walletHolds&&(env.NODE_ENV==='production'||process.env.NODE_ENV==='production'))throw new Error('Mock wallet custody cannot run in production.');
+  const serveStatic=createStaticHandler(root);
   const db = await openDatabase({env,dataDir});
   if(walletHolds&&db.kind!=='postgres'){await db.close();throw new Error('Atomic wallet custody requires PostgreSQL.');}
   try {await db.withRequest('POST', async()=>{
@@ -47,24 +50,8 @@ export async function createApp({
     } = s;
     return details;
   }
-  const limits = new Map();
   const allowed = new Set(origins.split(',').map(s => s.trim()));
-  function rate(req, kind, max) {
-    const key = `${req.socket.remoteAddress}:${kind}`;
-    const now = Date.now();
-    if (limits.size > 10000) for (const [k, v] of limits) if (v.until < now) limits.delete(k);
-    const l = limits.get(key) || {
-      count: 0,
-      until: now + 60000
-    };
-    if (l.until < now) {
-      l.count = 0;
-      l.until = now + 60000;
-    }
-    l.count++;
-    limits.set(key, l);
-    return l.count <= max;
-  }
+  const rate=await db.withRequest('POST',()=>sharedRequestLimits(db,env));
   async function owner(req) {
     const t = req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
     if (!t) return null;
@@ -117,12 +104,16 @@ export async function createApp({
     resolveUser:req=>db.withRequest('GET',()=>advanced.walletPrincipal(req)),
     custodyTimeline:id=>db.withRequest('GET',async()=>{const row=await db.prepare('SELECT payload FROM shipments WHERE id=?').get(id);if(!row)return [];return (JSON.parse(row.payload).events||[]).map(({status,at,leg,actorName})=>({status,at,leg,actorName}));})
   }):null;
+  const runtime=runtimeControls({env});
   const server = http.createServer((req,res)=>{
+    if(!runtime.begin(req,res))return;
+    if(!new URL(req.url,'http://local').pathname.startsWith('/api/')){void serveStatic(req,res);return;}
     if(libraryHttp.matches(req)){void libraryHttp.handle(req,res);return;}
     if(financeHttp?.matches(req)){void financeHttp.handle(req,res);return;}
     // Dedicated short wallet transactions; never run provider reads under the legacy global write lock.
     if(walletWebhook?.matches(req)){void walletWebhook.handle(req,res);return;}
-    return db.withRequest(req.method,async()=>{
+    const readSnapshot=req.method==='POST'&&['/api/v3/shipments/snapshot','/api/v3/rider/location'].includes(new URL(req.url,'http://local').pathname);
+    return db.withRequest(readSnapshot?'GET':req.method,async()=>{
     const origin = req.headers.origin;
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -148,17 +139,18 @@ export async function createApp({
         res.end();
         return;
       }
-      if (!rate(req, 'all', 300)) return send(429, {
+      if (!await rate(req, 'all', 300)) return send(429, {
         error: 'Too many requests. Try again in a minute.'
       });
-      if(/^\/api\/v4\/(rider|vendor)\/push\//.test(route)&&!rate(req,'push-device',20))return send(429,{error:'Please try again in a minute.'});
+      if(/^\/api\/v4\/(rider|vendor)\/push\//.test(route)&&!await rate(req,'push-device',20))return send(429,{error:'Please try again in a minute.'});
       if(route==='/api/waitlist'&&req.method==='POST'){
-        if(!rate(req,'waitlist',5))return send(429,{error:'Please try again in a minute.'});
+        if(!await rate(req,'waitlist',5))return send(429,{error:'Please try again in a minute.'});
         const p=await body(req,4096),email=typeof p.email==='string'?p.email.trim().toLowerCase():'';
         if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||!['vendor','rider'].includes(p.role)||typeof p.name!=='string'||!p.name.trim()||p.name.length>80||typeof p.city!=='string'||!p.city.trim()||p.city.length>80||p.consent!==true)return send(400,{error:'Enter your name, email, city, role and consent.'});
         await db.prepare('INSERT INTO marketing_waitlist(email,name,role,city,created_at) VALUES (?,?,?,?,?) ON CONFLICT(email) DO NOTHING').run(email,p.name.trim(),p.role,p.city.trim(),new Date().toISOString());
         return send(200,{message:'You’re on the list. We’ll email you with SendRack updates.'});
       }
+      if(route==='/api/admin/runtime'&&req.method==='GET'){await advanced.financeAuthorize(req);return send(200,{...runtime.snapshot(),database:db.stats?.()||{kind:db.kind}});}
       if (await advanced(req, res, url, send)) return;
       if (route === '/api/ready' && req.method === 'GET'){await db.prepare('SELECT 1 AS ready').get();return send(200,{ready:true,database:db.kind});}
       if(route==='/api/version'&&req.method==='GET')return send(200,{service:'sendrack',version:'0.7.1',commit:/^[a-f0-9]{40}$/.test(env.RENDER_GIT_COMMIT||env.SOURCE_COMMIT||'')?(env.RENDER_GIT_COMMIT||env.SOURCE_COMMIT):null,branch:env.RENDER_GIT_BRANCH||null,features:{notificationRouteRecovery:true,adminLiveOperationsMap:true,emailSignup:true,riderRouteDirection:true,automaticRiderTracking:true}});
@@ -167,7 +159,7 @@ export async function createApp({
         version: '0.7.1'
       });
       if (route === '/api/workspaces' && req.method === 'POST') {
-        if (!rate(req, 'register', 5)) return send(429, {
+        if (!await rate(req, 'register', 5)) return send(429, {
           error: 'Too many new connections. Try again in a minute.'
         });
         await body(req);
@@ -278,7 +270,7 @@ export async function createApp({
         if (!row) return send(404, {
           error: 'Delivery not found.'
         });
-        const shipment = JSON.parse(row.payload);
+        const shipment = (await hydrateTracking(db,[JSON.parse(row.payload)]))[0];
         return send(200, shipment.workflowVersion === 3 ? flowPublic(shipment) : publicShipment(shipment));
       }
       if (route.startsWith('/api/')) return send(404, {
@@ -287,69 +279,7 @@ export async function createApp({
       if (!['GET', 'HEAD'].includes(req.method)) return send(405, {
         error: 'Method not allowed.'
       });
-      if(route==='/app/wallet'){res.writeHead(302,{Location:'/app#wallet'});res.end();return;}
-      const ownerFiles={'/admin/file-library.js':'file-library.js','/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js'};
-      if(ownerFiles[route]){const name=ownerFiles[route];res.writeHead(200,{'Content-Type':name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(path.join(root,'admin',name)));return;}
-      const files = {
-        '/welcome':'marketing.html',
-        '/welcome/':'marketing.html',
-        '/marketing.css':'marketing.css',
-        '/marketing.js':'marketing.js',
-        '/sendrack-entry.html': 'index.html',
-        '/sendrack-main.js': 'app.js',
-        '/sendrack-ui.css': 'style.css',
-        '/': 'marketing.html',
-        '/app': 'index.html',
-        '/app/': 'index.html',
-        '/index.html': 'index.html',
-        '/app.js': 'app.js',
-        '/core.mjs': 'core.mjs',
-        '/delivery-cards.mjs': 'delivery-cards.mjs',
-        '/lifecycle.mjs': 'lifecycle.mjs',
-        '/history.mjs': 'history.mjs',
-        '/features.mjs': 'features.mjs',
-        '/map-display.mjs': 'map-display.mjs',
-        '/viewer-location.mjs': 'viewer-location.mjs',
-        '/map-controls.css': 'map-controls.css',
-        '/config.mjs': 'config.mjs',
-        '/accounts.mjs': 'accounts.mjs',
-        '/identity.mjs': 'identity.mjs',
-        '/vehicles.mjs':'vehicles.mjs',
-        '/customer-wallet.mjs':'customer-wallet.mjs',
-        '/assets/leaflet.js': 'assets/leaflet.js',
-        '/assets/leaflet.css': 'assets/leaflet.css',
-        '/style.css': 'style.css',
-        '/assets/sendrack-studio-scooter.webp':'assets/sendrack-studio-scooter.webp',
-        '/assets/sendrack-courier-illustration.webp':'assets/sendrack-courier-illustration.webp',
-        '/assets/vehicle-keke.webp':'assets/vehicle-keke.webp',
-        '/assets/vehicle-car.webp':'assets/vehicle-car.webp',
-        '/assets/vehicle-dispatch.webp':'assets/vehicle-dispatch.webp',
-        '/assets/vehicle-truck.webp':'assets/vehicle-truck.webp',
-        '/assets/sendrack-mark.svg': 'assets/sendrack-mark.svg',
-        '/assets/Inter.ttf': 'assets/Inter.ttf',
-        '/assets/Poppins-Regular.ttf': 'assets/Poppins-Regular.ttf',
-        '/assets/Poppins-Medium.ttf': 'assets/Poppins-Medium.ttf',
-        '/assets/Poppins-SemiBold.ttf': 'assets/Poppins-SemiBold.ttf'
-      };
-      const filename = route.startsWith('/t/') || route.startsWith('/r/') || route === '/payment-return' ? 'index.html' : files[route];
-      if (!filename) return send(404, {
-        error: 'Not found.'
-      });
-      const types = {
-        '.html': 'text/html',
-        '.js': 'text/javascript',
-        '.mjs': 'text/javascript',
-        '.css': 'text/css',
-        '.svg': 'image/svg+xml',
-        '.png': 'image/png',
-        '.webp': 'image/webp',
-        '.jpg': 'image/jpeg',
-        '.ttf': 'font/ttf'
-      };
-      res.writeHead(200, {
-        'Content-Type': types[path.extname(filename)] + '; charset=utf-8'
-      });
-      res.end(req.method === 'HEAD' ? undefined : readFileSync(path.join(root, 'web', filename)));
+      return send(404,{error:'Not found.'});
     } catch (e) {
       if (!res.headersSent) send(e.status || 500, {
         error: e.status ? e.message : 'The tracking service could not complete this request.'
@@ -359,7 +289,8 @@ export async function createApp({
   server.requestTimeout = 30000;
   server.headersTimeout = 15000;
   server.on('listening',()=>advanced.deliveryPush?.start());
-  server.on('close',()=>{advanced.deliveryPush?.stop();server.databaseClosed=db.close();});
+  server.on('close',()=>{runtime.close();server.databaseClosed=Promise.resolve(advanced.deliveryPush?.stop()).then(()=>db.close());});
+  server.startBackgroundWorkers=()=>advanced.deliveryPush?.start();server.deliveryPushReady=Boolean(advanced.deliveryPush?.ready);
   server.databaseKind=db.kind;
   server.database=db;
   return server;

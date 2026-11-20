@@ -1,3 +1,5 @@
+import {hydrateTracking} from './tracking-store.mjs';
+import {shipmentScope} from './shipment-index.mjs';
 import {trackingLeg} from '../web/lifecycle.mjs';
 import { createHash } from "node:crypto";
 import { publicMapConfig } from "./maps.mjs";
@@ -164,44 +166,21 @@ export function liveOperations(
         auth.shipmentIds === undefined ? null : new Set(auth.shipmentIds),
       scope = digest(
         JSON.stringify(
-          allowed ? [...allowed].sort() : "all-authorized-operations",
+          allowed ? [...allowed].sort() : (auth.states||"all-authorized-operations"),
         ),
       );
-    const at = now(),
-      sessions = new Map(
-        (
-          await db
-            .prepare(
-              "SELECT s.token_hash,s.rider_id,s.expires FROM rider_sessions s JOIN rider_profiles p ON p.id=s.rider_id WHERE s.expires>? AND p.suspended=0",
-            )
-            .all(at)
-        ).map((s) => [s.token_hash, s]),
-      ),
-      suspended = new Set(
-        (
-          await db
-            .prepare("SELECT id FROM rider_profiles WHERE suspended=1")
-            .all()
-        ).map((r) => r.id),
-      );
-    const records = [];
-    for (const row of await db
-      .prepare("SELECT id,payload FROM shipments")
-      .all()) {
-      if (allowed && !allowed.has(row.id)) continue;
-      const s = JSON.parse(row.payload),
-        record = operationsRecord(s, { now: at, sessions, suspended });
-      if (record) records.push(record);
-    }
+    const at=now(),region=shipmentScope(auth.states||[]),args=[...region.args];let where="i.removed=0 AND i.status NOT IN ('Delivered','Cancelled')"+region.sql;
+    if(allowed){where+=allowed.size?' AND i.id IN ('+[...allowed].map(()=>'?').join(',')+')':' AND 1=0';args.push(...allowed);}
+    const rows=await db.prepare('SELECT s.id,s.payload FROM shipment_index i JOIN shipments s ON s.id=i.id WHERE '+where+' ORDER BY i.created_at DESC,i.id DESC LIMIT 501').all(...args),limited=rows.length>500,selected=await hydrateTracking(db,rows.slice(0,500).map(r=>JSON.parse(r.payload))),sessionIds=[...new Set(selected.map(s=>s.locationConsent?.sessionHash).filter(Boolean))],riderIds=[...new Set(selected.flatMap(s=>Object.values(s.actors||{}).map(a=>a?.id)).filter(Boolean))];
+    const sessions=new Map((sessionIds.length?await db.prepare('SELECT s.token_hash,s.rider_id,s.expires FROM rider_sessions s JOIN rider_profiles p ON p.id=s.rider_id WHERE s.expires>? AND p.suspended=0 AND s.token_hash IN ('+sessionIds.map(()=>'?').join(',')+')').all(at,...sessionIds):[]).map(s=>[s.token_hash,s]));
+    const suspended=new Set((riderIds.length?await db.prepare('SELECT id FROM rider_profiles WHERE suspended=1 AND id IN ('+riderIds.map(()=>'?').join(',')+')').all(...riderIds):[]).map(r=>r.id));
+    const records=[];for(const s of selected){const record=operationsRecord(s,{now:at,sessions,suspended});if(record)records.push(record);}
     const byId = new Map(records.map((r) => [r.id, r]));
+    const extraRows=query=>db.prepare(query+' AND shipment_id IN ('+([...byId.keys()].map(()=>'?').join(',')||'NULL')+')').all(...byId.keys());
     if (
       (await db.prepare("PRAGMA table_info(notification_outbox)").all()).length
     ) {
-      for (const row of await db
-        .prepare(
-          "SELECT shipment_id,state,created FROM notification_outbox WHERE state IN ('failed','pending','processing')",
-        )
-        .all()) {
+      for(const row of await extraRows("SELECT shipment_id,state,created FROM notification_outbox WHERE state IN ('failed','pending','processing')")) {
         const r = byId.get(row.shipment_id);
         const reason =
           row.state === "failed"
@@ -216,11 +195,7 @@ export function liveOperations(
     if (
       (await db.prepare("PRAGMA table_info(dispatch_handovers)").all()).length
     ) {
-      for (const row of await db
-        .prepare(
-          "SELECT shipment_id,expires,created FROM dispatch_handovers WHERE state='pending'",
-        )
-        .all()) {
+      for(const row of await extraRows("SELECT shipment_id,expires,created FROM dispatch_handovers WHERE state='pending'")) {
         const r = byId.get(row.shipment_id);
         const reason =
           row.expires <= at
@@ -233,11 +208,7 @@ export function liveOperations(
       }
     }
     if ((await db.prepare("PRAGMA table_info(dispatch_jobs)").all()).length) {
-      for (const row of await db
-        .prepare(
-          "SELECT shipment_id FROM dispatch_jobs WHERE state='needs-attention'",
-        )
-        .all()) {
+      for(const row of await extraRows("SELECT shipment_id FROM dispatch_jobs WHERE state='needs-attention'")) {
         const r = byId.get(row.shipment_id);
         if (r) r.attention.push("Dispatch search exhausted");
       }
@@ -263,6 +234,7 @@ export function liveOperations(
     scopes.set(scope, history.slice(0, 3));
     while (scopes.size > 16) scopes.delete(scopes.keys().next().value);
     send(200, {
+      limited,limit:500,
       cursor,
       reset: !previous,
       upserts,

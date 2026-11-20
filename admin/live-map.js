@@ -344,7 +344,7 @@ export function liveOperationsMap({
     stateLine.textContent =
       "Connected · server update " +
       date(feed.serverTime) +
-      " · GPS freshness expires after 2 minutes.";
+      " · GPS freshness expires after 2 minutes."+(feed.limited?" Showing the 500 most recent active shipments; use Shipments for full records.":"");
     stateLine.classList.remove("offline");
     options();
     if (!map) {

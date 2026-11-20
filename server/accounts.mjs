@@ -1,3 +1,6 @@
+import {accountColumns} from './account-columns.mjs';
+import {hydrateTracking} from './tracking-store.mjs';
+import {sharedRequestLimits} from './request-controls.mjs';
 import {emailAccounts} from './email-accounts.mjs';
 import { randomUUID, randomBytes, randomInt, createHash, timingSafeEqual } from 'node:crypto';
 import { normalizePhone, validateOnboarding } from '../web/core.mjs';
@@ -15,32 +18,22 @@ const same = (a, b) => {
 };
 export async function accounts(db, {
   body,
-  providers
+  providers,
+  env={}
 }) {
   await db.exec(`CREATE TABLE IF NOT EXISTS vendor_accounts(id TEXT PRIMARY KEY,phone TEXT UNIQUE,owner_key TEXT UNIQUE,profile TEXT);
  CREATE TABLE IF NOT EXISTS vendor_sessions(token_hash TEXT PRIMARY KEY,vendor_id TEXT,expires INTEGER);
  CREATE TABLE IF NOT EXISTS account_challenges(id TEXT PRIMARY KEY,phone TEXT,role TEXT,intent TEXT,profile TEXT,salt TEXT,hash TEXT,expires INTEGER,attempts INTEGER DEFAULT 0,used INTEGER DEFAULT 0,created INTEGER);`);
   if (!(await db.prepare('PRAGMA table_info(workspaces)').all()).some(c => c.name === 'disabled')) await db.exec('ALTER TABLE workspaces ADD COLUMN disabled INTEGER DEFAULT 0');
   if (!(await db.prepare('PRAGMA table_info(rider_profiles)').all()).some(c => c.name === 'public_profile')) await db.exec('ALTER TABLE rider_profiles ADD COLUMN public_profile TEXT');
-  const rates = new Map();
-  function rate(req) {
-    const ip = req.socket.remoteAddress,
-      now = Date.now();
-    let r = rates.get(ip);
-    if (!r || r.until < now) r = {
-      count: 0,
-      until: now + 600000
-    };
-    r.count++;
-    rates.set(ip, r);
-    if (r.count > 10) fail('Too many sign-in codes requested. Try again later.', 429);
-  }
+  const sharedRate=await sharedRequestLimits(db,env);
+  async function rate(req){if(!await sharedRate(req,'account-code',10,600000))fail('Too many sign-in codes requested. Try again later.',429);}
   const raw = req => req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
   async function vendor(req) {
     const t = raw(req);
     if (!t) return null;
     const s = await db.prepare('SELECT vendor_id,expires FROM vendor_sessions WHERE token_hash=?').get(hash(t));
-    const account=s&&s.expires>Date.now()?await db.prepare('SELECT * FROM vendor_accounts WHERE id=?').get(s.vendor_id):null;return account&&!account.suspended?account:null;
+    const account=s&&s.expires>Date.now()?await db.prepare('SELECT '+accountColumns('vendor')+' FROM vendor_accounts WHERE id=?').get(s.vendor_id):null;return account&&!account.suspended?account:null;
   }
   const publicProfile = (role, phone, input = {}) => {
     const names = role === 'vendor' ? ['businessName', 'ownerName', 'city', 'state', 'community', 'pickupAddress', 'category'] : ['fullName', 'city', 'state', 'community', 'vehicle','maxLoadKg'];
@@ -77,7 +70,7 @@ export async function accounts(db, {
         const phone = normalizePhone(p.phone);
         if (!/^0[789]\d{9}$/.test(phone)) fail('Enter a valid Nigerian phone number.');
         if (!providers.smsReady) fail('Account phone verification is not connected on this service.', 503);
-        rate(req);
+        await rate(req);
         const recent = await db.prepare('SELECT created FROM account_challenges WHERE phone=? ORDER BY created DESC LIMIT 1').get(phone);
         if (recent && Date.now() - recent.created < 60000) fail('Wait one minute before requesting another code.', 429);
         const known=await db.prepare('SELECT suspended FROM '+(p.role==='vendor'?'vendor_accounts':'rider_profiles')+' WHERE phone=?').get(phone);if(known?.suspended)fail('Account access is unavailable. Contact support.',403);
@@ -102,7 +95,7 @@ export async function accounts(db, {
         if (!c || c.used || c.expires < Date.now() || c.attempts >= 5) fail('This sign-in code is expired or locked.', 401);
         await db.prepare('UPDATE account_challenges SET attempts=attempts+1 WHERE id=?').run(c.id);
         if (!/^\d{6}$/.test(p.code || '') || !same(hash(c.salt + p.code), c.hash)) fail('Incorrect sign-in code.', 401);
-        const existing = c.role === 'vendor' ? await db.prepare('SELECT * FROM vendor_accounts WHERE phone=?').get(c.phone) : await db.prepare('SELECT * FROM rider_profiles WHERE phone=?').get(c.phone);
+        const existing = c.role === 'vendor' ? await db.prepare('SELECT '+accountColumns('vendor')+' FROM vendor_accounts WHERE phone=?').get(c.phone) : await db.prepare('SELECT '+accountColumns('rider')+' FROM rider_profiles WHERE phone=?').get(c.phone);
         if (c.intent === 'login' && !existing) fail('No account was found for this phone and role. Choose Sign up.', 404);
         if(existing?.suspended)fail('Account access is unavailable. Contact support.',403);
       const authToken = token();
@@ -120,7 +113,7 @@ export async function accounts(db, {
               const id = randomUUID(),
                 ownerKey = randomUUID();
               await db.prepare('INSERT INTO vendor_accounts(id,phone,owner_key,profile) VALUES (?,?,?,?)').run(id, c.phone, ownerKey, JSON.stringify(profile));
-              account = await db.prepare('SELECT * FROM vendor_accounts WHERE id=?').get(id);
+              account = await db.prepare('SELECT '+accountColumns('vendor')+' FROM vendor_accounts WHERE id=?').get(id);
               created = true;
             }
             profile = JSON.parse(account.profile);
@@ -130,7 +123,7 @@ export async function accounts(db, {
             if (!account) {
               const id = randomUUID();
               await db.prepare('INSERT INTO rider_profiles(id,phone,display_name,public_profile) VALUES (?,?,?,?)').run(id, c.phone, profile.fullName, JSON.stringify(profile));
-              account = await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(id);
+              account = await db.prepare('SELECT '+accountColumns('rider')+' FROM rider_profiles WHERE id=?').get(id);
               created = true;
             }
             profile = account.public_profile ? JSON.parse(account.public_profile) : {
@@ -160,7 +153,7 @@ export async function accounts(db, {
         const v = await vendor(req);
         if (v) { send(200, {role:'vendor',phone:v.phone}); return true; }
         const t=raw(req), session=t?await db.prepare('SELECT rider_id,expires FROM rider_sessions WHERE token_hash=?').get(hash(t)):null;
-        const r=session&&session.expires>Date.now()?await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(session.rider_id):null;
+        const r=session&&session.expires>Date.now()?await db.prepare('SELECT '+accountColumns('rider')+' FROM rider_profiles WHERE id=?').get(session.rider_id):null;
         if (!r || r.suspended) fail('Please sign in again.',401);
         send(200, {role:'rider',phone:r.phone}); return true;
       }
@@ -180,7 +173,7 @@ export async function accounts(db, {
         const t = raw(req);
         const session = t ? await db.prepare('SELECT rider_id,expires FROM rider_sessions WHERE token_hash=?').get(hash(t)) : null;
         if (!session || session.expires < Date.now()) fail('Log in to your account.', 401);
-        const r = await db.prepare('SELECT * FROM rider_profiles WHERE id=?').get(session.rider_id);
+        const r = await db.prepare('SELECT '+accountColumns('rider')+' FROM rider_profiles WHERE id=?').get(session.rider_id);
         if(r.suspended)fail('Account access is unavailable. Contact support.',403);
       const profile = publicProfile('rider', r.phone, p);
         const errors = validateOnboarding('rider', profile);
@@ -194,9 +187,10 @@ export async function accounts(db, {
       if (path === '/api/accounts/vendor/shipments' && req.method === 'GET') {
         const v = await vendor(req);
         if (!v) fail('Log in to your vendor account.', 401);
-        send(200, {
-          shipments: (await db.prepare('SELECT payload FROM shipments WHERE owner=?').all(v.owner_key)).map(r => JSON.parse(r.payload))
-        });
+        const url=new URL(req.url,'http://local'),limit=Math.max(1,Math.min(200,Math.floor(Number(url.searchParams.get('limit'))||100))),cursor=url.searchParams.get('cursor');let where='i.owner=?',args=[v.owner_key];
+        if(cursor){if(cursor.length>300)fail('Invalid shipment page cursor.');let value;try{value=JSON.parse(Buffer.from(cursor,'base64url').toString());}catch{}if(!Array.isArray(value)||value.length!==2||typeof value[0]!=='string'||value[0].length>40||typeof value[1]!=='string'||value[1].length>80)fail('Invalid shipment page cursor.');where+=' AND (i.created_at<? OR (i.created_at=? AND i.id<?))';args.push(value[0],value[0],value[1]);}
+        const rows=await db.prepare('SELECT s.payload,i.created_at,i.id FROM shipment_index i JOIN shipments s ON s.id=i.id WHERE '+where+' ORDER BY i.created_at DESC,i.id DESC LIMIT ?').all(...args,limit+1),hasMore=rows.length>limit,page=rows.slice(0,limit),last=page.at(-1);
+        send(200,{shipments:await hydrateTracking(db,page.map(r=>JSON.parse(r.payload))),hasMore,nextCursor:hasMore?Buffer.from(JSON.stringify([last.created_at,last.id])).toString('base64url'):null});
         return true;
       }
       if (path === '/api/accounts/vendor/claim-legacy' && req.method === 'POST') {

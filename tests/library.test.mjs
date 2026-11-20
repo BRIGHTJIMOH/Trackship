@@ -14,6 +14,11 @@ test('library requires owner session and CSRF, isolates regional/vendor access, 
  const root=await(await f.api(prefix,undefined,owner)).json();assert.equal(root.storage.ready,false);assert.equal(root.folders.length,6);assert.equal((await f.api(prefix+'/uploads',{name:'test.pdf',bytes:4},owner)).status,503);
  assert.equal((await f.api(prefix+'/folders',{name:'Invoices'},owner)).status,201);assert.equal((await f.api(prefix+'/folders',{name:'Invoices'},owner)).status,409);assert.equal((await f.api(prefix+'/folders',{name:'../bad'},owner)).status,400);
  const files=await(await f.api(prefix+'?folder=apks',undefined,owner)).json();assert.equal(files.files[0].source,'starter');assert.equal(files.files.find(f=>f.id==='starter-release-0737').bytes,0);assert.equal(files.files.find(f=>f.id==='starter-release-0738').bytes,4406489);assert.equal(JSON.stringify(files).includes('object_key'),false);
+ const docs=await(await f.api(prefix+'?folder=documents',undefined,owner)).json();
+ for(const name of ['SendRack-Admin-Installable-Update.zip','SendRack-Admin-Installation-Guide.txt']){
+  const file=docs.files.find(file=>file.name===name);assert.ok(file);assert.ok(file.bytes>0);
+  const result=await fetch(f.base+file.downloadUrl,{headers:{Cookie:owner.cookie},redirect:'manual'});assert.equal(result.status,302);assert.equal(result.headers.get('location'),'https://sendrack-downloads-0735.jimohbright300.chatgpt.site/files/'+name);
+ }
  const download=await fetch(f.base+files.files[0].downloadUrl,{headers:{Cookie:owner.cookie},redirect:'manual'});assert.equal(download.status,302);assert.ok(download.headers.get('location').startsWith('https://sendrack-downloads-0735.'));
  }finally{await f.close();}
 });

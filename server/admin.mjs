@@ -47,7 +47,7 @@ export async function adminConsole(db,{body,env,catalog}){
  if(p==='/api/admin/waitlist'&&req.method==='GET'){
   const page=Math.max(1,Math.min(10000,Math.floor(Number(url.searchParams.get('page'))||1)));
   const total=(await db.prepare('SELECT COUNT(*) AS count FROM marketing_waitlist').get()).count;
-  const entries=await db.prepare('SELECT name,email,role,city,created_at FROM marketing_waitlist ORDER BY created_at DESC,email LIMIT 50 OFFSET ?').all((page-1)*50);
+  const entries=await db.prepare('SELECT name,email,role,city,created_at,whatsapp,whatsapp_consent,whatsapp_consented_at FROM marketing_waitlist ORDER BY created_at DESC,email LIMIT 50 OFFSET ?').all((page-1)*50);
   send(200,{page,total,entries});return true;
  }
  if(p==='/api/admin/users'&&req.method==='GET'){send(200,await peoplePage(db,url));return true;}

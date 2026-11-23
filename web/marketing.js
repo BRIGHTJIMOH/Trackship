@@ -25,7 +25,8 @@ signup.addEventListener('submit', async event => {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         name: values.get('name'), city: values.get('city'), email: values.get('email'),
-        role: values.get('role'), consent: values.has('consent')
+        role: values.get('role'), consent: values.has('consent'),
+        whatsapp: values.get('whatsapp') || '', whatsappConsent: values.has('whatsappConsent')
       }),
       signal: AbortSignal.timeout(15000)
     });

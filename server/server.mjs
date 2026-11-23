@@ -9,7 +9,7 @@ import {createWalletHttp} from './wallet/http.mjs';
 import { randomBytes, createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateShipment, canTransition, publicShipment } from '../web/core.mjs';
+import { validateShipment, canTransition, publicShipment, normalizePhone } from '../web/core.mjs';
 import { operations } from './operations.mjs';
 import { flowPublic } from '../web/lifecycle.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,6 +39,8 @@ export async function createApp({
   if (!(await db.prepare('PRAGMA table_info(shipments)').all()).some(c => c.name === 'rider_hash')) await db.exec('ALTER TABLE shipments ADD COLUMN rider_hash TEXT');
   await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS shipments_rider_hash ON shipments(rider_hash)');
   await db.exec('CREATE TABLE IF NOT EXISTS marketing_waitlist(email TEXT PRIMARY KEY,name TEXT,role TEXT,city TEXT,created_at TEXT NOT NULL)');
+  const waitlistColumns=await db.prepare('PRAGMA table_info(marketing_waitlist)').all();
+  for(const [column,type] of [['whatsapp','TEXT'],['whatsapp_consent','INTEGER DEFAULT 0'],['whatsapp_consented_at','TEXT']])if(!waitlistColumns.some(c=>c.name===column))await db.exec('ALTER TABLE marketing_waitlist ADD COLUMN '+column+' '+type);
   });}catch(e){await db.close();throw e;}
   function riderView(s) {
     const {
@@ -147,8 +149,14 @@ export async function createApp({
         if(!await rate(req,'waitlist',5))return send(429,{error:'Please try again in a minute.'});
         const p=await body(req,4096),email=typeof p.email==='string'?p.email.trim().toLowerCase():'';
         if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||!['vendor','rider'].includes(p.role)||typeof p.name!=='string'||!p.name.trim()||p.name.length>80||typeof p.city!=='string'||!p.city.trim()||p.city.length>80||p.consent!==true)return send(400,{error:'Enter your name, email, city, role and consent.'});
-        await db.prepare('INSERT INTO marketing_waitlist(email,name,role,city,created_at) VALUES (?,?,?,?,?) ON CONFLICT(email) DO NOTHING').run(email,p.name.trim(),p.role,p.city.trim(),new Date().toISOString());
-        return send(200,{message:'You’re on the list. We’ll email you with SendRack updates.'});
+        const rawWhatsapp=p.whatsapp===undefined?'':p.whatsapp;
+        if(typeof rawWhatsapp!=='string'||rawWhatsapp.length>32||/[^+0-9 ()-]/.test(rawWhatsapp))return send(400,{error:'Enter a valid Nigerian WhatsApp number.'});
+        const whatsapp=normalizePhone(rawWhatsapp),whatsappConsent=p.whatsappConsent===true;
+        if(whatsapp&&!/^0[789]\d{9}$/.test(whatsapp))return send(400,{error:'Enter a valid Nigerian WhatsApp number, for example 08012345678.'});
+        if(whatsapp&&!whatsappConsent||whatsappConsent&&!whatsapp)return send(400,{error:'Add your WhatsApp number and tick the WhatsApp consent box, or leave both blank.'});
+        const now=new Date().toISOString();
+        await db.prepare('INSERT INTO marketing_waitlist(email,name,role,city,created_at,whatsapp,whatsapp_consent,whatsapp_consented_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(email) DO NOTHING').run(email,p.name.trim(),p.role,p.city.trim(),now,whatsapp||null,whatsappConsent?1:0,whatsappConsent?now:null);
+        return send(200,{message:whatsappConsent?'You’re on the list. We’ll share SendRack updates by email and WhatsApp.':'You’re on the list. We’ll email you with SendRack updates.'});
       }
       if(route==='/api/admin/runtime'&&req.method==='GET'){await advanced.financeAuthorize(req);return send(200,{...runtime.snapshot(),database:db.stats?.()||{kind:db.kind}});}
       if (await advanced(req, res, url, send)) return;

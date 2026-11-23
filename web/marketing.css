@@ -383,3 +383,10 @@ body{background:radial-gradient(ellipse at 5% 0%,#8da78b,transparent 47%),radial
 .stories-section{background:#fff}.story-screen{background:radial-gradient(ellipse at 75% 20%,#b9d3a9,#254a38)}.story-play{color:var(--forest)}
 .signup-section{background:#d9e7ce}.signup-intro h2 em{color:#4d7041}.signup-intro>p:not(.section-index),.signup-consent{color:#50624b}.signup-note{color:#50624b}.submit-button{background:var(--forest);color:#fff}.signup-section input,.signup-section select{border-color:#bac9af;background:#f9fbf5}
 .site-footer{color:var(--ink);background:#fff}.site-footer>p,.site-footer>a:not(.wordmark),.site-footer>span{color:var(--muted)}
+
+/* Mission and value proposition share the existing green/cream site system. */
+.purpose-section{position:relative;z-index:4;display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:16px var(--page-space) 64px;background:#f5f6f1;color:var(--ink)}
+.purpose-section article{padding-top:24px;border-top:1px solid #d8e1d1;min-width:0}
+.purpose-section h2{font-size:clamp(24px,3vw,38px);line-height:1.18;letter-spacing:-1px;margin:14px 0 18px;font-weight:600}
+.purpose-section article>p:last-child{font-size:16px;line-height:1.7;color:var(--muted);max-width:50ch}
+@media(max-width:760px){.purpose-section{grid-template-columns:1fr;gap:28px;padding-bottom:46px}.purpose-section h2{font-size:28px}}

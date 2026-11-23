@@ -17,7 +17,7 @@ try{
  await page.locator('#signup-role').selectOption('rider');
  assert.equal(await page.locator('#launch-signup').evaluate(f=>f.checkValidity()),false);
  await page.locator('[name=whatsappConsent]').check();await page.locator('[name=consent]').check();
- await page.getByRole('button',{name:'Put me on the list'}).click();
+ await page.getByRole('button',{name:'Join waitlist',exact:true}).click();
  await page.getByRole('status').filter({hasText:'email and WhatsApp'}).waitFor();
  const owner=await f.login();const result=await(await f.api('/api/admin/waitlist',undefined,owner)).json();assert.equal(result.entries[0].whatsapp,'08012345678');assert.equal(result.entries[0].role,'rider');assert.equal(result.entries[0].whatsapp_consent,1);
  mkdirSync('artifacts/website-contact',{recursive:true});await page.screenshot({path:'artifacts/website-contact/desktop.png',fullPage:true});

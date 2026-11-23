@@ -390,3 +390,6 @@ body{background:radial-gradient(ellipse at 5% 0%,#8da78b,transparent 47%),radial
 .purpose-section h2{font-size:clamp(24px,3vw,38px);line-height:1.18;letter-spacing:-1px;margin:14px 0 18px;font-weight:600}
 .purpose-section article>p:last-child{font-size:16px;line-height:1.7;color:var(--muted);max-width:50ch}
 @media(max-width:760px){.purpose-section{grid-template-columns:1fr;gap:28px;padding-bottom:46px}.purpose-section h2{font-size:28px}}
+
+/* Compact waitlist action, right aligned on every screen size. */
+#launch-signup .submit-button{width:fit-content;max-width:100%;min-height:44px;margin-left:auto;padding:10px 20px;justify-content:center;font-size:14px;white-space:nowrap}

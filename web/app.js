@@ -1,3 +1,4 @@
+import {createCommunicationCards} from './communication-cards.mjs';
 import {isHistoryShipment,isVisibleShipment} from './history.mjs';
 import {VEHICLE_TYPES,DELIVERY_VEHICLES} from './vehicles.mjs';
 import {identityFields,readIdentity,validateIdentity,bindIdentityFields} from './identity.mjs';
@@ -48,6 +49,7 @@ function nav(){const items=rider()?[['home','home','Home'],['shipments','clock',
 let pendingDeliveryAlert=Boolean(window.SendRackPendingAlert),pendingDeliveryAlertRole=window.SendRackPendingAlertRole==='vendor'?'vendor':'rider',renderedPage=null;window.SendRackPendingAlert=false;if(pendingDeliveryAlert)setupRole=pendingDeliveryAlertRole;
 function render(){
  if(location.pathname.startsWith('/t/'))return;
+ communications.sync();
  if(gate!=='app'){renderGate();return;}
  if(pendingDeliveryAlert&&activeRole()===pendingDeliveryAlertRole){view=rider()?'alerts':'notifications';pendingDeliveryAlert=false;}
  if(rider()&&view==='create')view='add-job';
@@ -59,9 +61,10 @@ function render(){
  const carousel=app.querySelector('.home-current-cards');if(carousel)carousel.scrollLeft=homeCarouselOffset;
  const mapRestored=features.restoreMapRegion(previousMap);
  renderedPage=pageKey;
- if(!mapRestored)window.scrollTo({left:0,top:scrollY,behavior:'instant'});bind();features.afterRender(view);void refreshMobileFeatures();
+ if(!mapRestored)window.scrollTo({left:0,top:scrollY,behavior:'instant'});bind();features.afterRender(view);void refreshMobileFeatures();void communications.refresh();
 }
 function renderGate(){
+ communications.sync();
  features.theme();
  if(gate==='access'){renderAccess();return;}
  if(gate==='pin-setup'||gate==='unlock'){renderLock();return;}
@@ -379,5 +382,9 @@ window.TrackShipLock=()=>{
  authEpoch++;cloudIntent='login';features.clearViewerLocation();features.hideBalance();commit(lockDeviceAccounts(data));pendingAccount=null;pendingIdentity=null;setupDraft={};shipmentDraft={};shipmentBasket=[];selected=null;query='';filter='All';modal=false;view='home';setupRole=data.lastRole||'vendor';accessMode='device';accountChallenge=null;gate='access';render();};
 window.TrackShipBack=()=>{if(gate==='setup'){pendingIdentity=null;if(setupStep>0)setupStep--;else gate='access';renderGate();return;}if(gate==='pin-setup'){pendingIdentity=null;gate='access';renderGate();return;}if(gate!=='app')return;if(modal){modal=false;render();return;}if(view==='create'&&createStep>0){captureShipment();createStep=createStep===3?1:createStep-1;render();}else navigate('home');};
 if(!window.TrackShip)document.addEventListener('visibilitychange',()=>{if(document.hidden)window.TrackShipLock();});
+const communications=createCommunicationCards({context:()=>({active:gate==='app'&&view==='home'&&!modal,base:(rider()?data.riderConnection?.base:data.connection?.base)||SERVICE_URL,role:activeRole(),account:activeRole()+':'+(account().phone||''),epoch:authEpoch}),request,navigate,icon});
+setInterval(()=>void communications.refresh(),30000);
+document.addEventListener('visibilitychange',()=>{communications.sync();if(!document.hidden)void communications.refresh(true);});
+window.addEventListener('online',()=>void communications.refresh(true));
 const features=createFeatures({getData:()=>data,getView:()=>view,commit,render,toast,request,esc,icon,getCurrent:current,openView:v=>navigate(v),select:id=>{selected=id;},openCloudAccount:role=>{if(!SERVICE_URL&&!data.serviceOrigin){toast('Email login will be available when your account service is active.');return;}setupRole=role;cloudIntent='login';accessMode='cloud';accountChallenge=null;gate='access';renderGate();},sync,openLink,shareText});
 if(location.pathname.startsWith('/t/')){publicPage();const poll=createPoller(publicPage,{baseMs:5000,isVisible:()=>!document.hidden});window.addEventListener('online',()=>poll.reset());}else if(location.pathname.startsWith('/r/'))dispatchLanding();else if(location.pathname==='/payment-return'){app.innerHTML=`<main class="public-shell">${brand()}<h1>Return to SendRack.</h1><p class="note">Your payment status is verified on the server. Return to the app and tap I’ve paid · check payment on your shipment.</p><a class="primary wide" href="/app">Open SendRack</a></main>`;}else{commit(data);render();if(gate==='splash')setTimeout(()=>{gate=restoreSignupProgress()||'access';renderGate();},4000);sync();const poll=createPoller(()=>sync(),{isVisible:()=>!document.hidden&&gate==='app'});window.addEventListener('online',()=>poll.reset());document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll.reset();});}

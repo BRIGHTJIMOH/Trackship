@@ -1,3 +1,4 @@
+import {communicationCards} from './communication-cards.mjs';
 import {initializeTrackingStore,hydrateTracking,saveRiderLocation} from './tracking-store.mjs';
 import {initializeShipmentIndex} from './shipment-index.mjs';
 import {mobileFeatures} from './mobile-features.mjs';
@@ -244,6 +245,7 @@ export async function operations(db, {
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const mobile=await mobileFeatures(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
+  const communication=await communicationCards(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional)return {id:session.actor,role:'operations',states:session.states};return {id:session.actor,role:'super-admin'};}});
   const contactAccess=deliveryContacts(db,{owner,rider,job});
@@ -251,6 +253,7 @@ export async function operations(db, {
   const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body,testModeAllowed:!walletControlEnabled&&!(providers.paymentReady&&providers.mode==='live')});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await communication(req,url,send))return true;
     if(await mobile.route(req,path,send))return true;
     if(await videos(req,path,send))return true;
     if(await testRemovalAccess(req,url,send))return true;

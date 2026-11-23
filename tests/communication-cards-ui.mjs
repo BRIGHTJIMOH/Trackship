@@ -1,0 +1,20 @@
+import {chromium} from 'playwright-core';import assert from 'node:assert/strict';import {mkdirSync} from 'node:fs';import {adminFixture,OWNER_PASSWORD} from './admin-fixture.mjs';
+const f=await adminFixture();const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+try{
+ const context=await browser.newContext({viewport:{width:1280,height:1000}}),page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(f.base+'/admin/');await page.getByLabel('Password',{exact:true}).fill(OWNER_PASSWORD);await page.getByRole('button',{name:'Log in',exact:true}).click();await page.getByRole('heading',{name:'Your network, in view.'}).waitFor();await page.getByRole('button',{name:'Communication cards',exact:true}).click();
+ await page.getByLabel('Title',{exact:true}).fill('A new week at SendRack');await page.getByLabel('Message',{exact:true}).fill('Check the handler before you hand it over.');await page.getByLabel('Button destination',{exact:true}).selectOption('track');await page.getByLabel('Button text',{exact:true}).fill('Track package');await page.getByRole('button',{name:'Preview',exact:true}).click();await page.getByText('Preview only',{exact:true}).waitFor();await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.getByText('Draft saved.',{exact:true}).waitFor();await page.getByRole('button',{name:'Publish card',exact:true}).click();await page.getByText('Card published.',{exact:true}).waitFor();
+ mkdirSync('artifacts/communications',{recursive:true});await page.screenshot({path:'artifacts/communications/admin.png',fullPage:true});
+ const mobile=await context.newPage();await mobile.setViewportSize({width:390,height:844});await mobile.goto(f.base+'/app');
+ // Exercise the exact mobile module in its real origin, without altering login or production data.
+ await mobile.evaluate(async()=>{
+  const {createCommunicationCards}=await import('/communication-cards.mjs');window.cardContext={active:true,base:location.origin,role:'vendor',account:'vendor:synthetic-test',epoch:1};window.cardNavigation='';
+  window.testCards=createCommunicationCards({context:()=>window.cardContext,request:async(base,path)=>{const response=await fetch(base+path);if(!response.ok)throw Error('network');return response.json();},navigate:v=>window.cardNavigation=v,icon:()=>'<svg viewBox="0 0 24 24"><path d="M3 3h18v18H3Z"/></svg>'});await window.testCards.refresh(true);
+ });
+ await mobile.getByRole('dialog').waitFor();assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await mobile.screenshot({path:'artifacts/communications/mobile.png',fullPage:true});
+ await mobile.getByRole('button',{name:'Dismiss announcement'}).click();await mobile.evaluate(()=>window.testCards.refresh(true));assert.equal(await mobile.getByRole('dialog').count(),0);
+ await mobile.evaluate(async()=>{window.cardContext={...window.cardContext,role:'rider',account:'rider:synthetic-test',epoch:2};await window.testCards.refresh(true);});await mobile.getByRole('dialog').waitFor();await mobile.getByRole('button',{name:'Track package',exact:true}).click();assert.equal(await mobile.evaluate(()=>window.cardNavigation),'track');
+ // A different account can see the announcement. Lock/logout closes without leaking it.
+ await mobile.evaluate(async()=>{window.cardContext={...window.cardContext,account:'rider:second-test',epoch:3};await window.testCards.refresh(true);});await mobile.getByRole('dialog').waitFor();await mobile.evaluate(()=>{window.cardContext.active=false;window.testCards.sync();});assert.equal(await mobile.getByRole('dialog').count(),0);
+ await page.getByRole('button',{name:'Turn off',exact:true}).click();await page.getByText('Card turned off.',{exact:true}).waitFor();
+ assert.deepEqual(errors,[]);console.log('PASS: owner editor, preview, draft, publish/off, mobile dismissal, account separation, CTA and logout cleanup.');
+}finally{await browser.close();await f.close();}

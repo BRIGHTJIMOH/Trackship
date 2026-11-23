@@ -169,3 +169,7 @@ html{scroll-padding-bottom:calc(120px + var(--safe-bottom,0px))}.shipment-track-
 
 /* The saved-delivery action shares the existing round shortcut row. */
 .home-highlights button>span{width:min(44px,100%);height:auto;aspect-ratio:1}
+
+/* Owner communication cards: solid brand colours, dismissible and accessible. */
+.communication-modal{box-sizing:border-box;width:calc(100% - 40px);max-width:390px;max-height:calc(100dvh - 64px);overflow:auto;padding:32px 24px 24px;border:1px solid #d5dfcc;border-radius:28px;background:#f5f6f1;color:#254a38;box-shadow:0 20px 80px #0004;font-family:inherit}
+.communication-modal::backdrop{background:#111c17a6}.communication-close{position:absolute;right:14px;top:10px;border:0;background:transparent;color:inherit;font-size:30px;line-height:1;min-width:44px;min-height:44px}.communication-tag{font-size:11px;letter-spacing:1.2px;margin:12px 0 18px;font-weight:650}.communication-modal h2{font-size:27px;line-height:1.15;letter-spacing:-.7px;margin:0 0 14px;overflow-wrap:anywhere}.communication-modal p{font-size:16px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.communication-art{display:grid;place-items:center;height:100px;color:#466c3d}.communication-art svg{width:68px;height:68px;fill:none;stroke:currentColor;stroke-width:1.4}.communication-modal .communication-action{background:#254a38;color:#fff;min-height:46px}.communication-action[hidden]{display:none!important}.communication-close:focus-visible{outline:3px solid #7a9b69;outline-offset:2px}

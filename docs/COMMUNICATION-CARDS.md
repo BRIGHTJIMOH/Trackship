@@ -1,6 +1,6 @@
 # Communication cards
 
-Owner console → Communication cards. Add a title/message, choose vendors, riders/drivers or both, and optionally select an in-app button. Dates accept ISO timestamps with timezone, for example `2026-11-24T09:00:00+01:00`; blank start means now and blank end means until turned off.
+Owner console → App controls → Communication cards. Add a title/message, choose vendors, riders/drivers or both, and optionally select an in-app button. Dates accept ISO timestamps with timezone, for example `2026-11-24T09:00:00+01:00`; blank start means now and blank end means until turned off.
 
 - **Save draft** does not change the currently published card.
 - **Preview** shows the draft locally.

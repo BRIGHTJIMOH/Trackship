@@ -258,6 +258,9 @@ export async function operations(db, {
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
     if(await reactions(req,path,send))return true;
+    const historyShipment=path.match(/^\/api\/v4\/rider\/shipments\/([a-f0-9-]{36})$/);
+    if(historyShipment&&req.method==='GET'){const r=await rider(req);if(!r?.id)fail('Sign in to view delivery details.',401);const s=await getShipment(historyShipment[1]);if(!s||s.testRemoval)fail('Delivery not found.',404);const leg=['pickup','carrier','lastmile'].find(key=>s.actors?.[key]?.id===r.id);if(!r.id||!leg)fail('Only an assigned handler can view delivery details.',403);send(200,jobView(s,leg));return true;}
+
     if(await referral.route(req,url,send))return true;
     if(await communication(req,url,send))return true;
     if(await mobile.route(req,path,send))return true;

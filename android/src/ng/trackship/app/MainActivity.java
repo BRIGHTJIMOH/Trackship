@@ -29,7 +29,7 @@ public class MainActivity extends Activity {
     private String pendingBackup;
     private Intent pendingTracking;
     private boolean documentFlow=false,needsReauth=false;
-    private static final int GPS_PERMISSION=15,ALERT_PERMISSION=16;
+    private static final int GPS_PERMISSION=15,ALERT_PERMISSION=16,LOCATION_CHOICE_PERMISSION=18;
     private static final String ORIGIN = "https://appassets.trackship.ng";
     private static final int OPEN_BACKUP = 10, SAVE_BACKUP = 11;
     @Override public void onCreate(Bundle state) {
@@ -131,11 +131,22 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void openUrl(String url){runOnUiThread(()->openExternal(url));}
         @JavascriptInterface public void setNightMode(boolean dark){runOnUiThread(()->{web.setBackgroundColor(dark?0xff0a1628:0xfff5f7fb);if(web.getParent() instanceof View)((View)web.getParent()).setBackgroundColor(dark?0xff0a1628:0xfff5f7fb);getWindow().setStatusBarColor(dark?0xff0a1628:0xfff5f7fb);getWindow().setNavigationBarColor(dark?0xff0a1628:0xffffffff);web.setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);});}
         @JavascriptInterface public void startTracking(String base,String job,String session,String code){
+            if(getSharedPreferences("sendrack-location-choice",MODE_PRIVATE).getBoolean("paused",false))return;
             if(base==null||job==null||session==null||!job.matches("[a-f0-9]{64}")||!session.matches("[a-f0-9]{64}"))return;
             Uri u=Uri.parse(base);if(!"https".equals(u.getScheme())||u.getUserInfo()!=null||u.getHost()==null||u.getQuery()!=null||u.getFragment()!=null||!(u.getPath()==null||u.getPath().isEmpty()||u.getPath().equals("/")))return;
             runOnUiThread(()->{pendingTracking=new Intent(MainActivity.this,TrackingService.class).putExtra("base",base).putExtra("job",job).putExtra("session",session).putExtra("code",code);
                 if((checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED)||(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED))requestPermissions(android.os.Build.VERSION.SDK_INT>=33?new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.POST_NOTIFICATIONS}:new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},GPS_PERMISSION);else beginTracking();});
         }
+        @JavascriptInterface public String getLocationState(){
+            org.json.JSONObject result=new org.json.JSONObject();try{
+                android.location.LocationManager manager=(android.location.LocationManager)getSystemService(LOCATION_SERVICE);
+                boolean enabled=manager!=null&&(manager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)||manager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER));
+                result.put("enabled",enabled);result.put("permission",checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED);result.put("paused",getSharedPreferences("sendrack-location-choice",MODE_PRIVATE).getBoolean("paused",false));
+            }catch(Exception ignored){}return result.toString();
+        }
+        @JavascriptInterface public void setLocationPaused(boolean paused){getSharedPreferences("sendrack-location-choice",MODE_PRIVATE).edit().putBoolean("paused",paused).apply();if(paused)runOnUiThread(()->{pendingTracking=null;stopService(new Intent(MainActivity.this,TrackingService.class));});}
+        @JavascriptInterface public void openLocationSettings(){runOnUiThread(()->{try{android.location.LocationManager manager=(android.location.LocationManager)getSystemService(LOCATION_SERVICE);boolean enabled=manager!=null&&(manager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)||manager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER));boolean permission=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;if(enabled&&!permission)startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));else startActivity(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS));}catch(Exception ignored){Toast.makeText(MainActivity.this,"Open phone Settings, then Location.",Toast.LENGTH_LONG).show();}});}
+        @JavascriptInterface public void requestLocationPermission(){runOnUiThread(()->requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},LOCATION_CHOICE_PERMISSION));}
         @JavascriptInterface public void requestViewerLocation(String id){runOnUiThread(()->viewerLocation.request(id));}
         @JavascriptInterface public void cancelViewerLocation(String id){runOnUiThread(()->viewerLocation.cancel(id));}
         @JavascriptInterface public void stopTracking(){runOnUiThread(()->stopService(new Intent(MainActivity.this,TrackingService.class)));}
@@ -162,8 +173,8 @@ public class MainActivity extends Activity {
             runOnUiThread(()->{pendingBackup=json;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"SendRack-backup.json");try{startActivityForResult(i,SAVE_BACKUP);}catch(Exception e){pendingBackup=null;Toast.makeText(MainActivity.this,"No file manager is available.",Toast.LENGTH_LONG).show();}});
         }
     }
-    private void beginTracking(){if(pendingTracking==null)return;if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){pendingTracking=null;Toast.makeText(this,"Allow notifications to show active delivery location updates.",Toast.LENGTH_LONG).show();return;}try{startForegroundService(pendingTracking);Toast.makeText(this,"Delivery location updates started automatically.",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"GPS could not start. Check location permission and try again.",Toast.LENGTH_LONG).show();}pendingTracking=null;}
-    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==ALERT_PERMISSION){if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)FirebaseBridge.call(this,"configure");return;}if(request==ViewerLocation.PERMISSION_REQUEST){viewerLocation.permissionResult();return;}if(request==GPS_PERMISSION){if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED)beginTracking();else{pendingTracking=null;Toast.makeText(this,"Location permission is needed to share your delivery position.",Toast.LENGTH_LONG).show();}}}
+    private void beginTracking(){if(getSharedPreferences("sendrack-location-choice",MODE_PRIVATE).getBoolean("paused",false)){pendingTracking=null;return;}if(pendingTracking==null)return;if(android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){pendingTracking=null;Toast.makeText(this,"Allow notifications to show active delivery location updates.",Toast.LENGTH_LONG).show();return;}try{startForegroundService(pendingTracking);Toast.makeText(this,"Delivery location updates started automatically.",Toast.LENGTH_LONG).show();}catch(Exception e){Toast.makeText(this,"GPS could not start. Check location permission and try again.",Toast.LENGTH_LONG).show();}pendingTracking=null;}
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==LOCATION_CHOICE_PERMISSION){if(web!=null)web.evaluateJavascript("window.dispatchEvent(new Event('sendrack:location-settings'))",null);return;}if(request==ALERT_PERMISSION){if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)FirebaseBridge.call(this,"configure");return;}if(request==ViewerLocation.PERMISSION_REQUEST){viewerLocation.permissionResult();return;}if(request==GPS_PERMISSION){if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED)beginTracking();else{pendingTracking=null;Toast.makeText(this,"Location permission is needed to share your delivery position.",Toast.LENGTH_LONG).show();}}}
     @Override protected void onActivityResult(int request,int result,Intent intent) {
         super.onActivityResult(request,result,intent);
         documentFlow=false;
@@ -184,5 +195,6 @@ public class MainActivity extends Activity {
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(web!=null)openDeliveryAlert(web,intent);}
 
     @Override public void onBackPressed(){web.evaluateJavascript("window.TrackShipBack?.()",null);}
+    @Override protected void onResume(){super.onResume();if(web!=null)web.post(()->{if(!isFinishing())web.evaluateJavascript("window.dispatchEvent(new Event('sendrack:location-settings'))",null);});}
     @Override protected void onDestroy(){if(viewerLocation!=null)viewerLocation.destroy();if(fileCallback!=null)fileCallback.onReceiveValue(null);web.removeJavascriptInterface("TrackShip");web.destroy();super.onDestroy();}
 }

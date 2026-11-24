@@ -1,3 +1,4 @@
+import {locationAllowed} from './location-preference.mjs';
 // One foreground viewer fix only. This module never writes shipment data or starts tracking.
 const pendingNative=new Map();
 if(typeof window!=='undefined')window.SendRackViewerLocationResult=(id,result)=>pendingNative.get(id)?.(result);
@@ -13,6 +14,7 @@ export function viewerErrorMessage(error,{technical=false}={}){
  return 'Your location is unavailable. Turn on device location services and check your connection, then tap My location to retry.';
 }
 export function viewerPosition({signal,timeoutMs=18000}={}){
+ if(!locationAllowed())return Promise.reject(Object.assign(new Error('Location is paused in SendRack.'),{code:1}));
  return new Promise((resolve,reject)=>{
   let settled=false,id=null,timer;
   const finish=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);signal?.removeEventListener('abort',cancel);if(id){pendingNative.delete(id);try{window.TrackShip?.cancelViewerLocation?.(id);}catch{}}if(error)reject(error);else try{resolve(validViewerPosition(value));}catch(e){reject(e);}};

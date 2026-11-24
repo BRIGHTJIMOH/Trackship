@@ -40,6 +40,7 @@ public class TrackingService extends Service implements LocationListener {
         return new Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_brand_notification).setContentTitle("SendRack · delivery GPS is on").setContentText(message).setContentIntent(openIntent).setOngoing(true).build();
     }
     @Override public int onStartCommand(Intent intent,int flags,int startId){
+        if(getSharedPreferences("sendrack-location-choice",MODE_PRIVATE).getBoolean("paused",false)){stopSelf();return START_NOT_STICKY;}
         if(intent==null||STOP.equals(intent.getAction())){stopSelf();return START_NOT_STICKY;}
         base=intent.getStringExtra("base");job=intent.getStringExtra("job");session=intent.getStringExtra("session");code=intent.getStringExtra("code");
         if(base==null||!base.startsWith("https://")||job==null||!job.matches("[a-f0-9]{64}")||session==null||!session.matches("[a-f0-9]{64}")){stopSelf();return START_NOT_STICKY;}
@@ -56,8 +57,8 @@ public class TrackingService extends Service implements LocationListener {
         return START_NOT_STICKY;
     }
     @Override public void onLocationChanged(Location location){
-        if(stopped||!location.hasAccuracy()||SystemClock.elapsedRealtimeNanos()-location.getElapsedRealtimeNanos()>30000000000L||!uploading.compareAndSet(false,true))return;
-        worker.submit(()->{HttpsURLConnection connection=null;try{
+        if(getSharedPreferences("sendrack-location-choice",MODE_PRIVATE).getBoolean("paused",false)||stopped||!location.hasAccuracy()||SystemClock.elapsedRealtimeNanos()-location.getElapsedRealtimeNanos()>30000000000L||!uploading.compareAndSet(false,true))return;
+        worker.submit(()->{if(stopped||getSharedPreferences("sendrack-location-choice",MODE_PRIVATE).getBoolean("paused",false)){uploading.set(false);return;}HttpsURLConnection connection=null;try{
             URL url=new URL(base+"/api/v3/rider/location");connection=(HttpsURLConnection)url.openConnection();connection.setRequestMethod("POST");connection.setConnectTimeout(15000);connection.setReadTimeout(15000);connection.setDoOutput(true);connection.setInstanceFollowRedirects(false);connection.setRequestProperty("Content-Type","application/json");connection.setRequestProperty("Authorization","Bearer "+session);
             JSONObject payload=new JSONObject();payload.put("lat",location.getLatitude());payload.put("lng",location.getLongitude());payload.put("accuracy",location.getAccuracy());payload.put("observedAt",location.getTime());
             byte[] bytes=payload.toString().getBytes(StandardCharsets.UTF_8);try(OutputStream output=connection.getOutputStream()){output.write(bytes);}
@@ -67,7 +68,7 @@ public class TrackingService extends Service implements LocationListener {
     }
     private byte[] readResponse(InputStream in) throws java.io.IOException{java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();byte[] buffer=new byte[1024];int n;while((n=in.read(buffer))!=-1){if(out.size()+n>65536)throw new java.io.IOException("Response too large");out.write(buffer,0,n);}return out.toByteArray();}
     private void checkActiveDeliveries(){
-        if(stopped||base==null||session==null)return;
+        if(stopped||getSharedPreferences("sendrack-location-choice",MODE_PRIVATE).getBoolean("paused",false)||base==null||session==null)return;
         HttpsURLConnection c=null;try{
             c=(HttpsURLConnection)new URL(base+"/api/v3/rider/location").openConnection();c.setRequestMethod("POST");c.setConnectTimeout(10000);c.setReadTimeout(10000);c.setDoOutput(true);c.setInstanceFollowRedirects(false);c.setRequestProperty("Authorization","Bearer "+session);c.setRequestProperty("Content-Type","application/json");
             try(OutputStream out=c.getOutputStream()){out.write("{\"start\":true}".getBytes(StandardCharsets.UTF_8));}

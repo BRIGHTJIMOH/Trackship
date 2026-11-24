@@ -1,0 +1,23 @@
+/* Shared console appearance. Solid surfaces; keep the same navy/orange identity. */
+.console-theme-toggle{min-height:40px;border:1px solid #aabbd0;border-radius:12px;padding:9px 13px;background:#fff;color:#002147;font:600 12px Inter,Arial,sans-serif;white-space:nowrap;cursor:pointer;flex-shrink:0}.console-theme-toggle:focus-visible{outline:3px solid #ff6b00;outline-offset:3px}.console-theme-floating{position:fixed;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));z-index:26}.top-actions{flex-wrap:wrap}
+html[data-console-theme=dark]{color-scheme:dark;color:#edf3fb;background:#0a1628;--brand:#ff9c54;--orange:#ff6b00;--muted:#aabbd0;--border:#304762;--line:#304762;--cream:#192e48}
+html[data-console-theme=dark] body,html[data-console-theme=dark] .workspace,html[data-console-theme=dark] .login-page,html[data-console-theme=dark] .boot{background:#0a1628;color:#edf3fb}
+html[data-console-theme=dark] :is(.panel,.kpi,.modal,.stat,.login-card,.login-form,.route-footer,.live-operations,.admin-install-dialog,dialog,body>header){background:#12243e;color:#edf3fb;border-color:#304762}
+html[data-console-theme=dark] :is(input,select,textarea,button.secondary,.pagination button,.console-theme-toggle,.filters button){background:#192e48;color:#edf3fb;border-color:#48617f}
+html[data-console-theme=dark] :is(button.primary,.primary,.admin-install,.admin-install-close){background:#ff6b00;color:#002147;border-color:#ff6b00}
+html[data-console-theme=dark] :is(th,thead th){background:#192e48;color:#b9c9de}
+html[data-console-theme=dark] :is(td,td strong,td button,td a,.page-head h1,.kpi strong,.login-form .field label,.form-grid label,.route-type-options label,.breadcrumbs){color:#edf3fb}
+html[data-console-theme=dark] :is(td,th,.status-row,.data-row){border-color:#304762}html[data-console-theme=dark] tr:hover td{background:#192e48}
+html[data-console-theme=dark] :is(.muted,td small,.eyebrow,.empty,.feature-state,.library-file small,.map-legend,.map-count,.map-tiles-status,.operations-location-filters label,.map-filters label,.viewer-location-status,.viewer-location-legend){color:#aabbd0}
+html[data-console-theme=dark] :is(.link,.panel-head a,#library-status,.feature-state.enabled,.library-folder){color:#ffb77b}
+html[data-console-theme=dark] :is(.feature-symbol,.feature-mini-icon,.library-folder,.referral-plan,.app-controls-tabs,.map-active-section,.map-empty,.map-attention-item,.map-cluster-list,.map-connection,.route-type-options label:has(input:checked)){background:#192e48;border-color:#304762;color:#edf3fb}
+html[data-console-theme=dark] .app-controls-tabs button{color:#b9c9de}html[data-console-theme=dark] :is(.app-controls-tabs button[aria-selected=true],nav button.active){background:#ff6b00;color:#002147}
+html[data-console-theme=dark] :is(.pill,.pill.gray){background:#243c59;color:#dce8f7}html[data-console-theme=dark] .pill.green{background:#193f37;color:#b6efcf}html[data-console-theme=dark] :is(.pill.red,.error,.danger){color:#ffc0b5}html[data-console-theme=dark] .pill.red{background:#4b2933}html[data-console-theme=dark] .note{background:#3c3024;color:#ffdaa6;border-color:#695337}
+html[data-console-theme=dark] :is(.kpi.highlight,.kpi.orange){background:#002147;color:#fff;border-color:#48617f}html[data-console-theme=dark] :is(.kpi.highlight strong,.kpi.orange strong){color:#fff}
+html[data-console-theme=dark] .brand-wordmark{content:url('/assets/sendrack-wordmark-white.svg')}
+html[data-console-theme=dark] :is(.tracking-board .map-detail,.board-shipment){background:#12243e;color:#edf3fb;border-color:#48617f}html[data-console-theme=dark] .board-shipment.selected{background:#002147;border-color:#ff6b00}html[data-console-theme=dark] :is(.board-detail-head small,.board-journey small,.board-shipment .board-shipment-bottom,.map-detail .map-freshness,.map-history small){color:#aabbd0}
+html[data-console-theme=dark] :is(.operations-diagnostics>summary,.attention-section>summary,.operations-filter-drawer>summary,.map-active-section>summary){color:#edf3fb}html[data-console-theme=dark] .operations-map{background:#192e48}
+html[data-console-theme=dark] .tracking-map-column .viewer-map-actions button{background:#192e48;color:#edf3fb;border-color:#48617f}
+@media(max-width:700px){.topbar .top-actions{gap:6px}.console-theme-toggle{font-size:11px;padding:8px 10px}.topbar .breadcrumbs{min-width:0}}
+@media print{.console-theme-toggle{display:none}}
+body>header{flex-wrap:wrap}

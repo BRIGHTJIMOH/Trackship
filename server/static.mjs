@@ -4,7 +4,7 @@ import path from 'node:path';
 const policy="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://api.maptiler.com; connect-src 'self' https:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 export function createStaticHandler(root){
  const cache=new Map();
- const ownerFiles={'/admin/communication-cards.js':'communication-cards.js','/admin/manifest.webmanifest':'manifest.webmanifest','/admin/install.js':'install.js','/admin/install.css':'install.css','/admin/sw.js':'sw.js','/admin/offline.html':'offline.html','/admin/icons/icon-192.png':'icons/icon-192.png','/admin/icons/icon-512.png':'icons/icon-512.png','/admin/icons/apple-touch-icon.png':'icons/apple-touch-icon.png','/admin/file-library.js':'file-library.js','/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js'};
+ const ownerFiles={'/admin/referrals.js':'referrals.js','/admin/communication-cards.js':'communication-cards.js','/admin/manifest.webmanifest':'manifest.webmanifest','/admin/install.js':'install.js','/admin/install.css':'install.css','/admin/sw.js':'sw.js','/admin/offline.html':'offline.html','/admin/icons/icon-192.png':'icons/icon-192.png','/admin/icons/icon-512.png':'icons/icon-512.png','/admin/icons/apple-touch-icon.png':'icons/apple-touch-icon.png','/admin/file-library.js':'file-library.js','/admin':'index.html','/admin/':'index.html','/admin/app.js':'app.js','/admin/style.css':'style.css','/admin/live-map.js':'live-map.js','/admin/live-map-model.mjs':'live-map-model.mjs','/admin/live-map.css':'live-map.css','/admin/wallet':'wallet.html','/admin/wallet/':'wallet.html','/admin/wallet.css':'wallet.css','/admin/wallet.js':'wallet.js'};
  const files = {
         '/welcome':'marketing.html',
         '/welcome/':'marketing.html',
@@ -24,6 +24,7 @@ export function createStaticHandler(root){
         '/history.mjs': 'history.mjs',
         '/features.mjs': 'features.mjs',
         '/communication-cards.mjs':'communication-cards.mjs',
+        '/referrals.mjs':'referrals.mjs',
         '/map-display.mjs': 'map-display.mjs',
         '/viewer-location.mjs': 'viewer-location.mjs',
         '/map-controls.css': 'map-controls.css',

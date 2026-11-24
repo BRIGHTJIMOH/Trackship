@@ -16,6 +16,7 @@ public final class LocalAssetPolicy {
   "/history.mjs",
   "/features.mjs",
   "/communication-cards.mjs",
+  "/referrals.mjs",
   "/map-display.mjs",
   "/viewer-location.mjs",
   "/map-controls.css",

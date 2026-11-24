@@ -155,8 +155,8 @@ export async function createApp({
         if(whatsapp&&!/^0[789]\d{9}$/.test(whatsapp))return send(400,{error:'Enter a valid Nigerian WhatsApp number, for example 08012345678.'});
         if(whatsapp&&!whatsappConsent||whatsappConsent&&!whatsapp)return send(400,{error:'Add your WhatsApp number and tick the WhatsApp consent box, or leave both blank.'});
         const now=new Date().toISOString();
-        await db.prepare('INSERT INTO marketing_waitlist(email,name,role,city,created_at,whatsapp,whatsapp_consent,whatsapp_consented_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(email) DO NOTHING').run(email,p.name.trim(),p.role,p.city.trim(),now,whatsapp||null,whatsappConsent?1:0,whatsappConsent?now:null);
-        return send(200,{message:whatsappConsent?'You’re on the list. We’ll share SendRack updates by email and WhatsApp.':'You’re on the list. We’ll email you with SendRack updates.'});
+        const referral=await advanced.registerWaitlist({email,name:p.name.trim(),role:p.role,city:p.city.trim(),createdAt:now,whatsapp,whatsappConsent,referralCode:p.referralCode});
+        return send(200,{referralMessage:referral.referralMessage,message:whatsappConsent?'You’re on the list. We’ll share SendRack updates by email and WhatsApp.':'You’re on the list. We’ll email you with SendRack updates.'});
       }
       if(route==='/api/admin/runtime'&&req.method==='GET'){await advanced.financeAuthorize(req);return send(200,{...runtime.snapshot(),database:db.stats?.()||{kind:db.kind}});}
       if (await advanced(req, res, url, send)) return;

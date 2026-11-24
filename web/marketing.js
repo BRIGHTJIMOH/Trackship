@@ -1,6 +1,9 @@
 const signup = document.querySelector('#launch-signup');
 const status = document.querySelector('.signup-status');
 const submit = signup.querySelector('button[type="submit"]');
+const referralInput=signup.elements.referralCode;
+const incomingReferral=new URLSearchParams(location.search).get('ref');
+if(incomingReferral&&incomingReferral.length<=32)referralInput.value=incomingReferral.trim().toUpperCase();
 
 function chooseRole(role) {
   signup.elements.role.value = role;
@@ -26,13 +29,13 @@ signup.addEventListener('submit', async event => {
       body: JSON.stringify({
         name: values.get('name'), city: values.get('city'), email: values.get('email'),
         role: values.get('role'), consent: values.has('consent'),
-        whatsapp: values.get('whatsapp') || '', whatsappConsent: values.has('whatsappConsent')
+        whatsapp: values.get('whatsapp') || '', whatsappConsent: values.has('whatsappConsent'), referralCode: values.get('referralCode') || ''
       }),
       signal: AbortSignal.timeout(15000)
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Please try again shortly.');
-    status.textContent = result.message;
+    status.textContent = result.message+(result.referralMessage?' '+result.referralMessage:'');
     signup.reset();
     document.querySelectorAll('.audience-card').forEach(card => card.classList.remove('is-selected'));
   } catch (error) {

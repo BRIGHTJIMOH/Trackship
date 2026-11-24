@@ -1,3 +1,4 @@
+import {referrals} from './referrals.mjs';
 import {communicationCards} from './communication-cards.mjs';
 import {initializeTrackingStore,hydrateTracking,saveRiderLocation} from './tracking-store.mjs';
 import {initializeShipmentIndex} from './shipment-index.mjs';
@@ -245,6 +246,7 @@ export async function operations(db, {
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
   const mobile=await mobileFeatures(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
+  const referral=await referrals(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body,publicOrigin:(env.TRACKSHIP_PUBLIC_URL||'https://sendrack-api.onrender.com').replace(/\/$/,''),account:async req=>{const v=await accountAccess.vendor(req);if(v){const p=JSON.parse(v.profile||'{}');return {id:v.id,role:'vendor',name:p.ownerName||p.businessName};}try{const r=await rider(req);return r?.id?{id:r.id,role:'rider',name:r.display_name}:null;}catch(e){if(e.status===401)return null;throw e;}}});
   const communication=await communicationCards(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional)return {id:session.actor,role:'operations',states:session.states};return {id:session.actor,role:'super-admin'};}});
@@ -253,6 +255,7 @@ export async function operations(db, {
   const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body,testModeAllowed:!walletControlEnabled&&!(providers.paymentReady&&providers.mode==='live')});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await referral.route(req,url,send))return true;
     if(await communication(req,url,send))return true;
     if(await mobile.route(req,path,send))return true;
     if(await videos(req,path,send))return true;
@@ -904,6 +907,7 @@ export async function operations(db, {
   router.libraryAudit = adminAccess.audit;
   router.financeAuthorize = req=>adminAccess.authorize(req,{operator:false});
   router.deliveryPush=push;
+  router.registerWaitlist=referral.registerWaitlist;
   router.walletPrincipal = async req=>{const v=await accountAccess.vendor(req);if(v){const p=JSON.parse(v.profile||'{}');return {role:'vendor',ownerId:v.id,displayName:p.ownerName||p.businessName||'Your account'};}try{const r=await rider(req);return {role:'rider',ownerId:r.id,displayName:r.display_name||'Your account'};}catch(e){if(e.status===401)return null;throw e;}};
   return router;
 }

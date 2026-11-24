@@ -9,7 +9,7 @@ export async function communicationCards(db,{authorize,audit,body}){
   const c={};for(const[k,max]of [['title',100],['message',500],['buttonLabel',35]]){if(typeof p[k]!=='string'||p[k].length>max)fail('Check the card text and its length.');c[k]=p[k].trim();}
   if(!c.title||!c.message)fail('Add a title and message.');
   if(!['both','vendor','rider'].includes(p.audience))fail('Choose the card audience.');c.audience=p.audience;
-  if(!['none','track','create','notifications','profile'].includes(p.action))fail('Choose a supported button destination.');c.action=p.action;
+  if(!['none','track','create','notifications','profile','referrals'].includes(p.action))fail('Choose a supported button destination.');c.action=p.action;
   if(c.action!=='none'&&!c.buttonLabel)fail('Add button text.');
   for(const k of ['startsAt','endsAt']){if(typeof p[k]!=='string'||p[k].length>40||p[k]&&!Number.isFinite(Date.parse(p[k])))fail('Use valid start and end times.');c[k]=p[k]?new Date(p[k]).toISOString():'';}
   if(c.endsAt&&Date.parse(c.endsAt)<=Date.now())fail('Choose an end time in the future.');

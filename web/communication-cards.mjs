@@ -25,7 +25,7 @@ export function createCommunicationCards({context,request,navigate,icon}){
   const captured=accountKey,epoch=ctx.epoch;const task={};flight=task;
   try{const result=await request(ctx.base,'/api/communication-cards?role='+encodeURIComponent(ctx.role));const now=context();if(captured!==accountKey||now.epoch!==epoch||!now.active)return;lastRead=Date.now();const c=result.card;
    if(!c){close();return;}
-   if(typeof c.id!=='string'||typeof c.title!=='string'||typeof c.message!=='string'||!['none','track','create','notifications','profile'].includes(c.action))return;
+   if(typeof c.id!=='string'||typeof c.title!=='string'||typeof c.message!=='string'||!['none','track','create','notifications','profile','referrals'].includes(c.action))return;
    if(document.querySelector('dialog[open]:not(.communication-modal)'))return;show(c,ctx);
   }catch{lastRead=Date.now();}finally{if(flight===task)flight=null;}
  }

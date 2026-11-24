@@ -402,3 +402,16 @@ body{background:#eef2f8}.launch-frame{background:#fff;border-color:#dce3ee}.mast
 @media(max-width:400px){.masthead .wordmark .brand-wordmark{width:155px}}
 .masthead .wordmark .brand-wordmark{width:190px;height:auto}
 @media(max-width:400px){.masthead .wordmark .brand-wordmark{width:155px;height:auto}}
+
+/* Uncluttered bike hero and a continuous, readable transition into the page. */
+.launch-hero{min-height:0;padding-top:44px;padding-bottom:40px;color:var(--ink);gap:36px;align-items:center}
+.hero-words{padding-bottom:0}
+.product-stage{position:relative;top:auto;right:auto;bottom:auto;display:flex;flex-direction:column;width:100%;height:auto;min-height:0;margin:0;overflow:visible}
+.scooter-art{position:relative;display:block;top:auto;right:auto;width:100%;height:auto;max-width:100%;object-fit:contain;filter:drop-shadow(0 14px 22px #00214712)}
+.stage-caption{position:static;display:flex;justify-content:flex-end;left:auto;right:auto;bottom:auto;margin-top:12px;gap:0;width:100%}
+.stage-utilities{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:10px;text-align:right}.motion-control,.art-note{color:var(--muted)}
+.vision-section{margin-top:0;background:#f5f7fb;color:var(--ink);border-radius:24px 24px 0 0;box-shadow:none;padding-top:56px;padding-bottom:56px}
+.purpose-section{color:var(--ink)}.audience-section{background:#fff;color:var(--ink);margin-top:0;border-radius:0}.audience-card h3{color:var(--ink)}.audience-section .small-label{color:var(--muted)}
+.reveal-pending,.reveal-entered{opacity:1;transform:none;transition:none}
+@media(max-width:750px){.launch-hero{display:block;padding-top:28px;padding-bottom:28px}.product-stage{margin:24px 0 0;width:100%;height:auto}.stage-caption{margin-top:12px}.stage-utilities{gap:8px}.vision-section{padding-top:40px;padding-bottom:40px}}
+@media(max-width:420px){.masthead .wordmark .brand-wordmark{width:120px;height:auto}.header-join{font-size:9px;padding:9px 10px;gap:5px}.header-join span{font-size:14px}.stage-utilities{justify-content:center;width:100%}}

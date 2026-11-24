@@ -110,29 +110,5 @@ async function loadStories(){
 loadStories();
 
 
-// Reveal each chapter once. Content stays visible when scripting/motion is off.
-if ('IntersectionObserver' in window) {
- const reveals=new IntersectionObserver(entries=>{
-  for(const entry of entries)if(entry.isIntersecting){entry.target.classList.replace('reveal-pending','reveal-entered');reveals.unobserve(entry.target);}
- },{threshold:.08,rootMargin:'0px 0px -24px 0px'});
- document.querySelectorAll('.vision-section>div,.vision-section>.section-index,.section-intro,.audience-card,.stories-intro,.signup-intro,#launch-signup').forEach((element,index)=>{
-  element.style.setProperty('--reveal-delay',Math.min(index%2,1)*100+'ms');
-  element.classList.add('reveal-pending');reveals.observe(element);
- });
- document.addEventListener('focusin',event=>{const target=event.target.closest('.reveal-pending');if(target){target.classList.replace('reveal-pending','reveal-entered');reveals.unobserve(target);}});
-}
+// Keep every section readable immediately, including below the initial viewport.
 document.body.classList.add('motion-ready');
-let sceneFrame=0;
-function updateScene(){
- sceneFrame=0;
- if(!motionEnabled||reducedMotion.matches||document.hidden){stage.style.removeProperty('--layer-shift');return;}
- const bounds=stage.getBoundingClientRect();
- if(bounds.bottom>0&&bounds.top<innerHeight)stage.style.setProperty('--layer-shift',Math.min(65,Math.max(-30,-bounds.top*.12))+'px');
-}
-function scheduleScene(){if(!sceneFrame)sceneFrame=requestAnimationFrame(updateScene);}
-addEventListener('scroll',scheduleScene,{passive:true});
-addEventListener('resize',scheduleScene,{passive:true});
-motion.addEventListener('click',scheduleScene);
-reducedMotion.addEventListener('change',scheduleScene);
-document.addEventListener('visibilitychange',scheduleScene);
-scheduleScene();

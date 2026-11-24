@@ -1,5 +1,5 @@
 // Only a generic reconnect page is stored. Never cache admin pages, APIs or files.
-const OFFLINE_CACHE = 'sendrack-admin-offline-v1';
+const OFFLINE_CACHE = 'sendrack-admin-offline-v2';
 const OFFLINE_URL = '/admin/offline.html';
 self.addEventListener('install', event => {
   event.waitUntil((async () => {

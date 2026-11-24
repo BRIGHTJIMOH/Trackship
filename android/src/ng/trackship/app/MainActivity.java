@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
         // Resize the WebView's container, not the WebView's internal padding: fixed web
         // navigation must share the same safe viewport as the page content.
         android.widget.FrameLayout frame=new android.widget.FrameLayout(this);
-        frame.setBackgroundColor(0xfff5f6f1);
+        frame.setBackgroundColor(0xfff5f7fb);
         frame.addView(web,new android.widget.FrameLayout.LayoutParams(-1,-1));
         setContentView(frame);
         getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN|android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
             return android.os.Build.VERSION.SDK_INT>=28?consumed.consumeDisplayCutout():consumed;
         });
         frame.requestApplyInsets();
-        web.setBackgroundColor(0xfff5f6f1);
+        web.setBackgroundColor(0xfff5f7fb);
         // Refresh packaged screens on upgrade without touching DOM storage or identity keys.
         String appVersion="unknown";
         try {appVersion=getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception ignored){}
@@ -129,7 +129,7 @@ public class MainActivity extends Activity {
             runOnUiThread(()->{Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,text);startActivity(Intent.createChooser(i,"Share delivery update"));});
         }
         @JavascriptInterface public void openUrl(String url){runOnUiThread(()->openExternal(url));}
-        @JavascriptInterface public void setNightMode(boolean dark){runOnUiThread(()->{web.setBackgroundColor(dark?0xff181819:0xfff5f6f1);if(web.getParent() instanceof View)((View)web.getParent()).setBackgroundColor(dark?0xff181819:0xfff5f6f1);getWindow().setStatusBarColor(dark?0xff181819:0xfff5f6f1);getWindow().setNavigationBarColor(dark?0xff181819:0xffffffff);web.setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);});}
+        @JavascriptInterface public void setNightMode(boolean dark){runOnUiThread(()->{web.setBackgroundColor(dark?0xff0a1628:0xfff5f7fb);if(web.getParent() instanceof View)((View)web.getParent()).setBackgroundColor(dark?0xff0a1628:0xfff5f7fb);getWindow().setStatusBarColor(dark?0xff0a1628:0xfff5f7fb);getWindow().setNavigationBarColor(dark?0xff0a1628:0xffffffff);web.setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);});}
         @JavascriptInterface public void startTracking(String base,String job,String session,String code){
             if(base==null||job==null||session==null||!job.matches("[a-f0-9]{64}")||!session.matches("[a-f0-9]{64}"))return;
             Uri u=Uri.parse(base);if(!"https".equals(u.getScheme())||u.getUserInfo()!=null||u.getHost()==null||u.getQuery()!=null||u.getFragment()!=null||!(u.getPath()==null||u.getPath().isEmpty()||u.getPath().equals("/")))return;

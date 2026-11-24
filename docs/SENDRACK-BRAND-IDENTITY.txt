@@ -1,0 +1,33 @@
+SendRack — approved orange and navy identity
+24 November 2026
+
+The supplied brand reference replaces the previous green identity on the current mobile app, marketing website, owner console and download page.
+
+Primary navy: #002147
+Brand orange: #FF6B00
+White: #FFFFFF
+Light canvas: #F5F7FB
+Dark canvas: #0A1628
+Dark raised surfaces: #12243E
+
+Use the two-part swept symbol, navy Send / orange Rack wordmark on light backgrounds, and the supplied all-white variant on navy. Use the symbol alone for launcher icons and the collapsed admin navigation. Retain generous clear space; avoid stretching, filters, outlines or arbitrary recolouring. The interface uses solid colours in light and dark mode. Use navy text on orange controls and white text on navy controls.
+
+Vector logo files are a clean reconstruction of the supplied reference. The wordmark uses outlined bundled Inter with a heavy slant, so it requires no remote font. For print-perfect reproduction of a designer's original wordmark, replace these shared SVGs with the original vector master when available.
+
+Shared current assets:
+web/assets/sendrack-mark.svg
+web/assets/sendrack-mark-white.svg
+web/assets/sendrack-wordmark.svg
+web/assets/sendrack-wordmark-white.svg
+web/assets/sendrack-logo.svg
+web/assets/sendrack-delivery-scene.svg
+
+Brand PNGs and admin install icons are rendered with scripts/branding/render-brand.mjs. The optional vector reconstruction generator uses Python fontTools and the bundled Inter.ttf. Runtime pages need neither Python nor fontTools.
+
+Android 0.7.43 retains package ng.sendrack.test and the existing signing identity. Its icon, system chrome, splash, login, tracking, wallet and announcement styling use the shared identity. Admin PWA icons and theme metadata are refreshed. Existing users may need to remove and reinstall the admin home-screen shortcut if the operating system retains its previous icon; their server accounts and records remain intact.
+
+Historical downloadable reports, shirt mockups and old APKs remain archived rather than being rewritten. The current download page identifies the previous shirt designs as earlier branding and provides the new brand pack separately.
+
+Validation: responsive website, mobile login/splash, solid light and dark surfaces, admin login/navigation, manifest, current delivery reactions and packaged startup. Browser/native-policy checks do not substitute for installation testing on a physical phone.
+
+Website and console source are pushed to the release branch; live Render rollout must be verified separately. The private downloads deployment is checked through Sites. No user data, authentication rules, referral rules or payment rules were intentionally changed.

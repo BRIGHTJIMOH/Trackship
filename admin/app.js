@@ -7,7 +7,7 @@ const root=document.querySelector('#admin-app'),notice=document.querySelector('#
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=k=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:2}).format((Number(k)||0)/100);
 const when=t=>t?new Date(t).toLocaleString('en-NG',{timeZone:'Africa/Lagos',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
-const brand=()=>'<div class="brand"><img src="/assets/sendrack-mark.svg" alt="">SendRack</div>';
+const brand=()=>'<div class="brand"><img class="brand-symbol" src="/assets/sendrack-mark-white.svg" alt="" width="38" height="32"><img class="brand-wordmark" src="/assets/sendrack-wordmark.svg" alt="SendRack" width="180" height="39"></div>';
 const pill=status=>`<span class="pill ${['Delivered','approved','paid','Active'].includes(status)?'green':['Cancelled','rejected','Suspended'].includes(status)?'red':['test','missing','Paused'].includes(status)?'gray':''}">${esc(status)}</span>`;
 const navItems=[['library','▱','File library'],['overview','◫','Overview'],['shipments','▣','Shipments'],['analytics','▥','Analytics'],['routes','⌁','Routes'],['users','♙','Users'],['pricing','₦','Pricing'],['delivery-readiness','✓','Delivery setup'],['app-controls','◉','App controls'],['settlements','⇄','Settlements'],['website-videos','▷','Website videos'],['waitlist','✉','Waitlist'],['audit','≡','Activity log'],['regional-admins','♙','Regional teams']];
 const appControlTabs=[['mobile-features','Mobile features'],['referrals','Referrals'],['communication-cards','Communication cards']];

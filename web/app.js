@@ -41,7 +41,7 @@ const date=s=>new Date(s).toLocaleString('en-NG',{day:'2-digit',month:'short',ho
 const day=s=>s?new Date(s).toLocaleDateString('en-NG',{day:'2-digit',month:'short',year:'2-digit'}):'Not set';
 const amountMoney=n=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(Number(n)||0);
 const money=n=>Number(n)>0?amountMoney(n):'Not declared';
-const brand=()=>`<div class="brand"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M26 7H58L46 19H26C20 19 19 25 25 27L32 29L22 39L21 39C0 33 7 7 26 7Z"/><path d="M38 57H6L18 45H38C44 45 45 39 39 37L32 35L42 25L43 25C64 31 57 57 38 57Z"/></svg>SendRack</div>`;
+const brand=()=>`<div class="brand"><img class="brand-wordmark" src="/assets/sendrack-wordmark.svg" alt="SendRack" width="180" height="39"></div>`;
 const badge=s=>`<span class="badge ${s==='Delivered'?'green':s==='Created'||s==='Picked up'?'blue':s==='Cancelled'?'gray':''}">${s==='In transit'?'Transit':s==='Created'?'Pending':esc(s)}</span>`;
 const progress=(n,total=3)=>`<div class="progress" aria-label="Step ${n+1} of ${total}">${Array.from({length:total},(_,i)=>`<span class="${i<=n?'active':''}"></span>`).join('')}</div>`;
 function input(label,name,placeholder='',opts='',value=''){return `<div class="field"><label for="${name}">${label}</label><input id="${name}" name="${name}" placeholder="${placeholder}" value="${esc(value)}" ${opts}></div>`;}
@@ -70,7 +70,7 @@ function renderGate(){
  features.theme();
  if(gate==='access'){renderAccess();return;}
  if(gate==='pin-setup'||gate==='unlock'){renderLock();return;}
- if(gate==='splash'){app.innerHTML=`<main class="onboard splash reference-splash"><div class="splash-identity">${brand()}</div><div class="splash-illustration" aria-hidden="true"><div class="splash-horizon"></div><img src="/assets/sendrack-courier-illustration.webp" alt=""></div><span class="sr-only" role="status">Loading SendRack</span></main>`;return;}
+ if(gate==='splash'){app.innerHTML=`<main class="onboard splash reference-splash"><div class="splash-identity">${brand()}</div><div class="splash-illustration" aria-hidden="true"><div class="splash-horizon"></div><img src="/assets/sendrack-delivery-scene.svg" alt=""></div><span class="sr-only" role="status">Loading SendRack</span></main>`;return;}
  if(gate==='setup'){
   if(setupStep===2){renderSignupIdentity();return;}
   const isVendor=setupRole==='vendor',last=setupStep===1;

@@ -1,3 +1,4 @@
+import {shipmentReactions} from './shipment-reactions.mjs';
 import {referrals} from './referrals.mjs';
 import {communicationCards} from './communication-cards.mjs';
 import {initializeTrackingStore,hydrateTracking,saveRiderLocation} from './tracking-store.mjs';
@@ -250,11 +251,13 @@ export async function operations(db, {
   const communication=await communicationCards(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional)return {id:session.actor,role:'operations',states:session.states};return {id:session.actor,role:'super-admin'};}});
+  const reactions=await shipmentReactions(db,{owner,rider,job,body,env});
   const contactAccess=deliveryContacts(db,{owner,rider,job});
   await initializeTestDispatch(db);
   const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body,testModeAllowed:!walletControlEnabled&&!(providers.paymentReady&&providers.mode==='live')});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
+    if(await reactions(req,path,send))return true;
     if(await referral.route(req,url,send))return true;
     if(await communication(req,url,send))return true;
     if(await mobile.route(req,path,send))return true;

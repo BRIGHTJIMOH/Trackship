@@ -1,0 +1,13 @@
+SendRack 0.7.42 — delivery reactions
+
+Open Track or Shipment details while a verified assigned handler is carrying the parcel. Choose Thanks, Appreciation, Happy, Waiting, Worried, Angry, Heartbroken or Relieved. Vendors and the current assigned handler can react from their signed-in app. Customers can react from their private tracking link without installing the app.
+
+Each participant has one current reaction per delivery handler/leg. Choosing another feeling replaces it after a 15-second cooldown. Reactions refresh quietly while the tracking screen is open. No sounds, push alerts or reply obligation are added for riders. Reactions are not an emergency contact channel; use the existing contact options for help when safe.
+
+Feedback does not confirm delivery, release payment, change custody or affect ratings. It closes when a delivery is delivered, cancelled or removed. The next handler begins with separate feedback.
+
+Tracking links act as private access links. Anyone holding a link can use its shared Tracking viewer reaction slot; this does not verify the recipient's identity. Reaction responses contain role labels and feelings, not phone numbers, account IDs or access tokens.
+
+Install SendRack-0.7.42.apk over the existing ng.sendrack.test test app. Existing signing identity is retained. Android package startup was tested in Chromium under the packaged asset/CSP rules, not on a physical phone. API permissions, cooldown and public mobile tracking UI were tested with isolated fixtures.
+
+Backend source must be deployed before the new API works. A signed APK alone does not deploy the server. Live Render rollout has not been verified from this environment.

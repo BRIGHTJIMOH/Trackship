@@ -25,6 +25,8 @@ export function createStaticHandler(root){
         '/features.mjs': 'features.mjs',
         '/communication-cards.mjs':'communication-cards.mjs',
         '/referrals.mjs':'referrals.mjs',
+        '/shipment-reactions.mjs':'shipment-reactions.mjs',
+        '/reaction-options.mjs':'reaction-options.mjs',
         '/map-display.mjs': 'map-display.mjs',
         '/viewer-location.mjs': 'viewer-location.mjs',
         '/map-controls.css': 'map-controls.css',

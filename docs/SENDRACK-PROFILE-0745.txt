@@ -1,0 +1,10 @@
+SendRack 0.7.45 — profile appearance correction
+25 November 2026
+
+Install SendRack-0.7.45.apk over the existing test app. Package ng.sendrack.test and signing identity are unchanged.
+
+Profile groups and the account wallet card now use the same solid navy surface as other dark-mode cards. Row text, dividers and icons use the shared theme colours. Appearance and referral screens retain the reviewed compact layouts. Light mode is unchanged.
+
+Checked on both vendor and rider profile screens, including Appearance; existing history, referral, location and contact-control browser checks pass. Android build, signing and packaged startup checks pass. These checks do not substitute for physical-device testing.
+
+The matching social-media design now shows the vendor Location tracking screen in the illustrated phone. It uses an isolated sample delivery and illustrative street-map tiles; no real customer's coordinates or account details appear. The rest of the design and headline are retained.

@@ -112,3 +112,13 @@ loadStories();
 
 // Keep every section readable immediately, including below the initial viewport.
 document.body.classList.add('motion-ready');
+
+// Show only real, published team profiles in the hero's people card.
+async function loadHeroTeam(){
+ const avatars=document.querySelector('.hero-team-avatars'),names=document.querySelector('.hero-team-names');if(!avatars||!names)return;
+ try{const response=await fetch('/api/website-team',{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!response.ok)return;const result=await response.json();if(!Array.isArray(result.members)||!result.members.length)return;
+  for(const member of result.members.slice(0,3)){const holder=document.createElement('span');holder.className='hero-team-avatar';holder.textContent=member.name.trim().split(/\s+/).slice(0,2).map(n=>n[0]).join('');if(member.photo&&/^data:image\/(jpeg|png);base64,/.test(member.photo)){const image=new Image();image.alt='';image.onload=()=>holder.replaceChildren(image);image.src=member.photo;}avatars.append(holder);}
+  names.textContent=result.members.length===1?result.members[0].name+' · '+result.members[0].role:result.members.slice(0,2).map(m=>m.name).join(' & ')+(result.members.length>2?' and the team':'');
+ }catch{/* The team link remains useful when profiles cannot load. */}
+}
+void loadHeroTeam();

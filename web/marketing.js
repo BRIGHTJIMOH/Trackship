@@ -89,7 +89,10 @@ async function loadStories(){
   const {videos}=await response.json();if(!videos.length)return;
   host.replaceChildren();host.className='stories-grid';
   document.querySelector('#stories').hidden=false;document.querySelector('[data-signup-index]').textContent='04 — GET IN EARLY';document.querySelectorAll('[data-video-nav]').forEach(link=>link.hidden=false);if(location.hash==='#stories')document.querySelector('#stories').scrollIntoView({behavior:'instant'});
+  let experienceStarted=false;
   for(const item of videos){
+   if(item.id!=='founder'&&!experienceStarted){experienceStarted=true;if(videos.some(v=>v.id==='founder')){const divider=document.createElement('header');divider.className='story-group-divider';const title=document.createElement('h3');title.textContent='The delivery experience';divider.append(title);host.append(divider);}}
+
    const card=document.createElement('article');card.className='story-card'+(item.id==='founder'?' founder-story':'');
    const label=document.createElement('p');label.className='small-label';label.textContent=item.id==='founder'?'FROM OUR FOUNDER':'THE DELIVERY EXPERIENCE';
    const heading=document.createElement('h3');heading.textContent=item.title;

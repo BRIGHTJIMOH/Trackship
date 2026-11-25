@@ -440,3 +440,9 @@ body{background:#eef2f8}.launch-frame{background:#fff;border-color:#dce3ee}.mast
 @media(max-width:420px){.masthead .wordmark .brand-wordmark,.team-page .masthead .wordmark .brand-wordmark{width:110px}.header-join,.team-page .header-join{font-size:13px;padding:10px}.header-join span{display:none}.navigation{font-size:14px}.masthead{gap:10px}}
 @media(prefers-reduced-motion:reduce){.navigation a{transition:none}}
 .navigation a[hidden]{display:none}
+/* Bring the bike, supporting copy and caption into one tighter composition. */
+.launch-hero{column-gap:16px;padding-top:32px;padding-bottom:24px}
+.hero-description{max-width:100%}
+.stage-caption{justify-content:center;margin-top:8px}
+.stage-utilities{justify-content:center;text-align:center}
+@media(max-width:750px){.launch-hero{padding-top:24px;padding-bottom:18px}.product-stage{margin-top:12px}.stage-caption{margin-top:8px}}

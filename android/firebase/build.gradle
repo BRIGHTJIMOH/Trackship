@@ -9,8 +9,8 @@ android {
         applicationId 'ng.sendrack.test'
         minSdk 26
         targetSdk 35
-        versionCode 47
-        versionName '0.7.47-fcm'
+        versionCode 48
+        versionName '0.7.48-fcm'
     }
     sourceSets {
         main {

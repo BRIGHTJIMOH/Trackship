@@ -10,6 +10,6 @@ public final class SendrackMessagingService extends FirebaseMessagingService {
   SharedPreferences auth=getSharedPreferences("trackship-delivery-alerts",Context.MODE_PRIVATE);String session=auth.getString("token",null),eventId=message.getData().get("eventId"),binding=message.getData().get("binding");
   String role=message.getData().get("accountRole");if(role!=null&&!role.equals(auth.getString("role","rider")))return;
   if(session==null||eventId==null||!eventId.matches("[a-fA-F0-9-]{36}")||!FirebaseDeliveryPush.hash(session).equals(binding))return;
-  DeliveryAlerts.showBound(this,binding,eventId,"SendRack delivery update","A delivery update is waiting. Open SendRack to view it.");
+  DeliveryAlerts.fetchBoundEvent(this,binding,role==null?"rider":role,eventId);
  }
 }

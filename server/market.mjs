@@ -1,3 +1,4 @@
+import {notificationView,reactionAccessible,isReactionPhase} from './push/reaction-notifications.mjs';
 import {matchRiderColumns,normalizeMatch,activeAssignmentCount} from './shipment-index.mjs';
 const lagosDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Lagos',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 import {testDispatchMode,canTestDispatch,simulatedDelivery} from './test-dispatch.mjs';
@@ -82,7 +83,7 @@ export async function marketplace(db, {
     await Promise.allSettled(sends);
     return count;
   }
-  async function notificationsFor(r){const rows=await db.prepare(`SELECT n.id,n.shipment_id AS "shipmentId",n.title,n.body,n.seen,n.created,s.payload AS shipment_payload FROM delivery_notifications n LEFT JOIN shipments s ON s.id=n.shipment_id WHERE n.rider_id=? AND n.account_role='rider' ORDER BY n.created DESC LIMIT 100`).all(r.id);return rows.filter(n=>!n.shipment_payload||!JSON.parse(n.shipment_payload).testRemoval).map(({shipment_payload,...n})=>({...n,code:shipment_payload?JSON.parse(shipment_payload).code:null}));}
+  async function notificationsFor(r){const rows=await db.prepare(`SELECT n.id,n.shipment_id AS "shipmentId",n.title,n.body,n.phase,n.seen,n.created,s.payload AS shipment_payload FROM delivery_notifications n LEFT JOIN shipments s ON s.id=n.shipment_id WHERE n.rider_id=? AND n.account_role='rider' ORDER BY n.created DESC LIMIT 100`).all(r.id);return rows.filter(n=>{const s=n.shipment_payload?JSON.parse(n.shipment_payload):null;return (!s||!s.testRemoval)&&(!isReactionPhase(n.phase)||reactionAccessible(s,n.phase,'rider',r.id));}).map(({shipment_payload,...n})=>notificationView({...n,code:shipment_payload?JSON.parse(shipment_payload).code:null}));}
   async function matchingOffers(r,{recover=false}={}){
    const testMode=!walletHolds&&!(providers.paymentReady&&providers.mode==='live')&&await testDispatchMode(db);
    const all=(await db.prepare(`SELECT DISTINCT s.payload,i.created_at,i.id FROM shipment_index i JOIN shipments s ON s.id=i.id JOIN rider_route_preferences p ON p.route_id=i.route_id WHERE p.rider_id=? AND p.available=1 AND i.removed=0 AND i.workflow=3 AND i.status='Created' AND i.created_at>? ORDER BY i.created_at DESC,i.id DESC LIMIT 200`).all(r.id,new Date(Date.now()-7*86400000).toISOString())).map(row=>JSON.parse(row.payload)),activeCount=await activeAssignmentCount(db,r.id),matched=[],known=recover?new Set((await db.prepare("SELECT shipment_id FROM delivery_notifications WHERE rider_id=? AND account_role='rider' AND phase='created'").all(r.id)).map(n=>n.shipment_id)):null;

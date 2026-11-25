@@ -1,10 +1,11 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {REACTION_OPTIONS} from '../web/reaction-options.mjs';
+import {recordReactionNotification} from './push/reaction-notifications.mjs';
 import {sharedRequestLimits} from './request-controls.mjs';
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
 const labels={vendor:'Vendor',rider:'Current handler',viewer:'Tracking viewer'};
-export async function shipmentReactions(db,{owner,rider,job,body,env}){
+export async function shipmentReactions(db,{owner,rider,job,body,env,onChanged=()=>{}}){
  await db.exec(`CREATE TABLE IF NOT EXISTS shipment_reactions(id TEXT PRIMARY KEY,shipment_id TEXT NOT NULL,handler_id TEXT NOT NULL,handler_leg TEXT NOT NULL,sender_key TEXT NOT NULL,sender_kind TEXT NOT NULL,reaction TEXT NOT NULL,updated INTEGER NOT NULL,UNIQUE(shipment_id,handler_id,handler_leg,sender_key));
  CREATE INDEX IF NOT EXISTS shipment_reactions_delivery ON shipment_reactions(shipment_id,handler_id,handler_leg,updated);`);
  const rate=await sharedRequestLimits(db,env);
@@ -37,7 +38,8 @@ export async function shipmentReactions(db,{owner,rider,job,body,env}){
    if(old&&Date.now()-Number(old.updated)<15000)fail('Wait a few seconds before changing your reaction.',429);
    if(!await rate(req,'shipment-reactions',12,60000))fail('Too many reactions. Please wait a minute.',429);
    await db.prepare('INSERT INTO shipment_reactions(id,shipment_id,handler_id,handler_leg,sender_key,sender_kind,reaction,updated) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(shipment_id,handler_id,handler_leg,sender_key) DO UPDATE SET reaction=excluded.reaction,updated=excluded.updated').run(randomUUID(),a.s.id,a.handlerId,a.handlerLeg,a.key,a.kind,input.reaction,Date.now());
-   const result=await state(a);await db.exec('COMMIT');send(200,result);return true;
+   await recordReactionNotification(db,a,input.reaction);
+   const result=await state(a);await db.exec('COMMIT');onChanged();send(200,result);return true;
   }catch(e){await db.exec('ROLLBACK');throw e;}
  };
 }

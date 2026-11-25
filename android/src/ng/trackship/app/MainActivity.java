@@ -166,6 +166,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void retryDeliveryPush(){runOnUiThread(()->FirebaseBridge.call(MainActivity.this,"retry"));}
         @JavascriptInterface public void requestDeliveryAlertsPermission(){runOnUiThread(()->{boolean denied=android.os.Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED;boolean asked=getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).getBoolean("asked",false);if(denied&&(!asked||shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS))){getSharedPreferences("trackship-alert-permission",MODE_PRIVATE).edit().putBoolean("asked",true).apply();requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},ALERT_PERMISSION);}else startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName()));});}
         @JavascriptInterface public void clearDeliveryAlerts(){runOnUiThread(()->DeliveryAlerts.clear(MainActivity.this));}
+        @JavascriptInterface public void notifyDeliveryTarget(String id,String title,String body,String shipment){runOnUiThread(()->DeliveryAlerts.show(MainActivity.this,id,title,body,shipment));}
         @JavascriptInterface public void notifyDelivery(String id,String title,String body){runOnUiThread(()->DeliveryAlerts.show(MainActivity.this,id,title,body));}
         @JavascriptInterface public void exportCsv(String csv){if(csv==null||csv.length()>200000)return;runOnUiThread(()->{pendingBackup=csv;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("text/csv");i.putExtra(Intent.EXTRA_TITLE,"SendRack-bulk-template.csv");try{startActivityForResult(i,SAVE_BACKUP);}catch(Exception e){pendingBackup=null;}});}
         @JavascriptInterface public void exportBackup(String json,String name){
@@ -191,7 +192,15 @@ public class MainActivity extends Activity {
         if(web!=null&&needsReauth){needsReauth=false;web.evaluateJavascript("window.TrackShipLock?.()",value->{if(web!=null)web.setVisibility(View.VISIBLE);});}
         else if(web!=null)web.setVisibility(View.VISIBLE);
     }
-    private void openDeliveryAlert(WebView view,Intent intent){if(intent==null)return;String role=intent.getStringExtra("open-account-alerts");if(role==null&&intent.getBooleanExtra("open-rider-alerts",false))role="rider";if(!"vendor".equals(role)&&!"rider".equals(role))return;intent.removeExtra("open-account-alerts");intent.removeExtra("open-rider-alerts");view.evaluateJavascript("window.SendRackPendingAlert=true;window.SendRackPendingAlertRole='"+role+"';window.TrackShipOpenAlerts?.('"+role+"')",null);}
+    private void openDeliveryAlert(WebView view,Intent intent){
+        if(intent==null)return;String role=intent.getStringExtra("open-account-alerts");if(role==null&&intent.getBooleanExtra("open-rider-alerts",false))role="rider";if(!"vendor".equals(role)&&!"rider".equals(role))return;
+        String binding=intent.getStringExtra("alert-binding"),token=getSharedPreferences("trackship-delivery-alerts",MODE_PRIVATE).getString("token",null);
+        if(binding!=null&&(token==null||!binding.equals(DeliveryAlerts.sessionBinding(token)))){intent.removeExtra("open-account-alerts");return;}
+        String shipment=intent.getStringExtra("alert-shipment"),event=intent.getStringExtra("alert-event");if(shipment==null||!shipment.matches("[a-fA-F0-9-]{36}"))shipment="";if(event==null||!event.matches("[a-fA-F0-9-]{36}"))event="";
+        intent.removeExtra("open-account-alerts");intent.removeExtra("open-rider-alerts");intent.removeExtra("alert-shipment");intent.removeExtra("alert-event");
+        view.evaluateJavascript("window.SendRackPendingAlert=true;window.SendRackPendingAlertRole='"+role+"';window.SendRackPendingShipment='"+shipment+"';window.SendRackPendingEvent='"+event+"';window.TrackShipOpenAlerts?.('"+role+"','"+shipment+"','"+event+"')",null);
+    }
+
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(web!=null)openDeliveryAlert(web,intent);}
 
     @Override public void onBackPressed(){web.evaluateJavascript("window.TrackShipBack?.()",null);}

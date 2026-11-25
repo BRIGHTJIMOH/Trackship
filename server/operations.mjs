@@ -1,3 +1,4 @@
+import {isReactionPhase,reactionStillRelevant,reactionAccessible,notificationView} from './push/reaction-notifications.mjs';
 import {shipmentReactions} from './shipment-reactions.mjs';
 import {referrals} from './referrals.mjs';
 import {communicationCards} from './communication-cards.mjs';
@@ -242,7 +243,7 @@ export async function operations(db, {
     providers,
     env
   });
-  push=await deliveryPush(db,{env,body,rider,vendor:req=>vendorPushAccount(db,req),onRegistered:r=>market.recover(r),canDeliver:async job=>{if(job.account_role!=='vendor')return market.canNotify({riderId:job.rider_id,shipmentId:job.shipment_id,phase:job.phase});const row=await db.prepare('SELECT s.payload FROM shipments s JOIN vendor_accounts v ON v.owner_key=s.owner WHERE s.id=? AND v.id=? AND COALESCE(v.suspended,0)=0').get(job.shipment_id,job.rider_id);if(!row)return false;const s=JSON.parse(row.payload);return !s.testRemoval&&(s.events||[]).some(e=>'vendor-status:'+(e.id||e.status+':'+e.at)===job.phase);}});
+  push=await deliveryPush(db,{env,body,rider,vendor:req=>vendorPushAccount(db,req),onRegistered:r=>market.recover(r),canDeliver:async job=>{if(isReactionPhase(job.phase)){const s=await getShipment(job.shipment_id);if(!reactionStillRelevant(s,job.phase,job.account_role,job.rider_id))return false;if(job.account_role==='vendor')return Boolean(await db.prepare('SELECT v.id FROM shipments s JOIN vendor_accounts v ON v.owner_key=s.owner WHERE s.id=? AND v.id=? AND COALESCE(v.suspended,0)=0').get(job.shipment_id,job.rider_id));return true;}if(job.account_role!=='vendor')return market.canNotify({riderId:job.rider_id,shipmentId:job.shipment_id,phase:job.phase});const row=await db.prepare('SELECT s.payload FROM shipments s JOIN vendor_accounts v ON v.owner_key=s.owner WHERE s.id=? AND v.id=? AND COALESCE(v.suspended,0)=0').get(job.shipment_id,job.rider_id);if(!row)return false;const s=JSON.parse(row.payload);return !s.testRemoval&&(s.events||[]).some(e=>'vendor-status:'+(e.id||e.status+':'+e.at)===job.phase);}});
   const vendorInbox=vendorNotifications(db,{body});
   const catalog=await routeCatalog(db);
   const adminAccess=await adminConsole(db,{body,env,catalog});
@@ -251,15 +252,25 @@ export async function operations(db, {
   const communication=await communicationCards(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional)return {id:session.actor,role:'operations',states:session.states};return {id:session.actor,role:'super-admin'};}});
-  const reactions=await shipmentReactions(db,{owner,rider,job,body,env});
+  const reactions=await shipmentReactions(db,{owner,rider,job,body,env,onChanged:()=>push.kick()});
   const contactAccess=deliveryContacts(db,{owner,rider,job});
   await initializeTestDispatch(db);
   const testRemovalAccess=testShipments(db,{authorize:adminAccess.authorize,body,testModeAllowed:!walletControlEnabled&&!(providers.paymentReady&&providers.mode==='live')});
   const router = async function route(req, res, url, send) {
     const path = url.pathname;
     if(await reactions(req,path,send))return true;
+    const eventLookup=path.match(/^\/api\/v4\/(vendor|rider)\/notifications\/([a-f0-9-]{36})$/);
+    if(eventLookup&&req.method==='GET'){
+     const role=eventLookup[1],account=role==='vendor'?await vendorPushAccount(db,req):await rider(req);
+     const n=await db.prepare('SELECT id,shipment_id AS "shipmentId",title,body,created,seen,phase FROM delivery_notifications WHERE id=? AND rider_id=? AND account_role=?').get(eventLookup[2],account.id,role);
+     const s=n?await getShipment(n.shipmentId):null;
+     const allowed=s&&!s.testRemoval&&(role==='vendor'?Boolean(await db.prepare('SELECT id FROM vendor_accounts WHERE id=? AND owner_key=(SELECT owner FROM shipments WHERE id=?)').get(account.id,s.id)):!isReactionPhase(n.phase)||Object.values(s.actors||{}).some(a=>a?.id===account.id));
+     if(!allowed||isReactionPhase(n?.phase)&&!reactionAccessible(s,n.phase,role,account.id))fail('Notification is no longer available.',404);
+     send(200,{notification:notificationView(n)});return true;
+    }
+
     const historyShipment=path.match(/^\/api\/v4\/rider\/shipments\/([a-f0-9-]{36})$/);
-    if(historyShipment&&req.method==='GET'){const r=await rider(req);if(!r?.id)fail('Sign in to view delivery details.',401);const s=await getShipment(historyShipment[1]);if(!s||s.testRemoval)fail('Delivery not found.',404);const leg=['pickup','carrier','lastmile'].find(key=>s.actors?.[key]?.id===r.id);if(!r.id||!leg)fail('Only an assigned handler can view delivery details.',403);send(200,jobView(s,leg));return true;}
+    if(historyShipment&&req.method==='GET'){const r=await rider(req);if(!r?.id)fail('Sign in to view delivery details.',401);const s=await getShipment(historyShipment[1]);if(!s||s.testRemoval)fail('Delivery not found.',404);const leg=s.actors?.[s.custodian]?.id===r.id?s.custodian:['pickup','carrier','lastmile'].find(key=>s.actors?.[key]?.id===r.id);if(!r.id||!leg)fail('Only an assigned handler can view delivery details.',403);send(200,jobView(s,leg));return true;}
 
     if(await referral.route(req,url,send))return true;
     if(await communication(req,url,send))return true;

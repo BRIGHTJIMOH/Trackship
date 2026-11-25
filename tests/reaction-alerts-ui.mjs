@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {createHash,pbkdf2Sync} from 'node:crypto';import {mkdir} from 'node:fs/promises';import {adminFixture,vendorProfile,riderProfile} from './admin-fixture.mjs';import {newTransport} from '../web/lifecycle.mjs';
+const f=await adminFixture();let browser;
+try{
+ const vendor=await f.account('vendor',vendorProfile),rider=await f.account('rider',riderProfile),s=newTransport({sender:'Ada Store',recipient:'Sample recipient',phone:'08011112222',description:'Reaction test parcel',origin:'Zaria',originState:'Kaduna',destination:'Zaria',destinationState:'Kaduna',address:'Sample destination',deliveryType:'intrastate',deliveryFee:'1000'},'Ada Store');s.status='Out for delivery';s.custodian='pickup';s.actors={pickup:{id:rider.profile.id,name:'Sample rider'}};
+ const owner=(await f.server.database.prepare('SELECT owner_key FROM vendor_accounts WHERE id=?').get(vendor.profile.id)).owner_key;await f.server.database.prepare('INSERT INTO shipments(id,owner,public_hash,payload) VALUES(?,?,?,?)').run(s.id,owner,createHash('sha256').update(s.publicToken).digest('hex'),JSON.stringify(s));await f.server.database.prepare('INSERT INTO job_tokens(token_hash,shipment_id,leg) VALUES(?,?,?)').run(createHash('sha256').update(s.jobTokens.pickup).digest('hex'),s.id,'pickup');
+ browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});await mkdir('artifacts/reaction-receipts',{recursive:true});const errors=[],pin={salt:'two-party-reactions',hash:pbkdf2Sync('724918','two-party-reactions',210000,32,'sha256').toString('hex')};
+ async function phone(role,account){const context=await browser.newContext({viewport:{width:390,height:844}});await context.addInitScript(({role,account,base,pin,s})=>{window.nativeAlerts=[];window.TrackShip={setNightMode(){},configureAccountAlerts(){},clearDeliveryAlerts(){},stopTracking(){},notifyDeliveryTarget(id,title,body,shipmentId){window.nativeAlerts.push({id,title,body,shipmentId});}};localStorage.setItem('sendrack-location-enabled','off');localStorage.setItem('trackship-v1',JSON.stringify({theme:'dark',lastRole:role,accounts:{[role]:account.profile},deviceAccounts:{[role+':'+account.profile.phone]:{role,profile:account.profile,pin,connection:{base,token:account.token,verified:true},...(role==='vendor'?{shipments:[{...s,synced:true,dirty:false}]}:{jobs:[{...s,remoteBase:base,dispatchToken:s.jobTokens.pickup,jobLeg:'pickup',dirty:false}]})}}}));},{role,account,base:f.base,pin,s});await context.route('**/api/v4/rider/routes',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({routes:[],selected:[],available:false,dailyConfirmed:true})}));const page=await context.newPage();page.setDefaultTimeout(12000);page.on('pageerror',e=>errors.push(e.message));await page.goto(f.base+'/app');await page.locator('#loginPin').fill('724918');await page.locator('#local-login button').click();await page.locator('.reference-home').waitFor();if(await page.locator('.location-choice-close').count())await page.locator('.location-choice-close').click();await page.locator('.bottomnav [aria-label="Track"]').click();await page.getByRole('button',{name:'Delivery reactions',exact:true}).waitFor();return page;}
+ const v=await phone('vendor',vendor),r=await phone('rider',rider);
+ await r.locator('.bottomnav [aria-label="Profile"]').click();
+ await v.getByRole('button',{name:'Delivery reactions',exact:true}).click();await v.getByRole('button',{name:'Happy',exact:true}).click();
+ await r.locator('.reaction-alert-banner').filter({hasText:'😊'}).waitFor();assert.match(await r.locator('.reaction-alert-banner').innerText(),/Ada Store/);
+ await r.waitForFunction(id=>window.nativeAlerts.some(n=>n.shipmentId===id&&n.title.includes('😊')),s.id);
+ const incoming=await r.evaluate(()=>window.nativeAlerts.find(n=>n.title.includes('😊')));assert.equal(incoming.shipmentId,s.id);
+ await r.locator('.reaction-alert-banner > button').first().click();await r.locator('#track-select').waitFor();assert.equal(await r.locator('#track-select').inputValue(),s.id);
+ await v.locator('.bottomnav [aria-label="Home"]').click();
+ await r.getByRole('button',{name:'Delivery reactions',exact:true}).click();await r.getByRole('button',{name:'Appreciation',exact:true}).click();
+ await v.locator('.reaction-alert-banner').filter({hasText:'❤️'}).waitFor();await v.waitForFunction(id=>window.nativeAlerts.some(n=>n.shipmentId===id&&n.title.includes('❤️')),s.id);
+ const vendorAlert=await v.evaluate(()=>window.nativeAlerts.find(n=>n.title.includes('❤️')));
+ // Native notification taps must preserve the exact shipment through PIN unlock.
+ await v.evaluate(()=>window.TrackShipLock());assert.equal(await v.locator('.reaction-alert-banner').count(),0);
+ await v.evaluate(({shipmentId,id})=>window.TrackShipOpenAlerts('vendor',shipmentId,id),vendorAlert);
+ assert.equal(await v.locator('#track-select').count(),0);await v.locator('#loginPin').fill('724918');await v.locator('#local-login button').click();await v.locator('#track-select').waitFor();assert.equal(await v.locator('#track-select').inputValue(),s.id);
+ assert.equal(await v.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
+ await mkdir('artifacts/reaction-alerts',{recursive:true});await r.locator('.bottomnav [aria-label="Profile"]').click();
+ // A different change yields another alert, while an identical retry yields none.
+ await f.server.database.prepare('UPDATE shipment_reactions SET updated=?').run(Date.now()-20000);
+ await f.api('/api/v3/shipments/'+s.id+'/reactions',{reaction:'waiting'},{token:vendor.token});
+ await r.locator('.reaction-alert-banner').filter({hasText:'Waiting'}).waitFor();await r.screenshot({path:'artifacts/reaction-alerts/on-profile.png'});
+ const count=await r.evaluate(()=>new Set(window.nativeAlerts.map(n=>n.id)).size);await f.api('/api/v3/shipments/'+s.id+'/reactions',{reaction:'waiting'},{token:vendor.token});await r.waitForTimeout(5500);assert.equal(await r.evaluate(()=>new Set(window.nativeAlerts.map(n=>n.id)).size),count);
+ console.log('PASS: cross-account reaction alerts arrive outside tracking; native bridge receives the exact shipment; taps open that shipment after PIN login.');
+}finally{await browser?.close();await f.close();}

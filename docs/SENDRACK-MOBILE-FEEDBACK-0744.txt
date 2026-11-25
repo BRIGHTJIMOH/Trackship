@@ -17,11 +17,11 @@ Reopen the small card from Profile > Appearance & location > Location settings. 
 
 Checks: reaction permissions/API, compact public picker, vendor contact row, dark search, input/session regressions, controlled Android-bridge location off/settings/permission flow and automatic GPS coordinator pause/resume. Android compilation, signing and packaged startup are checked. Phone settings and runtime permissions still need a physical Android test; browser mocks do not establish hardware behavior.
 
-This mobile release is prepared locally for review and has not been published. The current downloadable APK is the older build. The website-only cleanup was published separately. Live Render rollout remains unverified from this environment.
+This guide accompanies the approved SendRack-0.7.44.apk release. Install it over the existing test app. Website/API source is published separately; live Render rollout remains unverified from this environment.
 
 HISTORY AND DARK-MODE REVIEW
 Delivery history now uses small tracking-ID and timestamp rows. Repeated notifications for a delivery are grouped, and completed deliveries already in the history list are not duplicated under Earlier updates. Notification push wording stays outside the in-app rows. Tapping opens a private delivery detail dialog with recorded participants, addresses, handler and timeline. Missing receiver names are marked Not recorded rather than inferred from the intended recipient. An authenticated, assigned-rider endpoint recovers details for older notifications absent from this device; unrelated accounts cannot read it. Details close on native Back and device lock.
 
 All dark Home delivery cards use the same navy surface. The referral screen shows code, copy/share actions, short promo status and counts; rules are collapsed. Splash logo and illustration share a centered responsive layout. Logo/search/reactions/location fixes from the prior review are retained.
 
-Additional checks passed: rider history UI and details, device-lock privacy, referral share/review workflow, dispatch-feed compatibility and automatic rider delivery/OTP completion. APK publication remains paused pending the user's review.
+Additional checks passed: rider history UI and details, device-lock privacy, referral share/review workflow, dispatch-feed compatibility and automatic rider delivery/OTP completion. The user approved continuing publication on 25 November 2026.

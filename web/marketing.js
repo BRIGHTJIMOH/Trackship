@@ -119,7 +119,7 @@ async function loadHeroTeam(){
  try{const response=await fetch('/api/website-team',{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!response.ok)return;const result=await response.json();if(!Array.isArray(result.members)||!result.members.length)return;
   for(const group of avatars)for(const member of result.members.slice(0,3)){const holder=document.createElement('span');holder.className='hero-team-avatar';holder.textContent=member.name.trim().split(/\s+/).slice(0,2).map(n=>n[0]).join('');if(member.photo&&/^data:image\/(jpeg|png);base64,/.test(member.photo)){const image=new Image();image.alt='';image.onload=()=>holder.replaceChildren(image);image.src=member.photo;}group.append(holder);}
   names.textContent=result.members.length===1?result.members[0].name+' · '+result.members[0].role:result.members.slice(0,2).map(m=>m.name).join(' & ')+(result.members.length>2?' and the team':'');
-  const lead=result.members.find(m=>m.photo&&/^data:image\/(jpeg|png);base64,/.test(m.photo));if(lead){const image=new Image();image.className='hero-lead-portrait';image.alt=lead.name+', '+lead.role;image.onload=()=>{const stage=document.querySelector('.mindly-hero .product-stage');if(!stage)return;stage.prepend(image);stage.classList.add('has-person');stage.setAttribute('aria-label',lead.name+', '+lead.role);const note=stage.querySelector('.art-note');if(note)note.textContent='The people behind SendRack';};image.src=lead.photo;}
+
  }catch{/* Keep the public team link useful when portraits cannot load. */}
 }
 void loadHeroTeam();

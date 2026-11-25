@@ -217,3 +217,6 @@ html{scroll-padding-bottom:calc(120px + var(--safe-bottom,0px))}.shipment-track-
 :root[data-theme=dark] .profile-group .profile-row{background:transparent;color:var(--ink);border-color:var(--line)}
 :root[data-theme=dark] .profile-row small,:root[data-theme=dark] .account-overview .customer-balance small{color:var(--muted)}
 :root[data-theme=dark] .profile-row-icon{color:#ff9c54}
+
+/* Partner reactions stay visible even while the emoji picker is closed. */
+.reaction-receipts{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:7px 0 2px}.reaction-received{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid var(--line);border-radius:20px;background:var(--cream);color:var(--ink);font-size:11px;line-height:1.4}.reaction-connection{color:var(--muted);font-size:11px}.reaction-connection button{padding:4px;background:transparent;color:inherit;text-decoration:underline;font-size:inherit}.reaction-toggle{position:relative}.reaction-sent{position:absolute;right:-4px;top:-4px;font-size:12px;line-height:18px;width:19px;height:19px;border:1px solid var(--line);border-radius:50%;background:var(--paper);text-align:center}.tracking-sheet .reaction-received{background:#324964;color:#f0f4fb;border-color:#607894}.tracking-sheet .reaction-connection{color:#b9c9de}

@@ -103,7 +103,11 @@ async function loadStories(){
     screen.replaceChildren(player);
     player.tabIndex=0;player.focus();
    };
-   screen.append(play);card.append(screen,label,heading);host.append(card);
+   screen.append(play);const copy=document.createElement('div');copy.className='story-copy';copy.append(label,heading);
+   if(item.description){const description=document.createElement('p');description.className='story-description';description.textContent=item.description;copy.append(description);}
+   if(item.quote){const quote=document.createElement('blockquote');quote.className='story-quote';quote.textContent=item.quote;copy.append(quote);}
+   if(item.speakerName||item.speakerRole){const speaker=document.createElement('div');speaker.className='story-speaker';if(item.speakerName){const name=document.createElement('strong');name.textContent=item.speakerName;speaker.append(name);}if(item.speakerRole){const role=document.createElement('span');role.textContent=item.speakerRole;speaker.append(role);}copy.append(speaker);}
+   card.append(screen,copy);host.append(card);
   }
  }catch{/* Keep unpublished stories off the public page. */}
 }

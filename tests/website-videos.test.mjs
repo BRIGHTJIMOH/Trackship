@@ -13,11 +13,11 @@ test('website videos are owner managed, draft private, revision protected and pu
  assert.equal((await f.api('/api/admin/website-videos')).status,401);
  const owner=await f.login(),config=await(await f.api('/api/admin/website-videos',undefined,owner)).json();
  assert.equal(config.videos.length,6);assert.deepEqual(await(await f.api('/api/website-videos')).json(),{videos:[]});
- config.videos[0]={id:'founder',title:'Why we are building',url:'https://youtu.be/abcdefghijk',published:true};
- config.videos[1].title='Private draft';config.videos[1].url='https://vimeo.com/123456';
+ config.videos[0]={id:'founder',title:'Why we are building',url:'https://youtu.be/abcdefghijk',published:true,description:'Why SendRack exists',speakerName:'Bright Jimoh',speakerRole:'Founder',quote:'Helping vendors reach further.'};
+ config.videos[1].description='Private draft description';config.videos[1].title='Private draft';config.videos[1].url='https://vimeo.com/123456';
  assert.equal((await f.api('/api/admin/website-videos',config,{cookie:owner.cookie})).status,403);
  assert.equal((await f.api('/api/admin/website-videos',config,owner)).status,200);
- const publicData=await(await f.api('/api/website-videos')).json();assert.equal(publicData.videos.length,1);assert.equal(publicData.videos[0].title,'Why we are building');assert.equal(publicData.videos[0].url,undefined);
- assert.equal((await f.api('/api/admin/website-videos',config,owner)).status,409);
+ const publicData=await(await f.api('/api/website-videos')).json();assert.equal(publicData.videos.length,1);assert.equal(publicData.videos[0].title,'Why we are building');assert.equal(publicData.videos[0].url,undefined);assert.equal(publicData.videos[0].description,'Why SendRack exists');assert.equal(publicData.videos[0].speakerName,'Bright Jimoh');assert.equal(publicData.videos[0].speakerRole,'Founder');assert.equal(publicData.videos[0].quote,'Helping vendors reach further.');assert.equal(JSON.stringify(publicData).includes('Private draft description'),false);
+ assert.equal((await f.api('/api/admin/website-videos',config,owner)).status,409);const saved=await(await f.api('/api/admin/website-videos',undefined,owner)).json();const invalid=structuredClone(saved);invalid.videos[0].description='x'.repeat(1201);assert.equal((await f.api('/api/admin/website-videos',invalid,owner)).status,400);for(const video of saved.videos)for(const key of ['description','speakerName','speakerRole','quote'])delete video[key];assert.equal((await f.api('/api/admin/website-videos',saved,owner)).status,200);assert.equal((await(await f.api('/api/website-videos')).json()).videos[0].speakerName,'Bright Jimoh');
  }finally{await f.close();}
 });

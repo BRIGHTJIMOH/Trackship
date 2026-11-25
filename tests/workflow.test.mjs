@@ -60,3 +60,55 @@ test('dispatch previews withhold customer details and other riders cannot read a
   const code=f.p.texts.at(-1).message.match(/\b\d{6}\b/)[0];assert.equal((await action(assigned,'complete',code)).status,200);assert.equal((await action(stranger,'complete',code)).status,403);assert.equal((await action(assigned,'complete',code)).status,200);
  }finally{await f.close();}
 });
+
+test('failed delivery preserves custody and funding while vendor can approve a retry or request return',async()=>{
+ const f=await fixture();
+ try{
+  const localFields={...fields,deliveryType:'intrastate',destination:'Garki',destinationState:'FCT Abuja',deliveryFee:'2500'};
+  const {s,token}=await create(f,localFields);
+  const handler=await rider(f,'08098765432','Assigned Rider');
+  const other=await rider(f,'08077778888','Other Rider');
+  const unrelated=await (await f.call('/api/workspaces',{})).json();
+  const job='/api/v3/jobs/'+s.jobTokens.pickup+'/actions';
+  const action=(action,extra={},who=handler)=>f.call(job,{action,...extra},who.token);
+  const resolve=(action,eventId,who=token)=>f.call('/api/v3/shipments/'+s.id+'/delivery-exception',{action,eventId},who);
+  await fund(f,s,token);
+  let checkpoint;
+  for(const name of ['accept','pickup','depart','request-otp']){
+   const result=await action(name);
+   assert.equal(result.status,200);
+   checkpoint=await result.json();
+  }
+  const report={eventId:checkpoint.events.at(-1).id,reason:'recipient-unavailable',note:'No answer at the gate.'};
+  assert.equal((await action('report-failed-attempt',report,other)).status,403);
+  const response=await action('report-failed-attempt',report);
+  assert.equal(response.status,200);
+  const failed=await response.json();
+  assert.equal(failed.status,'Delivery attempt failed');
+  assert.equal(failed.custodian,'pickup');
+  assert.equal(failed.payment.status,'paid');
+  assert.equal(failed.events.at(-1).reason,'recipient-unavailable');
+  assert.equal(await f.server.database.prepare('SELECT shipment_id FROM delivery_proofs WHERE shipment_id=?').get(s.id),undefined);
+  const publicView=await (await f.call('/api/track/'+s.publicToken)).json();
+  assert.equal(publicView.status,'Delivery attempt failed');
+  assert.equal(publicView.events.at(-1).note,undefined);
+  const eventId=failed.events.at(-1).id;
+  assert.equal((await resolve('return',eventId,unrelated.token)).status,404);
+  const retried=await resolve('retry',eventId);
+  assert.equal(retried.status,200);
+  const retry=await retried.json();
+  assert.equal(retry.status,'Out for delivery');
+  assert.equal((await action('report-failed-attempt',report)).status,409);
+  assert.equal((await resolve('return',eventId)).status,409);
+  const second=await (await action('report-failed-attempt',{...report,eventId:retry.events.at(-1).id})).json();
+  const returned=await resolve('return',second.events.at(-1).id);
+  assert.equal(returned.status,200);
+  const ending=await returned.json();
+  assert.equal(ending.status,'Return requested');
+  assert.equal(ending.custodian,'pickup');
+  assert.equal(ending.events.filter(e=>e.status==='Delivery attempt failed').length,2);
+  assert.equal((await action('request-otp')).status,409);
+  const earnings=await (await f.call('/api/v3/rider/earnings',undefined,handler.token)).json();
+  assert.equal(earnings.entries.length,0);
+ }finally{await f.close();}
+});

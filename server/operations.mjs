@@ -21,7 +21,7 @@ import { accounts } from './accounts.mjs';
 import { marketplace } from './market.mjs';
 import { randomBytes, randomUUID, randomInt, createHash, createHmac, timingSafeEqual, createCipheriv, createDecipheriv } from 'node:crypto';
 import { normalizePhone } from '../web/core.mjs';
-import { validateTransport, feeKobo, actionFor, custodyAfter, flowPublic, trackingLeg } from '../web/lifecycle.mjs';
+import { validateTransport, feeKobo, actionFor, custodyAfter, flowPublic, trackingLeg, canReportDeliveryFailure, DELIVERY_FAILURE_REASONS } from '../web/lifecycle.mjs';
 import { providersFromEnv, ProviderError } from './providers.mjs';
 const digest = s => createHash('sha256').update(s).digest('hex');
 const token = () => randomBytes(32).toString('hex');
@@ -572,6 +572,28 @@ export async function operations(db, {
       send(201, stored);
       return true;
     }
+    const resolution = path.match(/^\/api\/v3\/shipments\/([0-9a-f-]+)\/delivery-exception$/);
+    if (resolution && req.method === 'POST') {
+      const merchant = await owner(req);
+      if (!merchant) fail('Business access is required.', 401);
+      const {action, eventId} = await body(req);
+      if (action !== 'retry' && action !== 'return') fail('Choose retry or return.');
+      const updated = await transaction(async () => {
+        const row = await db.prepare('SELECT payload FROM shipments WHERE id=? AND owner=?').get(resolution[1], merchant);
+        if (!row) fail('Shipment not found.', 404);
+        const fresh = JSON.parse(row.payload);
+        const last = fresh.events?.at(-1);
+        if (!eventId || fresh.workflowVersion !== 3 || fresh.status !== 'Delivery attempt failed' || last?.id !== eventId)
+          fail('This delivery attempt has changed. Refresh the shipment.', 409);
+        const retry = action === 'retry';
+        const next = append(fresh, retry ? 'Out for delivery' : 'Return requested', fresh.custodian, null,
+          retry ? 'Vendor approved another delivery attempt.' : 'Vendor requested return. Parcel is still with the rider.');
+        await putShipment(next);
+        return next;
+      });
+      send(200, updated);
+      return true;
+    }
     const paymentRoute = path.match(/^\/api\/v3\/shipments\/([0-9a-f-]+)\/(pay|verify-payment)$/);
     if (paymentRoute && req.method === 'POST') {
       const merchant = await owner(req);
@@ -781,6 +803,25 @@ export async function operations(db, {
         const input = await body(req);
         if (r.identity_status === 'missing' || r.identity_status === 'rejected') fail('Complete your secure rider identity details before accepting a parcel.', 403);
         if (!['paid','held'].includes(s.payment.status)) fail('The vendor must pay this delivery fee before dispatch.', 409);
+        if (input.action === 'report-failed-attempt') {
+          if (!Object.hasOwn(DELIVERY_FAILURE_REASONS, input.reason)) fail('Select a delivery attempt reason.');
+          if (typeof input.note !== 'string' || input.note.length > 240 || (input.reason === 'other' && !input.note.trim()))
+            fail('Enter a short explanation for this failed attempt.');
+          const updated = await transaction(async () => {
+            const fresh = await getShipment(s.id);
+            if (fresh.actors?.[leg]?.id !== r.id) fail('This parcel is assigned to another handler.', 403);
+            if (!input.eventId || fresh.events?.at(-1)?.id !== input.eventId ||
+                !canReportDeliveryFailure(fresh, leg) || !['paid','held'].includes(fresh.payment?.status))
+              fail('This delivery attempt has changed. Refresh the shipment.', 409);
+            await db.prepare('DELETE FROM delivery_proofs WHERE shipment_id=?').run(s.id);
+            const next = append(fresh, 'Delivery attempt failed', leg, r, input.note.trim());
+            next.events.at(-1).reason = input.reason;
+            await putShipment(next);
+            return next;
+          });
+          send(200, jobView(updated, leg));
+          return true;
+        }
         let spec = actionFor(s, leg);
         if (input.action === 'resend-otp' && s.status === 'Delivery OTP sent' && spec?.action === 'complete') spec = {
           ...spec,
@@ -804,7 +845,7 @@ export async function operations(db, {
           await providers.sms(normalizePhone(s.phone), `Your SendRack delivery code is ${code}. Share it with your rider only after you have received parcel ${s.code}. It expires in 10 minutes.`);
           const updated = await transaction(async () => {
             const fresh = await getShipment(s.id);
-            if (fresh.status !== s.status) fail('Shipment changed. Refresh and try again.', 409);
+            if (fresh.status !== s.status || fresh.events.at(-1)?.id !== s.events.at(-1)?.id) fail('Shipment changed. Refresh and try again.', 409);
             await db.prepare('INSERT INTO delivery_proofs(shipment_id,salt,hash,expires,attempts,used) VALUES (?,?,?,?,0,0) ON CONFLICT(shipment_id) DO UPDATE SET salt=excluded.salt,hash=excluded.hash,expires=excluded.expires,attempts=0,used=0').run(s.id, salt, digest(salt + code), Date.now() + 600000);
             const next = input.action === 'resend-otp' ? fresh : append(fresh, spec.next, leg, r, 'Delivery code sent directly to the recipient');
             await putShipment(next);
@@ -821,7 +862,10 @@ export async function operations(db, {
           const updated = await transaction(async () => {
             const fresh = await getShipment(s.id);
             if (fresh.status === 'Delivered') return fresh;
-            if (fresh.status !== 'Delivery OTP sent') fail('Delivery status changed. Refresh it.', 409);
+            const currentProof = await db.prepare('SELECT hash,used,expires FROM delivery_proofs WHERE shipment_id=?').get(s.id);
+            if (fresh.status !== 'Delivery OTP sent' || fresh.events.at(-1)?.id !== s.events.at(-1)?.id ||
+                currentProof?.hash !== proof.hash || currentProof.used || currentProof.expires < Date.now())
+              fail('Delivery status or code changed. Refresh it.', 409);
             await db.prepare('UPDATE delivery_proofs SET used=1 WHERE shipment_id=? AND used=0').run(s.id);
             const next = append(fresh, 'Delivered', leg, r, 'Recipient confirmed possession with their private delivery code');
             if(walletHolds)await walletHolds.onTransitionInTransaction(db.currentPostgresClient(),fresh,next,{otpVerified:true});

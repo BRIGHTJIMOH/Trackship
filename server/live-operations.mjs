@@ -82,6 +82,8 @@ export function operationsRecord(
   if ([3, 5].includes(s.workflowVersion) && !validCustody)
     attention.push("Unexpected custody checkpoint");
   if (s.incidentOpen) attention.push("Open incident or dispute");
+  if (s.status === "Delivery attempt failed") attention.push("Vendor decision needed after failed delivery");
+  if (s.status === "Return requested") attention.push("Return handoff needs arranging");
   if (["Created", "Shipment created"].includes(s.status))
     attention.push(
       s.payment?.status === "paid"

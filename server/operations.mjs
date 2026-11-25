@@ -1,3 +1,4 @@
+import {websiteTeam} from './website-team.mjs';
 import {isReactionPhase,reactionStillRelevant,reactionAccessible,notificationView} from './push/reaction-notifications.mjs';
 import {shipmentReactions} from './shipment-reactions.mjs';
 import {referrals} from './referrals.mjs';
@@ -250,6 +251,7 @@ export async function operations(db, {
   const mobile=await mobileFeatures(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
   const referral=await referrals(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body,publicOrigin:(env.TRACKSHIP_PUBLIC_URL||'https://sendrack-api.onrender.com').replace(/\/$/,''),account:async req=>{const v=await accountAccess.vendor(req);if(v){const p=JSON.parse(v.profile||'{}');return {id:v.id,role:'vendor',name:p.ownerName||p.businessName};}try{const r=await rider(req);return r?.id?{id:r.id,role:'rider',name:r.display_name}:null;}catch(e){if(e.status===401)return null;throw e;}}});
   const communication=await communicationCards(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
+  const team=await websiteTeam(db,{authorize:adminAccess.authorize,audit:adminAccess.audit,body});
   const videos=await websiteVideos(db,{authorize:adminAccess.authorize,body});
   const liveMap=liveOperations(db,{env,authorize:async req=>{const session=await adminAccess.authorize(req,{operator:false,regional:true});if(session.regional)return {id:session.actor,role:'operations',states:session.states};return {id:session.actor,role:'super-admin'};}});
   const reactions=await shipmentReactions(db,{owner,rider,job,body,env,onChanged:()=>push.kick()});
@@ -275,6 +277,7 @@ export async function operations(db, {
     if(await referral.route(req,url,send))return true;
     if(await communication(req,url,send))return true;
     if(await mobile.route(req,path,send))return true;
+    if(await team(req,path,send))return true;
     if(await videos(req,path,send))return true;
     if(await testRemovalAccess(req,url,send))return true;
     if(path==='/api/admin/dispatch-diagnostics'&&req.method==='GET'){await adminAccess.authorize(req,{operator:false});send(200,await market.diagnostics(url.searchParams.get('shipmentId'),url.searchParams.get('riderId')));return true;}

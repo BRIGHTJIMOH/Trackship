@@ -524,3 +524,8 @@ body{background:#eef2f8}.launch-frame{background:#fff;border-color:#dce3ee}.mast
 /* Give the founder's introduction a clear ending before delivery-experience stories. */
 .founder-story{margin-bottom:0}.story-group-divider{grid-column:1/-1;margin-top:24px;padding-top:24px;border-top:1px solid #dce3ee;text-align:left}.story-group-divider h3{font-size:22px;font-weight:500;line-height:1.35;letter-spacing:-.5px;color:#002147}
 @media(max-width:600px){.story-group-divider{margin-top:12px;padding-top:20px}.story-group-divider h3{font-size:20px}}
+/* Lead with the first profile and keep the portrait labels compact. */
+.team-showcase .team-profile:first-child{flex-basis:250px;max-width:270px;--tilt:-3deg}
+.team-name-tag{left:10px;right:auto;bottom:16px;width:max-content;max-width:calc(100% - 20px);padding:8px 11px;border-radius:12px}
+.team-showcase .team-name-tag h2{font-size:17px;line-height:1.25;letter-spacing:-.25px}.team-card-role{font-size:12px;line-height:1.35;margin-top:3px;overflow-wrap:anywhere}
+@media(max-width:600px){.team-showcase .team-profile:first-child{flex-basis:180px;max-width:230px}.team-showcase .team-single .team-profile:first-child{flex-basis:230px}.team-name-tag{left:7px;bottom:12px;max-width:calc(100% - 14px);padding:7px 9px;border-radius:10px}.team-showcase .team-name-tag h2{font-size:15px}.team-card-role{font-size:11px;margin-top:2px}}

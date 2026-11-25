@@ -415,3 +415,9 @@ body{background:#eef2f8}.launch-frame{background:#fff;border-color:#dce3ee}.mast
 .reveal-pending,.reveal-entered{opacity:1;transform:none;transition:none}
 @media(max-width:750px){.launch-hero{display:block;padding-top:28px;padding-bottom:28px}.product-stage{margin:24px 0 0;width:100%;height:auto}.stage-caption{margin-top:12px}.stage-utilities{gap:8px}.vision-section{padding-top:40px;padding-bottom:40px}}
 @media(max-width:420px){.masthead .wordmark .brand-wordmark{width:120px;height:auto}.header-join{font-size:9px;padding:9px 10px;gap:5px}.header-join span{font-size:14px}.stage-utilities{justify-content:center;width:100%}}
+
+/* Enterprise purpose: readable long-form copy within the existing brand layout. */
+.enterprise-section{position:relative;z-index:4;padding:64px var(--page-space);background:#f5f7fb;color:var(--ink);scroll-margin-top:100px}
+.enterprise-section h2{font-size:clamp(30px,4vw,52px);line-height:1.15;letter-spacing:-1.5px;margin:20px 0;font-weight:600}.enterprise-section h2 em{font-style:normal;color:#b54800}.enterprise-intro{max-width:72ch;font-size:17px;line-height:1.8;color:var(--muted)}
+.enterprise-direction{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:32px}.enterprise-direction article{border-top:1px solid #dce3ee;padding-top:22px;min-width:0}.enterprise-direction h3{font-size:20px;line-height:1.4;margin:0 0 12px}.enterprise-direction p{font-size:16px;line-height:1.8;color:var(--muted);max-width:55ch}.hero-description{max-width:40ch}.purpose-section article>p:last-child{max-width:58ch}
+@media(max-width:760px){.enterprise-section{padding-block:42px}.enterprise-direction{grid-template-columns:1fr;gap:26px}.enterprise-section h2{letter-spacing:-1px}.enterprise-intro{font-size:16px}}

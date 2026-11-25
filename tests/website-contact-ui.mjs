@@ -9,7 +9,8 @@ try{
   await page.setViewportSize({width,height:1000});await page.goto(f.base+'/');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No overflow at '+width);
   assert.equal(await page.getByLabel('WhatsApp number',{exact:true}).getAttribute('required'),'');
-  await page.getByRole('heading',{name:'Connect deliveries. Create opportunities.'}).waitFor();
+  await page.locator('.purpose-section article').filter({hasText:'OUR MISSION'}).waitFor();
+  await page.locator('#enterprise-heading').waitFor();
   assert.match(await page.locator('.rider-card').innerText(),/private car/);
  }
  await page.getByLabel('Your name',{exact:true}).fill('Website Contact Test');await page.getByLabel('Your city',{exact:true}).fill('Zaria');await page.getByLabel('Email address',{exact:true}).fill('website-contact@example.test');
@@ -21,6 +22,6 @@ try{
  await page.getByRole('status').filter({hasText:'email and WhatsApp'}).waitFor();
  const owner=await f.login();const result=await(await f.api('/api/admin/waitlist',undefined,owner)).json();assert.equal(result.entries[0].whatsapp,'08012345678');assert.equal(result.entries[0].role,'rider');assert.equal(result.entries[0].whatsapp_consent,1);
  mkdirSync('artifacts/website-contact',{recursive:true});await page.screenshot({path:'artifacts/website-contact/desktop.png',fullPage:true});
- await page.setViewportSize({width:390,height:844});await page.goto(f.base+'/');await page.screenshot({path:'artifacts/website-contact/mobile.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});await page.goto(f.base+'/');await page.locator('.hero-words').evaluate(el=>Promise.all([...el.children].flatMap(child=>child.getAnimations()).map(a=>a.finished)));await page.screenshot({path:'artifacts/website-contact/mobile.png',fullPage:true});
  assert.deepEqual(errors,[]);console.log('PASS: responsive purpose sections, required contact/role/consent, live local form submission and private admin data.');
 }finally{await browser.close();await f.close();}
